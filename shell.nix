@@ -13,6 +13,8 @@ mkShell {
     xorg.libXinerama
     xorg.libXpm
     pkg
+
+    valgrind
   ];
 
   shellHook = ''

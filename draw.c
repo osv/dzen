@@ -375,7 +375,13 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 	int max_y=-1;
 
 	/* temp buffers */
-	char lbuf[MAX_LINE_LEN], *rbuf = NULL;
+	char *rbuf = NULL;
+	static char *lbuf = NULL;
+	/* Allocate lbuf once, if not already allocated. I dont care about free before prog terminate */
+	if (lbuf == NULL) {
+		lbuf = emalloc(MAX_LINE_LEN);
+		lbuf[0] = '\0';
+	}
 
 	/* parser state */
 	int t=-1, nobg=0;

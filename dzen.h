@@ -27,8 +27,9 @@
 #define SLAVEWINDOW 1
 
 #define MIN_BUF_SIZE   1024
-#define MAX_LINE_LEN   8192
-
+#ifndef MAX_LINE_LEN
+#define MAX_LINE_LEN   262144
+#endif
 #define MAX_CLICKABLE_AREAS 256
 
 #ifndef Button6

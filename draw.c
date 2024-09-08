@@ -80,10 +80,10 @@ textnw(Fnt *font, const char *text, unsigned int len) {
 	}
 	return XTextWidth(font->xfont, text, len);
 #else
-	XftTextExtentsUtf8(dzen.dpy, dzen.font.xftfont, (unsigned const char *) text, strlen(text), dzen.font.extents);
-	if(dzen.font.extents->height > dzen.font.height)
-		dzen.font.height = dzen.font.extents->height;
-	return dzen.font.extents->xOff;
+	XftTextExtentsUtf8(dzen.dpy, dzen.font.xftfont, (unsigned const char *) text, strlen(text), &dzen.font.extents);
+	if(dzen.font.extents.height > dzen.font.height)
+		dzen.font.height = dzen.font.extents.height;
+	return dzen.font.extents.xOff;
 #endif
 }
 
@@ -104,15 +104,86 @@ drawtext(const char *text, int reverse, int line, int align) {
 	parse_line(text, line, align, reverse, 0);
 }
 
-long
-getcolor(const char *colstr) {
-	Colormap cmap = DefaultColormap(dzen.dpy, dzen.screen);
-	XColor color;
+/* Shared cache structure */
+typedef struct Cache {
+	char *key;
+	void *value;
+	struct Cache *next;
+} Cache;
 
-	if(!XAllocNamedColor(dzen.dpy, cmap, colstr, &color, &color))
+Cache *font_cache = NULL;
+Cache *color_cache = NULL;
+
+void* get_cached_value(Cache **cache, const char *key) {
+	Cache *current = *cache;
+	while (current) {
+		if (strcmp(current->key, key) == 0) {
+			return current->value;
+		}
+		current = current->next;
+	}
+	return NULL;
+}
+
+void add_to_cache(Cache **cache, const char *key, void *value) {
+	Cache *new_entry = malloc(sizeof(Cache));
+	new_entry->key = strdup(key);
+	new_entry->value = value;
+	new_entry->next = *cache;
+	*cache = new_entry;
+}
+
+XftFont* get_cached_font(Display *display, int screen, const char *font_name) {
+	XftFont *font = get_cached_value(&font_cache, font_name);
+	if (!font) {
+		font = XftFontOpenName(display, screen, font_name);
+		if (font) {
+			add_to_cache(&font_cache, font_name, font);
+		}
+	}
+	return font;
+}
+
+long get_cached_color(Display *display, int screen, const char *colstr) {
+	long *cached_color = get_cached_value(&color_cache, colstr);
+	if (cached_color) {
+		return *cached_color;
+	}
+
+	Colormap cmap = DefaultColormap(display, screen);
+	XColor color;
+	if (!XAllocNamedColor(display, cmap, colstr, &color, &color)) {
 		return -1;
+	}
+
+	long *color_value = malloc(sizeof(long));
+	*color_value = color.pixel;
+	add_to_cache(&color_cache, colstr, color_value);
 
 	return color.pixel;
+}
+
+long
+getcolor(const char *colstr) {
+	return get_cached_color(dzen.dpy, dzen.screen, colstr);
+}
+
+void free_cache(Cache **cache) {
+	Cache *current = *cache;
+	while (current) {
+		Cache *next = current->next;
+		free(current->key);
+		free(current->value);
+		free(current);
+		current = next;
+	}
+	*cache = NULL;
+}
+
+/* Free all caches before exiting, TODO: when I can call this? */
+void free_all_caches() {
+	free_cache(&font_cache);
+	free_cache(&color_cache);
 }
 
 void
@@ -155,20 +226,18 @@ setfont(const char *fontstr) {
 	}
 	dzen.font.height = dzen.font.ascent + dzen.font.descent;
 #else
-        if(dzen.font.xftfont)
-           XftFontClose(dzen.dpy, dzen.font.xftfont);
-	dzen.font.xftfont = XftFontOpenXlfd(dzen.dpy, dzen.screen, fontstr);
-	if(!dzen.font.xftfont)
-	   dzen.font.xftfont = XftFontOpenName(dzen.dpy, dzen.screen, fontstr);
-	if(!dzen.font.xftfont)
-	   eprint("error, cannot load font: '%s'\n", fontstr);
-	dzen.font.extents = malloc(sizeof(XGlyphInfo));
-	XftTextExtentsUtf8(dzen.dpy, dzen.font.xftfont, (unsigned const char *) fontstr, strlen(fontstr), dzen.font.extents);
+	if (dzen.font.xftfont)
+		XftFontClose(dzen.dpy, dzen.font.xftfont);
+
+	dzen.font.xftfont = get_cached_font(dzen.dpy, dzen.screen, fontstr);
+	if (!dzen.font.xftfont)
+		eprint("error, cannot load font: '%s'\n", fontstr);
+
+	XftTextExtentsUtf8(dzen.dpy, dzen.font.xftfont, (unsigned const char *) fontstr, strlen(fontstr), &dzen.font.extents);
 	dzen.font.height = dzen.font.xftfont->ascent + dzen.font.xftfont->descent;
-	dzen.font.width = (dzen.font.extents->width)/strlen(fontstr);
+	dzen.font.width = (dzen.font.extents.width) / strlen(fontstr);
 #endif
 }
-
 
 int
 get_tokval(const char* line, char **retdata) {

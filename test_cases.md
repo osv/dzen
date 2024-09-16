@@ -1,6 +1,6 @@
 ## Test: 1 simple
 
-### Args: -fn terminus-22 -h 30 -w 300
+### Args: -fn terminus:size:size=22:antialias=false:antialias=false -h 30 -w 300
 
 [reference](./integration-tests/reference_01.gif)
 
@@ -14,7 +14,7 @@ worl^fg(#0ee)d
 
 ## Test: 2 simple2
 
-### Args: -fn terminus-22 -h 30 -w 300
+### Args: -fn terminus:size=22:antialias=false -h 30 -w 300
 
 [reference](./integration-tests/reference_02.gif)
 
@@ -26,7 +26,7 @@ worl^fg(#0ee)d
 
 ## Test: 3 Menu horizontal
 
-### Args: -l 4 -m h -fn terminus-22 -h 30 -w 300
+### Args: -l 4 -m h -fn terminus:size=22:antialias=false -h 30 -w 300
 
 ### Mouse: 10,10
 
@@ -43,7 +43,7 @@ line 4
 
 ## Test: 4 Menu vertical - highlight menu and click
 
-### Args: -l 4 -m -fn terminus-22 -h 30 -w 300
+### Args: -l 4 -m -fn terminus:size=22:antialias=false -h 30 -w 300
 
 ### Mouse: 10,10
 Move mouse to the header to uncollapse menu

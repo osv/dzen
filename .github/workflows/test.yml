@@ -26,7 +26,7 @@ jobs:
             libx11-dev \
             libxft-dev \
             libxpm-dev \
-            fonts-terminus \
+            xfonts-terminus \
             xdotool \
             imagemagick \
             x11-apps \

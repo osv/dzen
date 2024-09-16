@@ -17,7 +17,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Install build and test dependencies
+     # Step 2: Restore apt cache
+      - name: Restore APT Cache
+        uses: actions/cache@v3
+        with:
+          path: /var/cache/apt
+          key: ${{ runner.os }}-apt-${{ hashFiles('apt-packages-list.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      # Step 3: Install build and test dependencies
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -31,28 +40,28 @@ jobs:
             imagemagick \
             x11-apps \
             xvfb
-          sudo fc-cache -fv
-          fc-match "DejaVu Sans Mono" -v
-      # Step 3: Build the app using Makefile
+        # Save a list of installed packages to cache key
+      - run: dpkg-query -W -f='${binary:Package}\n' > apt-packages-list.txt
+
+      # Step 4: Build the app using Makefile
       - name: Build the application
         run: |
           make
 
-      # Step 4: Start the Xvfb (Virtual Framebuffer)
+      # Step 5: Start the Xvfb (Virtual Framebuffer)
       - name: Start Xvfb (Virtual Framebuffer)
         run: |
           # Start Xvfb on display :99
-          Xvfb :99 -screen 0 1920x1080x32  &
+          Xvfb :99 -screen 0 1920x1080x24  &
           # Set the DISPLAY environment variable to use the virtual display
           export DISPLAY=:99
           # waiting for framebuffer
           sleep 3
-
           fc-list
           # run tests
           make test
 
-      # Step 5: Upload screenshots and diffs as artifacts if tests fail
+      # Step 6: Upload screenshots and diffs as artifacts if tests fail
       - name: Upload screenshots as artifacts (for debugging)
         if: failure()
         uses: actions/upload-artifact@v3

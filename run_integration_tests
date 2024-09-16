@@ -24,7 +24,7 @@ run_test() {
   local click_and_check=$7  # Format: "button,text"
 
   if [[ "$reference_screenshot" = "" ]]; then
-    echo -e "${RED}Error:\nYou forgot to set image in markdown:${NC}"
+    echo -e "${RED}Error:\n${RED}You forgot to set image in markdown:${NC}"
     echo -e "${RED}[reference](./integration-tests/reference_$test_name.gif)${NC}"
     return
   fi
@@ -61,7 +61,6 @@ run_test() {
     for mouse_coord in "${mouse_coords[@]}"; do
       local x=$(echo "$mouse_coord" | cut -d',' -f1)
       local y=$(echo "$mouse_coord" | cut -d',' -f2)
-      # echo "Moving mouse to coordinates ($x, $y) in window $window_id..."
       xdotool mousemove --window "$window_id" "$x" "$y"
       sleep 0.1  # Delay between mouse movements
     done
@@ -72,7 +71,6 @@ run_test() {
     local button=$(echo "$click_and_check" | cut -d',' -f1)
     local expected_output=$(echo "$click_and_check" | cut -d',' -f2 | xargs)  # Trim whitespace
 
-    # echo "Clicking mouse button $button in window $window_id..."
     xdotool click "$button"
     sleep 0.1  # Delay after clicking
 
@@ -87,13 +85,11 @@ run_test() {
     fi
   fi
 
-  # Capture the screenshot of the root window, cropping it to the app's location and size
+  # Convert the XWD file to the desired format and crop it
   if [ -n "$crop_geometry" ]; then
-    echo "Capturing root window with crop: $crop_geometry (App window at $window_x, $window_y, $window_width x $window_height)"
-    import -window root -crop "$crop_geometry" "$screenshot_path"
+    xwd -root | convert "xwd:-" -crop "$crop_geometry" +repage "$screenshot_path"
   else
-    echo "Capturing root window at app's geometry: ${window_width}x${window_height}+${window_x}+${window_y}"
-    import -window root -crop "${window_width}x${window_height}+${window_x}+${window_y}" "$screenshot_path"
+    xwd -root | convert "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$screenshot_path"
   fi
 
   # Compare with the reference screenshot
@@ -103,7 +99,7 @@ run_test() {
     diff=$(compare -metric AE "$screenshot_path" "$reference_screenshot" null: 2>&1)
 
     if (( diff > delta_threshold )); then
-      echo -e "${RED}Error:\nDifference in $test_name exceeds threshold! ($diff)${NC}"
+      echo -e "${RED}Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
       echo -e "${RED} See ./${diff_screenshot}${NC}"
       all_tests_passed=false
     else

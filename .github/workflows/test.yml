@@ -29,6 +29,7 @@ jobs:
             fonts-terminus \
             xdotool \
             imagemagick \
+            x11-apps \
             xvfb
 
       # Step 3: Build the app using Makefile

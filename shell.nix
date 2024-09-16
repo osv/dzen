@@ -16,6 +16,7 @@ mkShell {
 
     valgrind
 
+    xorg.xwd
     imagemagick
   ];
 

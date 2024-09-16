@@ -154,8 +154,8 @@ run_tests() {
           in_pipe_data=true
         fi
         ;;
-      '[reference](./'*)  # Handle reference screenshot as an image link
-        reference_screenshot="${line#'[reference](./'}"
+      '![reference](./'*)  # Handle reference screenshot as an image link
+        reference_screenshot="${line#'![reference](./'}"
         reference_screenshot="${reference_screenshot%')'}"
         ;;
       '### Mouse: '*)  # Handle multiple mouse coordinates

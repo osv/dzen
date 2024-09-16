@@ -2,7 +2,7 @@
 
 ### Args: -fn "DejaVu Sans Mono:size=16:antialias=false:hinting=false" -h 30 -w 300 -bg '#000' -fg '#fff'
 
-[reference](./integration-tests/reference_01.gif)
+![reference](./integration-tests/reference_01.gif)
 
 ### Pipe data
 
@@ -16,7 +16,7 @@ worl^fg(#f00)d
 
 ### Args: -fn  "DejaVu Sans Mono:size=16:antialias=false:hinting=false" -h 30 -w 300 -bg '#000' -fg '#fff'
 
-[reference](./integration-tests/reference_02.gif)
+![reference](./integration-tests/reference_02.gif)
 
 ### Pipe data
 
@@ -30,7 +30,7 @@ worl^fg(#f00)d
 
 ### Mouse: 10,10
 
-[reference](./integration-tests/reference_03-menu-horizontal-open-popup.gif)
+![reference](./integration-tests/reference_03-menu-horizontal-open-popup.gif)
 ### Pipe data
 
 ```
@@ -67,4 +67,4 @@ printf "line 4"
 
 Left mouse button click (1) and check executed command, expected "line 2" 
 
-[reference](./integration-tests/reference_04-menu-vertical-open-popup.gif)
+![reference](./integration-tests/reference_04-menu-vertical-open-popup.gif)

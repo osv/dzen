@@ -193,6 +193,7 @@ run_tests "test_cases.md"
 echo "---------------------"
 if [ "$all_tests_passed" = false ]; then
   echo -e "${RED}One or more tests failed.${NC}"
+  tar -cvf "$SCREENSHOT_DIR/arch.tar" "$SCREENSHOT_DIR"
   exit 1
 else
   echo -e "${GREEN}All tests passed.${NC}"

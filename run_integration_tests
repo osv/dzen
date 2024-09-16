@@ -39,7 +39,7 @@ run_test() {
   local app_pid=$!
 
   # Wait for the app to start (adjust this time if necessary)
-  sleep 0.2  # Adjust this as needed based on your app's loading time
+  sleep 0.6  # Adjust this as needed based on your app's loading time
 
   # Find the window ID associated with the app's PID
   local window_id=$(xdotool search --pid "$app_pid" | head -n 1)

@@ -32,7 +32,7 @@ jobs:
             x11-apps \
             xvfb
           sudo fc-cache -fv
-          fc-match terminuss-22 -v
+          fc-match terminuss -v
       # Step 3: Build the app using Makefile
       - name: Build the application
         run: |

@@ -15,6 +15,8 @@ mkShell {
     pkg
 
     valgrind
+
+    imagemagick
   ];
 
   shellHook = ''

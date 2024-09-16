@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+
+# Directory to store screenshots
+SCREENSHOT_DIR="integration-tests"
+mkdir -p "$SCREENSHOT_DIR"
+mkdir -p "$SCREENSHOT_DIR/diffs"
+
+# Define ANSI color codes for green (pass) and red (fail)
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'  # No Color (reset)
+
+# Threshold for acceptable difference in screenshots
+delta_threshold=2
+all_tests_passed=true
+
+run_test() {
+  local test_name=$1
+  local stdin_input=$2
+  local cmd_args=$3
+  local reference_screenshot=$4
+  local mouse_coords=("${!5}")  # Array of mouse movements
+  local crop_geometry=$6
+  local click_and_check=$7  # Format: "button,text"
+
+  if [[ "$reference_screenshot" = "" ]]; then
+    echo -e "${RED}Error:\nYou forgot to set image in markdown:${NC}"
+    echo -e "${RED}[reference](./integration-tests/reference_$test_name.gif)${NC}"
+    return
+  fi
+
+  # Save the current screenshot without "reference_" prefix
+  local screenshot="${reference_screenshot/*reference_/}"
+  local screenshot_path="$SCREENSHOT_DIR/$screenshot"
+  echo -n "Running test: $test_name ($screenshot) ..."
+
+  # Run the app and capture the PID
+  echo "$stdin_input" | ./dzen2 -p $cmd_args &> app_output.txt &
+  local app_pid=$!
+
+  # Wait for the app to start (adjust this time if necessary)
+  sleep 0.2  # Adjust this as needed based on your app's loading time
+
+  # Find the window ID associated with the app's PID
+  local window_id=$(xdotool search --pid "$app_pid" | head -n 1)
+  if [ -z "$window_id" ]; then
+    echo -e "${RED}Error: Could not find window for PID $app_pid.${NC}"
+    all_tests_passed=false
+    return
+  fi
+
+  # Get the window's geometry (position and size)
+  local window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
+  local window_x=$(echo "$window_geometry" | grep 'X=' | cut -d '=' -f 2)
+  local window_y=$(echo "$window_geometry" | grep 'Y=' | cut -d '=' -f 2)
+  local window_width=$(echo "$window_geometry" | grep 'WIDTH=' | cut -d '=' -f 2)
+  local window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
+
+  # Handle multiple mouse movements if specified
+  if [ "${#mouse_coords[@]}" -gt 0 ]; then
+    for mouse_coord in "${mouse_coords[@]}"; do
+      local x=$(echo "$mouse_coord" | cut -d',' -f1)
+      local y=$(echo "$mouse_coord" | cut -d',' -f2)
+      # echo "Moving mouse to coordinates ($x, $y) in window $window_id..."
+      xdotool mousemove --window "$window_id" "$x" "$y"
+      sleep 0.1  # Delay between mouse movements
+    done
+  fi
+
+  # Handle the "Click and check" option
+  if [ -n "$click_and_check" ]; then
+    local button=$(echo "$click_and_check" | cut -d',' -f1)
+    local expected_output=$(echo "$click_and_check" | cut -d',' -f2 | xargs)  # Trim whitespace
+
+    # echo "Clicking mouse button $button in window $window_id..."
+    xdotool click "$button"
+    sleep 0.1  # Delay after clicking
+
+    # Check the output of the app
+    local app_output=$(cat app_output.txt)
+    if [[ "$app_output" != *"$expected_output"* ]]; then
+      echo -e "Error:\nExpected output: ${RED}'$expected_output'.${NC}"
+      echo -e "Actual output: ${GREEN}'$app_output'.${NC}"
+      all_tests_passed=false
+    else
+      echo -en "${GREEN}Click button ${button} and check output passed...${NC}"
+    fi
+  fi
+
+  # Capture the screenshot of the root window, cropping it to the app's location and size
+  if [ -n "$crop_geometry" ]; then
+    # echo "Capturing root window with crop: $crop_geometry (App window at $window_x, $window_y, $window_width x $window_height)"
+    import -window root -crop "$crop_geometry" "$screenshot_path"
+  else
+    # echo "Capturing root window at app's geometry: ${window_width}x${window_height}+${window_x}+${window_y}"
+    import -window root -crop "${window_width}x${window_height}+${window_x}+${window_y}" "$screenshot_path"
+  fi
+
+  # Compare with the reference screenshot
+  if [ -f "$reference_screenshot" ]; then
+    local diff_screenshot="$SCREENSHOT_DIR/diffs/diff_${screenshot}"
+    compare -metric AE "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
+    diff=$(compare -metric AE "$screenshot_path" "$reference_screenshot" null: 2>&1)
+
+    if (( diff > delta_threshold )); then
+      echo -e "${RED}Error:\nDifference in $test_name exceeds threshold! ($diff)${NC}"
+      echo -e "${RED} See ./${diff_screenshot}${NC}"
+      all_tests_passed=false
+    else
+      echo -e "${GREEN}Pass${NC}"
+    fi
+  else
+    echo -e "${RED}Error:\nReference screenshot not found for $test_name at $reference_screenshot.${NC}"
+    all_tests_passed=false
+  fi
+
+  # Kill the app after the test is done
+  kill "$app_pid"
+}
+
+# Function to parse the test cases from markdown
+run_tests() {
+  local test_file=$1
+  local test_name=""
+  local cmd_args=""
+  local pipe_data=""
+  local reference_screenshot=""
+  local mouse_coords=()  # Array to hold multiple mouse coordinates
+  local crop_geometry=""
+  local click_and_check=""  # Format: "button,text"
+  local in_pipe_data=false
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case $line in
+      '## Test: '*)  # Handle test name
+        if [ -n "$test_name" ]; then
+          run_test "$test_name" "$pipe_data" "$cmd_args" "$reference_screenshot" mouse_coords[@] "$crop_geometry" "$click_and_check"
+          pipe_data=""
+          mouse_coords=()  # Reset mouse coordinates for the next test
+          click_and_check=""  # Reset click and check for the next test
+        fi
+        in_pipe_data=false
+        cmd_args=""
+        reference_screenshot=""
+        crop_geometry=""
+        test_name="${line#'## Test: '}"
+        ;;
+      '### Args: '*)  # Handle command-line arguments
+        cmd_args="${line#'### Args: '}"
+        ;;
+      '### Pipe data')  # Handle stdin input
+        pipe_data=""
+        ;;
+      '```')  # Handle code blocks for stdin
+        if $in_pipe_data; then
+          in_pipe_data=false
+        else
+          in_pipe_data=true
+        fi
+        ;;
+      '[reference](./'*)  # Handle reference screenshot as an image link
+        reference_screenshot="${line#'[reference](./'}"
+        reference_screenshot="${reference_screenshot%')'}"
+        ;;
+      '### Mouse: '*)  # Handle multiple mouse coordinates
+        mouse_coords+=("${line#'### Mouse: '}")  # Add mouse coordinates to the array
+        ;;
+      '### Crop: '*)  # Handle cropping geometry
+        crop_geometry="${line#'### Crop: '}"
+        ;;
+      '### Click and check output: '*)  # Handle click and check
+        click_and_check="${line#'### Click and check output: '}"
+        ;;
+      *)  # Capture multi-line input for pipe data
+        if $in_pipe_data; then
+          if [[ $pipe_data == "" ]]; then
+            pipe_data="$line"
+          else
+            pipe_data+=""$'\n'
+            pipe_data+="${line}"
+          fi
+        fi
+        ;;
+    esac
+  done < "$test_file"
+
+  # Run the last test if any
+  if [ -n "$test_name" ]; then
+    run_test "$test_name" "$pipe_data" "$cmd_args" "$reference_screenshot" mouse_coords[@] "$crop_geometry" "$click_and_check"
+  fi
+}
+
+# Parse the test cases from the markdown file
+run_tests "test_cases.md"
+
+# Final result
+echo "---------------------"
+if [ "$all_tests_passed" = false ]; then
+  echo -e "${RED}One or more tests failed.${NC}"
+  exit 1
+else
+  echo -e "${GREEN}All tests passed.${NC}"
+fi

@@ -42,7 +42,7 @@ jobs:
       - name: Start Xvfb (Virtual Framebuffer)
         run: |
           # Start Xvfb on display :99
-          Xvfb :99 -screen 0 800x600x24 &
+          Xvfb :99 -screen 0 800x600x24+32 &
           # Set the DISPLAY environment variable to use the virtual display
           export DISPLAY=:99
           # waiting for framebuffer

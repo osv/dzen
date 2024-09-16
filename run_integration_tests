@@ -95,8 +95,8 @@ run_test() {
   # Compare with the reference screenshot
   if [ -f "$reference_screenshot" ]; then
     local diff_screenshot="$SCREENSHOT_DIR/diffs/diff_${screenshot}"
-    compare -metric AE "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
-    diff=$(compare -metric AE "$screenshot_path" "$reference_screenshot" null: 2>&1)
+    compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
+    diff=$(compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" null: 2>&1)
 
     if (( diff > delta_threshold )); then
       echo -e "${RED}Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"

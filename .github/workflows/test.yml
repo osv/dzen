@@ -26,7 +26,7 @@ jobs:
             libx11-dev \
             libxft-dev \
             libxpm-dev \
-            terminus \
+            fonts-terminus \
             xdotool \
             imagemagick \
             xvfb
@@ -40,9 +40,11 @@ jobs:
       - name: Start Xvfb (Virtual Framebuffer)
         run: |
           # Start Xvfb on display :99
-          Xvfb :99 -screen 0 1280x1024x24 &
+          Xvfb :99 -screen 0 800x600x24 &
           # Set the DISPLAY environment variable to use the virtual display
           export DISPLAY=:99
+          # waiting for framebuffer
+          sleep 3
           # run tests
           make test
 

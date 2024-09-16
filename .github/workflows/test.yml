@@ -38,15 +38,14 @@ jobs:
       # Step 4: Start the Xvfb (Virtual Framebuffer)
       - name: Start Xvfb (Virtual Framebuffer)
         run: |
+          # Start Xvfb on display :99
           Xvfb :99 -screen 0 1280x1024x24 &
+          # Set the DISPLAY environment variable to use the virtual display
           export DISPLAY=:99
-
-      # Step 5: Run the integration tests
-      - name: Run Integration Tests
-        run: |
+          # run tests
           make test
 
-      # Step 6: Upload screenshots and diffs as artifacts if tests fail
+      # Step 5: Upload screenshots and diffs as artifacts if tests fail
       - name: Upload screenshots as artifacts (for debugging)
         if: failure()
         uses: actions/upload-artifact@v3

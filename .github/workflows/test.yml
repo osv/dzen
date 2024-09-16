@@ -26,13 +26,13 @@ jobs:
             libx11-dev \
             libxft-dev \
             libxpm-dev \
-            xfonts-terminus \
+            fonts-dejavu-core \
             xdotool \
             imagemagick \
             x11-apps \
             xvfb
           sudo fc-cache -fv
-          fc-match terminuss -v
+          fc-match "DejaVu Sans Mono" -v
       # Step 3: Build the app using Makefile
       - name: Build the application
         run: |

@@ -32,12 +32,12 @@ run_test() {
   # Save the current screenshot without "reference_" prefix
   local screenshot="${reference_screenshot/*reference_/}"
   local screenshot_path="$SCREENSHOT_DIR/$screenshot"
-  echo -n "Running test: $test_name ($screenshot) ..."
+  echo -n "Running test: $test_name ($screenshot) ... "
 
   # Run the app and capture the PID
-  echo "$stdin_input" | ./dzen2 -p $cmd_args &> app_output.txt &
+  eval "args=($cmd_args)"
+  echo "$stdin_input" | ./dzen2 -p "${args[@]}" &> app_output.txt &
   local app_pid=$!
-
   # Wait for the app to start (adjust this time if necessary)
   sleep 0.6  # Adjust this as needed based on your app's loading time
 
@@ -81,7 +81,7 @@ run_test() {
       echo -e "Actual output: ${GREEN}'$app_output'.${NC}"
       all_tests_passed=false
     else
-      echo -en "${GREEN}Click button ${button} and check output passed...${NC}"
+      echo -en "${GREEN}Click button ${button} and check output passed... ${NC}"
     fi
   fi
 

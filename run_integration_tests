@@ -89,10 +89,10 @@ run_test() {
 
   # Capture the screenshot of the root window, cropping it to the app's location and size
   if [ -n "$crop_geometry" ]; then
-    # echo "Capturing root window with crop: $crop_geometry (App window at $window_x, $window_y, $window_width x $window_height)"
+    echo "Capturing root window with crop: $crop_geometry (App window at $window_x, $window_y, $window_width x $window_height)"
     import -window root -crop "$crop_geometry" "$screenshot_path"
   else
-    # echo "Capturing root window at app's geometry: ${window_width}x${window_height}+${window_x}+${window_y}"
+    echo "Capturing root window at app's geometry: ${window_width}x${window_height}+${window_x}+${window_y}"
     import -window root -crop "${window_width}x${window_height}+${window_x}+${window_y}" "$screenshot_path"
   fi
 

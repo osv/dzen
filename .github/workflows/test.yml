@@ -26,11 +26,12 @@ jobs:
             libx11-dev \
             libxft-dev \
             libxpm-dev \
-            xfonts-terminus \
+            fonts-terminus-otb \
             xdotool \
             imagemagick \
             x11-apps \
             xvfb
+          sudo fc-cache -fv
 
       # Step 3: Build the app using Makefile
       - name: Build the application

@@ -46,6 +46,8 @@ jobs:
           export DISPLAY=:99
           # waiting for framebuffer
           sleep 3
+
+          fc-list
           # run tests
           make test
 

@@ -1,6 +1,6 @@
 ## Test: 1 simple
 
-### Args: -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false" -h 30 -w 300 -bg '#000' -fg '#fff'
+### Args: -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 ![reference](./integration-tests/reference_01.gif)
 
@@ -14,7 +14,7 @@ worl^fg(#f00)d
 
 ## Test: 2 simple2
 
-### Args: -fn  "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false" -h 30 -w 300 -bg '#000' -fg '#fff'
+### Args: -fn  "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 ![reference](./integration-tests/reference_02.gif)
 
@@ -26,7 +26,7 @@ worl^fg(#f00)d
 
 ## Test: 3 Menu horizontal
 
-### Args: -l 4 -m h -fn  "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false" -h 30 -w 300 -bg '#000' -fg '#fff'
+### Args: -l 4 -m h -fn  "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 ### Mouse: 10,10
 
@@ -43,7 +43,7 @@ line 4
 
 ## Test: 4 Menu vertical - highlight menu and click
 
-### Args: -l 4 -m -fn  "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false" -h 30 -w 300 -bg '#000' -fg '#fff'
+### Args: -l 4 -m -fn  "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 ### Mouse: 10,10
 Move mouse to the header to uncollapse menu

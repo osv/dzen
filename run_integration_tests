@@ -16,28 +16,17 @@ all_tests_passed=true
 
 run_test() {
   local test_name=$1
-  local stdin_input=$2
-  local cmd_args=$3
-  local reference_screenshot=$4
-  local mouse_coords=("${!5}")  # Array of mouse movements
-  local crop_geometry=$6
-  local click_and_check=$7  # Format: "button,text"
+  local cmd_args=$2
+  shift 2
+  local steps=("$@")
 
-  if [[ "$reference_screenshot" = "" ]]; then
-    echo -e "${RED}Error:\n${RED}You forgot to set image in markdown:${NC}"
-    echo -e "${RED}[reference](./integration-tests/reference_$test_name.gif)${NC}"
-    return
-  fi
+  echo -n "Running test: $test_name ... "
 
-  # Save the current screenshot without "reference_" prefix
-  local screenshot="${reference_screenshot/*reference_/}"
-  local screenshot_path="$SCREENSHOT_DIR/$screenshot"
-  echo -n "Running test: $test_name ($screenshot) ... "
-
-  # Run the app and capture the PID
+  # Run the app using coproc and capture the PID
   eval "args=($cmd_args)"
-  echo "$stdin_input" | ./dzen2 -p "${args[@]}" &> app_output.txt &
-  local app_pid=$!
+  coproc program_coproc { exec ./dzen2 -p "${args[@]}" &> app_output.txt; }
+  local app_pid=$program_coproc_PID
+
   # Wait for the app to start (adjust this time if necessary)
   sleep 0.6  # Adjust this as needed based on your app's loading time
 
@@ -46,6 +35,10 @@ run_test() {
   if [ -z "$window_id" ]; then
     echo -e "${RED}Error: Could not find window for PID $app_pid.${NC}"
     all_tests_passed=false
+    # Close the coprocess
+    kill "$app_pid"
+    exec {program_coproc[1]}>&-
+    exec {program_coproc[0]}>&-
     return
   fi
 
@@ -56,62 +49,86 @@ run_test() {
   local window_width=$(echo "$window_geometry" | grep 'WIDTH=' | cut -d '=' -f 2)
   local window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
 
-  # Handle multiple mouse movements if specified
-  if [ "${#mouse_coords[@]}" -gt 0 ]; then
-    for mouse_coord in "${mouse_coords[@]}"; do
-      local x=$(echo "$mouse_coord" | cut -d',' -f1)
-      local y=$(echo "$mouse_coord" | cut -d',' -f2)
-      xdotool mousemove --window "$window_id" "$x" "$y"
-      sleep 0.1  # Delay between mouse movements
-    done
-  fi
+  local crop_geometry=""
+  local reference_screenshot=""
+  local check_num=0
+  for step in "${steps[@]}"; do
+    IFS='|' read -r action params <<< "$step"
+    case "$action" in
+      'mouse')
+        IFS=',' read -r x y <<< "$params"
+        xdotool mousemove --window "$window_id" "$x" "$y"
+        sleep 0.1
+        ;;
+      'click_and_check')
+        check_num=$((check_num + 1))
+        button=$(echo "$params" | cut -d',' -f1)
+        expected_output=$(echo "$params" | cut -d',' -f2- | xargs)
+        xdotool click "$button"
+        sleep 0.1
+        app_output=$(cat app_output.txt)
+        if [[ "$app_output" != *"$expected_output"* ]]; then
+          echo -e "\n${RED}$check_num: Error:\nExpected output: '${expected_output}'.${NC}"
+          echo -e "Actual output: '${app_output}'.\n"
+          all_tests_passed=false
+        else
+          echo -en "$check_num: Click button ${button} and check output ${GREEN}Pass. ${NC}"
+        fi
+        ;;
+      'crop')
+        crop_geometry="$params"
+        ;;
+      'screenshot')
+        check_num=$((check_num + 1))
+        reference_screenshot="$params"
+        if [[ "$reference_screenshot" = "" ]]; then
+          echo -e "\n${RED}$check_num: Error:\n${RED}You forgot to set image in markdown:${NC}"
+          echo -e "${RED}[reference](./integration-tests/reference_$test_name.gif)${NC}\n"
+          return
+        fi
+        # Save the current screenshot without "reference_" prefix
+        local screenshot="${reference_screenshot/*reference_/}"
+        local screenshot_path="$SCREENSHOT_DIR/$screenshot"
+        # Take screenshot
+        if [ -n "$crop_geometry" ]; then
+          xwd -root | convert "xwd:-" -crop "$crop_geometry" +repage "$screenshot_path"
+        else
+          xwd -root | convert "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$screenshot_path"
+        fi
+        # Compare with the reference screenshot
+        if [ -f "$reference_screenshot" ]; then
+          local diff_screenshot="$SCREENSHOT_DIR/diffs/diff_${screenshot}"
+          compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
+          diff=$(compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" null: 2>&1)
+          if (( diff > delta_threshold )); then
+            echo -e "\n${RED}$check_num: Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
+            echo -e "${RED} See ./${diff_screenshot}${NC}\n"
+            all_tests_passed=false
+          else
+            echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
+          fi
+        else
+          echo -e "\n${RED}$check_num: Error: Reference screenshot not found for $test_name at $reference_screenshot.${NC}"
+          echo -e "${GREEN}  Copying actual screenshot to $reference_screenshot.${NC}\n"
+          cp "$screenshot_path" "$reference_screenshot"
+          all_tests_passed=false
+        fi
+        ;;
+      'pipe_data')
+        # Decode the base64-encoded pipe data
+        decoded_pipe_data=$(echo "$params" | base64 --decode)
+        # Send the pipe data to the program's stdin
+        echo -e "$decoded_pipe_data" >&"${program_coproc[1]}"
+        sleep 0.1
+        ;;
+    esac
+  done
+  echo
 
-  # Handle the "Click and check" option
-  if [ -n "$click_and_check" ]; then
-    local button=$(echo "$click_and_check" | cut -d',' -f1)
-    local expected_output=$(echo "$click_and_check" | cut -d',' -f2 | xargs)  # Trim whitespace
-
-    xdotool click "$button"
-    sleep 0.1  # Delay after clicking
-
-    # Check the output of the app
-    local app_output=$(cat app_output.txt)
-    if [[ "$app_output" != *"$expected_output"* ]]; then
-      echo -e "Error:\nExpected output: ${RED}'$expected_output'.${NC}"
-      echo -e "Actual output: ${GREEN}'$app_output'.${NC}"
-      all_tests_passed=false
-    else
-      echo -en "${GREEN}Click button ${button} and check output passed... ${NC}"
-    fi
-  fi
-
-  # Convert the XWD file to the desired format and crop it
-  if [ -n "$crop_geometry" ]; then
-    xwd -root | convert "xwd:-" -crop "$crop_geometry" +repage "$screenshot_path"
-  else
-    xwd -root | convert "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$screenshot_path"
-  fi
-
-  # Compare with the reference screenshot
-  if [ -f "$reference_screenshot" ]; then
-    local diff_screenshot="$SCREENSHOT_DIR/diffs/diff_${screenshot}"
-    compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
-    diff=$(compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" null: 2>&1)
-
-    if (( diff > delta_threshold )); then
-      echo -e "${RED}Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
-      echo -e "${RED} See ./${diff_screenshot}${NC}"
-      all_tests_passed=false
-    else
-      echo -e "${GREEN}Pass${NC}"
-    fi
-  else
-    echo -e "${RED}Error:\nReference screenshot not found for $test_name at $reference_screenshot.${NC}"
-    all_tests_passed=false
-  fi
-
-  # Kill the app after the test is done
+  # Close the coprocess
   kill "$app_pid"
+  exec {program_coproc[1]}>&-
+  exec {program_coproc[0]}>&-
 }
 
 # Function to parse the test cases from markdown
@@ -119,70 +136,67 @@ run_tests() {
   local test_file=$1
   local test_name=""
   local cmd_args=""
-  local pipe_data=""
-  local reference_screenshot=""
-  local mouse_coords=()  # Array to hold multiple mouse coordinates
-  local crop_geometry=""
-  local click_and_check=""  # Format: "button,text"
+  local pipe_data_block=""
+  local steps=()
   local in_pipe_data=false
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     case $line in
-      '## Test: '*)  # Handle test name
+      '## Test: '*)
         if [ -n "$test_name" ]; then
-          run_test "$test_name" "$pipe_data" "$cmd_args" "$reference_screenshot" mouse_coords[@] "$crop_geometry" "$click_and_check"
-          pipe_data=""
-          mouse_coords=()  # Reset mouse coordinates for the next test
-          click_and_check=""  # Reset click and check for the next test
+          run_test "$test_name" "$cmd_args" "${steps[@]}"
+          # Reset variables
+          test_name=""
+          cmd_args=""
+          pipe_data_block=""
+          steps=()
+          in_pipe_data=false
         fi
-        in_pipe_data=false
-        cmd_args=""
-        reference_screenshot=""
-        crop_geometry=""
         test_name="${line#'## Test: '}"
         ;;
-      '### Args: '*)  # Handle command-line arguments
+      '### Args: '*)
         cmd_args="${line#'### Args: '}"
         ;;
-      '### Pipe data')  # Handle stdin input
-        pipe_data=""
+      '### Pipe data')
+        pipe_data_block=""
         ;;
-      '```')  # Handle code blocks for stdin
+      '```')
         if $in_pipe_data; then
+          # End of pipe data block
           in_pipe_data=false
+          # Encode the pipe data to base64 to handle multi-line strings
+          encoded_pipe_data=$(echo -n "$pipe_data_block" | base64 -w 0)
+          steps+=("pipe_data|$encoded_pipe_data")
         else
-          in_pipe_data=true
+          if [[ $pipe_data_block = '' ]]; then
+            in_pipe_data=true
+          fi
         fi
         ;;
-      '![reference](./'*)  # Handle reference screenshot as an image link
+      '### Mouse: '*)
+        steps+=("mouse|${line#'### Mouse: '}")
+        ;;
+      '### Click and check output: '*)
+        steps+=("click_and_check|${line#'### Click and check output: '}")
+        ;;
+      '![reference](./'*)
         reference_screenshot="${line#'![reference](./'}"
         reference_screenshot="${reference_screenshot%')'}"
+        steps+=("screenshot|$reference_screenshot")
         ;;
-      '### Mouse: '*)  # Handle multiple mouse coordinates
-        mouse_coords+=("${line#'### Mouse: '}")  # Add mouse coordinates to the array
+      '### Crop: '*)
+        steps+=("crop|${line#'### Crop: '}")
         ;;
-      '### Crop: '*)  # Handle cropping geometry
-        crop_geometry="${line#'### Crop: '}"
-        ;;
-      '### Click and check output: '*)  # Handle click and check
-        click_and_check="${line#'### Click and check output: '}"
-        ;;
-      *)  # Capture multi-line input for pipe data
+      *)
         if $in_pipe_data; then
-          if [[ $pipe_data == "" ]]; then
-            pipe_data="$line"
-          else
-            pipe_data+=""$'\n'
-            pipe_data+="${line}"
-          fi
+          pipe_data_block+="$line"$'\n'
         fi
         ;;
     esac
   done < "$test_file"
 
-  # Run the last test if any
   if [ -n "$test_name" ]; then
-    run_test "$test_name" "$pipe_data" "$cmd_args" "$reference_screenshot" mouse_coords[@] "$crop_geometry" "$click_and_check"
+    run_test "$test_name" "$cmd_args" "${steps[@]}"
   fi
 }
 

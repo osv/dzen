@@ -306,12 +306,13 @@ Broken ba:^ib(1)^ro(50x28)^p(-50)^ba(50,_RIGHT)^fg(green)R^ba()
 ### Pipe data
 
 2 Sensetive Areas.
+
 Area1:
       
       x1=0, x2=99
-      y1 = 7, y2 = 23
+      y1= 7, y2=23
 
-Because font is Y centered, (30 - 16) / 2 = 7px offset from top&bottom.
+Because font is Y centered, `(30 - 16) / 2 = 7px` offset from top&bottom.
 
 Area2:
  
@@ -325,7 +326,7 @@ Area2:
 
 ### Click and check output: 1,
 
-No area
+No area, 1px Y before font start
 
 ### Mouse: 99,7
 
@@ -343,7 +344,7 @@ Area1
 
 ### Click and check output: 1, 
 
-No Area
+No Area, +1px after font height
 
 ### Mouse: 100,23
 
@@ -355,13 +356,13 @@ Area2
 
 ### Click and check output: 1, area2 
 
-Area2, last bottom pixel
+Area2, last bottom pixel of area
 
 ### Mouse: 200,23
 
 ### Click and check output: 1, 
 
-No area
+No area, +1px X after area2
 
 ## Test: 11 Icons
 

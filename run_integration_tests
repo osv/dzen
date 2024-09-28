@@ -209,7 +209,7 @@ run_tests() {
 }
 
 # Parse the test cases from the markdown file
-run_tests "test_cases.md"
+run_tests "TESTS.md"
 
 # Final result
 echo "---------------------"

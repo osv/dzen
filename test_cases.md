@@ -93,7 +93,7 @@ Move over the 3rd item
 
 ### Pipe data
 
-Add more line, expected scrolled
+Add more lines
 
 ```
 ^tw()Changed Header
@@ -101,19 +101,26 @@ printf "line 5"
 printf "line 6"
 ```
 
+Expected scrolled up:
+
 ![reference](./integration-tests/reference_04-menu-5-changed-header.png)
+
+### Press key: Up
+
+Scroll up one row:
+
+![reference](./integration-tests/reference_04-menu-6-press-key-up.png)
 
 ### Pipe data
 
-Clear slave
+Clear slave windown and add one line to slave window
 
 ```
 ^cs()
 printf "line 7"
 ```
 
-![reference](./integration-tests/reference_04-menu-6-clear-slave.png)
-
+![reference](./integration-tests/reference_04-menu-7-clear-slave.png)
 
 ## Test: 5 Position
 

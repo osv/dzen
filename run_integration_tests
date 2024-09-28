@@ -60,6 +60,11 @@ run_test() {
         xdotool mousemove --window "$window_id" "$x" "$y"
         sleep 0.1
         ;;
+      'presskey')
+        IFS=',' read -r key <<< "$params"
+        xdotool key "$key"
+        sleep 0.1
+        ;;
       'click_and_check')
         check_num=$((check_num + 1))
         button=$(echo "$params" | cut -d',' -f1)
@@ -175,6 +180,9 @@ run_tests() {
         ;;
       '### Mouse: '*)
         steps+=("mouse|${line#'### Mouse: '}")
+        ;;
+      '### Press key: '*)
+        steps+=("presskey|${line#'### Press key: '}")
         ;;
       '### Click and check output: '*)
         steps+=("click_and_check|${line#'### Click and check output: '}")

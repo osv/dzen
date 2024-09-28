@@ -375,3 +375,34 @@ No area, +1px X after area2
 ```
 
 ![reference](./integration-tests/reference_11-icons.png)
+
+
+## Test: 12 Action: 'menuprint'
+
+### Args: -e 'button1=menuprint;onstart=uncollapse' -m -l 4 -ta l -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
+
+### Mouse: 1, 61
+
+Mouse over second the item (2 * 30 + 1)
+
+### Pipe data
+
+Items for menu, first line is invisible header
+
+```
+header
+line 1
+line 2
+line 3
+line 4
+```
+
+### Click and check output: 1, line 2
+
+### Mouse: 10, 91
+
+### Click and check output: 1, line 3
+
+### Mouse: 10, 121
+
+### Click and check output: 1, line 4

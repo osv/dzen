@@ -53,4 +53,6 @@ uninstall:
 	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
 	@rm -f ${DESTDIR}${PREFIX}/bin/dzen2
 
-.PHONY: all options clean dist install uninstall
+test:
+	./run_integration_tests
+.PHONY: all options clean dist install uninstall test

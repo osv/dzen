@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+
+# Directory to store screenshots
+SCREENSHOT_DIR="integration-tests"
+mkdir -p "$SCREENSHOT_DIR"
+mkdir -p "$SCREENSHOT_DIR/diffs"
+
+# Define ANSI color codes for green (pass) and red (fail)
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'  # No Color (reset)
+
+# Threshold for acceptable difference in screenshots
+delta_threshold=2
+all_tests_passed=true
+
+run_test() {
+  local test_name=$1
+  local cmd_args=$2
+  shift 2
+  local steps=("$@")
+
+  echo -n "Running test: $test_name ... "
+
+  # Run the app using coproc and capture the PID
+  eval "args=($cmd_args)"
+  coproc program_coproc { exec ./dzen2 -p "${args[@]}" &> app_output.txt; }
+  local app_pid=$program_coproc_PID
+
+  # Wait for the app to start (adjust this time if necessary)
+  sleep 0.6  # Adjust this as needed based on your app's loading time
+
+  # Find the window ID associated with the app's PID
+  local window_id=$(xdotool search --pid "$app_pid" | head -n 1)
+  if [ -z "$window_id" ]; then
+    echo -e "${RED}Error: Could not find window for PID $app_pid.${NC}"
+    all_tests_passed=false
+    # Close the coprocess
+    kill "$app_pid"
+    exec {program_coproc[1]}>&-
+    exec {program_coproc[0]}>&-
+    return
+  fi
+
+  # Get the window's geometry (position and size)
+  local window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
+  local window_x=$(echo "$window_geometry" | grep 'X=' | cut -d '=' -f 2)
+  local window_y=$(echo "$window_geometry" | grep 'Y=' | cut -d '=' -f 2)
+  local window_width=$(echo "$window_geometry" | grep 'WIDTH=' | cut -d '=' -f 2)
+  local window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
+
+  local crop_geometry=""
+  local reference_screenshot=""
+  local check_num=0
+  for step in "${steps[@]}"; do
+    IFS='|' read -r action params <<< "$step"
+    case "$action" in
+      'mouse')
+        IFS=',' read -r x y <<< "$params"
+        xdotool mousemove --window "$window_id" "$x" "$y"
+        sleep 0.1
+        ;;
+      'presskey')
+        IFS=',' read -r key <<< "$params"
+        xdotool key "$key"
+        sleep 0.1
+        ;;
+      'click_and_check')
+        check_num=$((check_num + 1))
+        button=$(echo "$params" | cut -d',' -f1)
+        expected_output=$(echo "$params" | cut -d',' -f2- | xargs)
+        xdotool click "$button"
+        sleep 0.1
+        app_output=$(cat app_output.txt)
+        if [[ "$app_output" != *"$expected_output"* ]]; then
+          echo -e "\n${RED}$check_num: Error:\nExpected output: '${expected_output}'.${NC}"
+          echo -e "Actual output: '${app_output}'.\n"
+          all_tests_passed=false
+        else
+          echo -en "$check_num: Click button ${button} and check output ${GREEN}Pass. ${NC}"
+        fi
+        ;;
+      'crop')
+        crop_geometry="$params"
+        ;;
+      'screenshot')
+        check_num=$((check_num + 1))
+        reference_screenshot="$params"
+        if [[ "$reference_screenshot" = "" ]]; then
+          echo -e "\n${RED}$check_num: Error:\n${RED}You forgot to set image in markdown:${NC}"
+          echo -e "${RED}[reference](./integration-tests/reference_$test_name.gif)${NC}\n"
+          return
+        fi
+        # Save the current screenshot without "reference_" prefix
+        local screenshot="${reference_screenshot/*reference_/}"
+        local screenshot_path="$SCREENSHOT_DIR/$screenshot"
+        # Take screenshot
+        if [ -n "$crop_geometry" ]; then
+          xwd -root | convert "xwd:-" -crop "$crop_geometry" +repage "$screenshot_path"
+        else
+          xwd -root | convert "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$screenshot_path"
+        fi
+        # Compare with the reference screenshot
+        if [ -f "$reference_screenshot" ]; then
+          local diff_screenshot="$SCREENSHOT_DIR/diffs/diff_${screenshot}"
+          compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
+          diff=$(compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" null: 2>&1)
+          if (( diff > delta_threshold )); then
+            echo -e "\n${RED}$check_num: Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
+            echo -e "${RED} See ./${diff_screenshot}${NC}\n"
+            all_tests_passed=false
+          else
+            echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
+          fi
+        else
+          echo -e "\n${RED}$check_num: Error: Reference screenshot not found for $test_name at $reference_screenshot.${NC}"
+          echo -e "${GREEN}  Copying actual screenshot to $reference_screenshot.${NC}\n"
+          cp "$screenshot_path" "$reference_screenshot"
+          all_tests_passed=false
+        fi
+        ;;
+      'pipe_data')
+        # Decode the base64-encoded pipe data
+        decoded_pipe_data=$(echo "$params" | base64 --decode)
+        # Send the pipe data to the program's stdin
+        echo -e "$decoded_pipe_data" >&"${program_coproc[1]}"
+        sleep 0.1
+        ;;
+    esac
+  done
+  echo
+
+  # Close the coprocess
+  kill "$app_pid"
+  exec {program_coproc[1]}>&-
+  exec {program_coproc[0]}>&-
+}
+
+# Function to parse the test cases from markdown
+run_tests() {
+  local test_file=$1
+  local test_name=""
+  local cmd_args=""
+  local pipe_data_block=""
+  local steps=()
+  local in_pipe_data=false
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case $line in
+      '## Test: '*)
+        if [ -n "$test_name" ]; then
+          run_test "$test_name" "$cmd_args" "${steps[@]}"
+          # Reset variables
+          test_name=""
+          cmd_args=""
+          pipe_data_block=""
+          steps=()
+          in_pipe_data=false
+        fi
+        test_name="${line#'## Test: '}"
+        ;;
+      '### Args: '*)
+        cmd_args="${line#'### Args: '}"
+        ;;
+      '### Pipe data')
+        pipe_data_block=""
+        ;;
+      '```')
+        if $in_pipe_data; then
+          # End of pipe data block
+          in_pipe_data=false
+          # Encode the pipe data to base64 to handle multi-line strings
+          encoded_pipe_data=$(echo -n "$pipe_data_block" | base64 -w 0)
+          steps+=("pipe_data|$encoded_pipe_data")
+        else
+          if [[ $pipe_data_block = '' ]]; then
+            in_pipe_data=true
+          fi
+        fi
+        ;;
+      '### Mouse: '*)
+        steps+=("mouse|${line#'### Mouse: '}")
+        ;;
+      '### Press key: '*)
+        steps+=("presskey|${line#'### Press key: '}")
+        ;;
+      '### Click and check output: '*)
+        steps+=("click_and_check|${line#'### Click and check output: '}")
+        ;;
+      '![reference](./'*)
+        reference_screenshot="${line#'![reference](./'}"
+        reference_screenshot="${reference_screenshot%')'}"
+        steps+=("screenshot|$reference_screenshot")
+        ;;
+      '### Crop: '*)
+        steps+=("crop|${line#'### Crop: '}")
+        ;;
+      *)
+        if $in_pipe_data; then
+          pipe_data_block+="$line"$'\n'
+        fi
+        ;;
+    esac
+  done < "$test_file"
+
+  if [ -n "$test_name" ]; then
+    run_test "$test_name" "$cmd_args" "${steps[@]}"
+  fi
+}
+
+# Parse the test cases from the markdown file
+run_tests "TESTS.md"
+
+# Final result
+echo "---------------------"
+if [ "$all_tests_passed" = false ]; then
+  echo -e "${RED}One or more tests failed.${NC}"
+  exit 1
+else
+  echo -e "${GREEN}All tests passed.${NC}"
+fi

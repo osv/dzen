@@ -459,3 +459,26 @@ Lock X with expand
 ```
 
 ![reference](./integration-tests/reference_14-02-expand-left.png)
+
+## Test: 15 Align commands
+
+### Args: -l 5 -e onstart=uncollapse -fn "DejaVu Sans Mono:size=10:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 400 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+Not bug but feature:
+- Padding after `_TOP` 2px
+- `_BOTTOM`: 3px
+
+```
+^left()^fg(red)1 | 2 | 3 | ^center()^fg(blue)12:34 ^right()^fg(darkgreen) CPU ^fg(green)1% ^fg(darkgreen)Mem: ^fg(green)99%
+^left()^fg(red)1 Left ^right()^fg(green)2 Right ^center()^fg(blue)3 Center
+^left()^fg(red)Left only
+^right()^fg(green)Right only
+^center()^fg(blue)Center only
+^right()^fg(green)^r(350x20)Right^left()Left^r(20x10)
+```
+
+### Crop: 400x180+0+0
+
+![reference](./integration-tests/reference_15-align-commands.png)

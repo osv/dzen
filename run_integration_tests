@@ -42,13 +42,6 @@ run_test() {
     return
   fi
 
-  # Get the window's geometry (position and size)
-  local window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
-  local window_x=$(echo "$window_geometry" | grep 'X=' | cut -d '=' -f 2)
-  local window_y=$(echo "$window_geometry" | grep 'Y=' | cut -d '=' -f 2)
-  local window_width=$(echo "$window_geometry" | grep 'WIDTH=' | cut -d '=' -f 2)
-  local window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
-
   local crop_geometry=""
   local reference_screenshot=""
   local check_num=0
@@ -84,6 +77,13 @@ run_test() {
         crop_geometry="$params"
         ;;
       'screenshot')
+        # Get the window's geometry (position and size)
+        local window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
+        local window_x=$(echo "$window_geometry" | grep 'X=' | cut -d '=' -f 2)
+        local window_y=$(echo "$window_geometry" | grep 'Y=' | cut -d '=' -f 2)
+        local window_width=$(echo "$window_geometry" | grep 'WIDTH=' | cut -d '=' -f 2)
+        local window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
+
         check_num=$((check_num + 1))
         reference_screenshot="$params"
         if [[ "$reference_screenshot" = "" ]]; then

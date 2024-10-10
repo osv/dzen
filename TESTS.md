@@ -413,3 +413,49 @@ line 4
 ### Mouse: 10, 121
 
 ### Click and check output: 1, line 4
+
+## Test: 13 expand left
+
+### Args: -expand left -x 0 -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+```
+123456789
+123^r(20x10)
+```
+
+![reference](./integration-tests/reference_13-01-expand-left.png)
+
+### Pipe data
+
+Lock X with expand
+
+```
+^p(_LOCK_X)LOCK_X^p(_UNLOCK_X)1234
+```
+
+![reference](./integration-tests/reference_13-02-expand-left.png)
+
+## Test: 14 expand right
+
+### Args: -expand right -x 0 -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+```
+123456789
+123^r(20x10)
+```
+
+![reference](./integration-tests/reference_14-01-expand-left.png)
+
+### Pipe data
+
+Lock X with expand
+
+```
+^p(_LOCK_X)LOCK_X^p(_UNLOCK_X)1234
+```
+
+![reference](./integration-tests/reference_14-02-expand-left.png)

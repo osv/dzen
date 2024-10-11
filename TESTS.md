@@ -420,10 +420,18 @@ line 4
 
 ### Pipe data
 
+Firstly, draw large text, then short text. 
+
+Expected: the window size is enough to fit the last text.  
+
 ```
 123456789
 123^r(20x10)
 ```
+
+It is possible to test window alignment in screen space when running in a GitHub
+Action environment  (by using  screen crop), but  I want to  able run  this test
+locally.
 
 ![reference](./integration-tests/reference_13-01-expand-left.png)
 
@@ -466,9 +474,7 @@ Lock X with expand
 
 ### Pipe data
 
-Not bug but feature:
-- Padding after `_TOP` 2px
-- `_BOTTOM`: 3px
+Use different aligns (`^left()` and so on). Should reset settings
 
 ```
 ^left()^fg(red)1 | 2 | 3 | ^center()^fg(blue)12:34 ^right()^fg(darkgreen) CPU ^fg(green)1% ^fg(darkgreen)Mem: ^fg(green)99%

@@ -82,7 +82,6 @@ typedef struct _SENS_PER_WINDOW {
 } sens_w;
 
 //0: top window, 1: slave window
-extern int xorig[2];
 extern sens_w window_sens[2];
 
 

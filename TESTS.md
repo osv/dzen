@@ -413,3 +413,78 @@ line 4
 ### Mouse: 10, 121
 
 ### Click and check output: 1, line 4
+
+## Test: 13 expand left
+
+### Args: -expand left -x 0 -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+Firstly, draw large text, then short text. 
+
+Expected: the window size is enough to fit the last text.  
+
+```
+123456789
+123^r(20x10)
+```
+
+It is possible to test window alignment in screen space when running in a GitHub
+Action environment  (by using  screen crop), but  I want to  able run  this test
+locally.
+
+![reference](./integration-tests/reference_13-01-expand-left.png)
+
+### Pipe data
+
+Lock X with expand
+
+```
+^p(_LOCK_X)LOCK_X^p(_UNLOCK_X)1234
+```
+
+![reference](./integration-tests/reference_13-02-expand-left.png)
+
+## Test: 14 expand right
+
+### Args: -expand right -x 0 -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+```
+123456789
+123^r(20x10)
+```
+
+![reference](./integration-tests/reference_14-01-expand-left.png)
+
+### Pipe data
+
+Lock X with expand
+
+```
+^p(_LOCK_X)LOCK_X^p(_UNLOCK_X)1234
+```
+
+![reference](./integration-tests/reference_14-02-expand-left.png)
+
+## Test: 15 Align commands
+
+### Args: -l 5 -e onstart=uncollapse -fn "DejaVu Sans Mono:size=10:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 400 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+Use different aligns (`^left()` and so on). Should reset settings
+
+```
+^left()^fg(red)1 | 2 | 3 | ^center()^fg(blue)12:34 ^right()^fg(darkgreen) CPU ^fg(green)1% ^fg(darkgreen)Mem: ^fg(green)99%
+^left()^fg(red)1 Left ^right()^fg(green)2 Right ^center()^fg(blue)3 Center
+^left()^fg(red)Left only
+^right()^fg(green)Right only
+^center()^fg(blue)Center only
+^right()^fg(green)^r(350x20)Right^left()Left^r(20x10)
+```
+
+### Crop: 400x180+0+0
+
+![reference](./integration-tests/reference_15-align-commands.png)

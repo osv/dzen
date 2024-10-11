@@ -436,6 +436,16 @@ Positioning:
                        a.k.a. absolute positioning
                        For maximum predictability ^^pa() should only be
                        used with '-ta l' or '-sa l'
+
+    ^^left()           Align next input to left. Reset settings (fg, bg, fn, etc)
+    ^^center()         Align next input to center. Reset settings (fg, bg, fn, etc)
+    ^^right()          Align next input to rigth. Reset settings (fg, bg, fn, etc)
+                       Example:
+                         ^^left()^^fg(red)Left ^^center()^^fg(green)Center ^^right()^^fg(blue)Right
+                       Giving:
+^left()^fg(red)Left ^center()^fg(green)Center ^right()^fg(blue)Right
+
+
 Other:
 ------
 

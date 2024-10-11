@@ -32,11 +32,11 @@ icon_c icons[MAX_ICON_CACHE];
 int icon_cnt;
 int otx;
 
-int xorig[2];
 sens_w window_sens[2];
 
 /* command types for the in-text parser */
-enum ctype  {bg, fg, icon, rect, recto, circle, circleo, pos, abspos, titlewin, ibg, fn, fixpos, ca, ba};
+enum ctype  {bg, fg, icon, rect, recto, circle, circleo, pos, abspos, titlewin, ibg, fn, fixpos, ca, ba,
+			 leftalign, centeralign, rightalign};
 
 struct command_lookup {
 	const char *name;
@@ -59,6 +59,9 @@ struct command_lookup cmd_lookup_table[] = {
 	{ "fn(",        fn,			3},
 	{ "ca(",        ca,			3},
 	{ "ba(",		ba,			3},
+	{ "left(",		leftalign,	5},
+	{ "right(",		rightalign,	6},
+	{ "center(",	centeralign,7},
 	{ 0,			0,			0}
 };
 
@@ -373,6 +376,8 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 	int block_width = -1;
 	/* clickable area y tracking */
 	int max_y=-1;
+	/* Last max drawn pixel */
+	int max_x=0;
 
 	/* temp buffers */
 	char lbuf[MAX_LINE_LEN], *rbuf = NULL;
@@ -410,6 +415,13 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 	/* icon cache */
 	int ip;
 
+	/* call parse_line with rest of the line and changed align: ALIGNLEFT, ALIGNCENTER, ALIGNRIGHT */
+	int next_align = -1;
+	/* parse_line can be called multiple times, need to change X position of sens are created in this call depending on align */
+	int sens_areas_start = window_sens[LNR2WINDOW(lnr)].sens_areas_cnt;
+
+	int xorig;
+
 	/* parse line and return the text without control commands */
 	if(nodraw) {
 		rbuf = emalloc(MAX_LINE_LEN);
@@ -424,8 +436,8 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 	else {
 		h = dzen.font.height;
 		py = (dzen.line_height - h) / 2;
-		xorig[LNR2WINDOW(lnr)] = 0;
-		
+		xorig = 0;
+
 		if(lnr != -1) {
 			pm = XCreatePixmap(dzen.dpy, RootWindow(dzen.dpy, DefaultScreen(dzen.dpy)), dzen.slave_win.width,
 					dzen.line_height, DefaultDepth(dzen.dpy, dzen.screen));
@@ -487,7 +499,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 
 		if( lnr != -1 && (lnr + dzen.slave_win.first_line_vis >= dzen.slave_win.tcnt)) {
 			XCopyArea(dzen.dpy, pm, dzen.slave_win.drawable[lnr], dzen.gc,
-					0, 0, px, dzen.line_height, xorig[LNR2WINDOW(lnr)], 0);
+					0, 0, px, dzen.line_height, xorig, 0);
 			XFreePixmap(dzen.dpy, pm);
 			return NULL;
 		}
@@ -515,6 +527,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 										0, 0, icons[ip].w, icons[ip].h, px, y=(set_posy ? py :
 										(dzen.line_height >= (signed)icons[ip].h ?
 										(dzen.line_height - icons[ip].h)/2 : 0)));
+								max_x = MAX(max_x, px + icons[ip].w);
 								px += !pos_is_fixed ? icons[ip].w : 0;
 								max_y = MAX(max_y, y+icons[ip].h);
 							} else {
@@ -529,6 +542,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 											(dzen.line_height >= (int)bm_h ?
 												(dzen.line_height - (int)bm_h)/2 : 0)), 1);
 									XFreePixmap(dzen.dpy, bm);
+									max_x = MAX(max_x, px + bm_w);
 									px += !pos_is_fixed ? bm_w : 0;
 									max_y = MAX(max_y, y+bm_h);
 								}
@@ -543,6 +557,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 											0, 0, xpma.width, xpma.height, px, y=(set_posy ? py :
 											(dzen.line_height >= (int)xpma.height ?
 												(dzen.line_height - (int)xpma.height)/2 : 0)));
+									max_x = MAX(max_x, px + xpma.width);
 									px += !pos_is_fixed ? xpma.width : 0;
 									max_y = MAX(max_y, y+xpma.height);
 
@@ -562,6 +577,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 								py += recty;
 							recty =	recty == 0 ? (dzen.line_height - recth)/2 :
 								(dzen.line_height - recth)/2 + recty;
+							max_x = MAX(max_x, px + rectx + rectw);
 							px += !pos_is_fixed ? rectx : 0;
 							setcolor(&pm, px, rectw, lastfg, lastbg, reverse, nobg);
 
@@ -582,6 +598,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 								py += recty;
 							recty =	recty == 0 ? (dzen.line_height - recth)/2 :
 								(dzen.line_height - recth)/2 + recty;
+							max_x = MAX(max_x, px + rectx + rectw);
 							px = (rectx == 0) ? px : rectx+px;
 							/* prevent from stairs effect when rounding recty */
 							if (!((dzen.line_height - recth) % 2)) recty--;
@@ -597,6 +614,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 							setcolor(&pm, px, rectw, lastfg, lastbg, reverse, nobg);
 							XFillArc(dzen.dpy, pm, dzen.tgc, px, set_posy ? py :(dzen.line_height - rectw)/2,
 									rectw, rectw, 90*64, rectx>1?recth*64:64*360);
+							max_x = MAX(max_x, px + rectw);
 							px += !pos_is_fixed ? rectw : 0;
 							break;
 
@@ -605,6 +623,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 							setcolor(&pm, px, rectw, lastfg, lastbg, reverse, nobg);
 							XDrawArc(dzen.dpy, pm, dzen.tgc, px, set_posy ? py : (dzen.line_height - rectw)/2,
 									rectw, rectw, 90*64, rectx>1?recth*64:64*360);
+							max_x = MAX(max_x, px + rectw);
 							px += !pos_is_fixed ? rectw : 0;
 							break;
 
@@ -645,12 +664,13 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 
 								if(r != 2)
 									px = px+n_posx<0? 0 : px + n_posx;
-								if(r != 1) 
+								if(r != 1)
 									py += n_posy;
 							} else {
 								set_posy = 0;
 								py = (dzen.line_height - dzen.font.height) / 2;
 							}
+							max_x = MAX(max_x, px);
 							break;
 
 						case abspos:
@@ -670,6 +690,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 								set_posy = 0;
 								py = (dzen.line_height - dzen.font.height) / 2;
 							}
+							max_x = MAX(max_x, px);
 							break;
 
 						case ibg:
@@ -797,10 +818,10 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 					px += (block_width - tw);
 				else if(block_align==ALIGNCENTER)
 					px += (block_width/2) - (tw/2);
-
+				max_x = MAX(max_x, px);
 				if(!nobg)
 					setcolor(&pm, px, tw, lastfg, lastbg, reverse, nobg);
-				
+
 #ifndef DZEN_XFT
 				if(cur_fnt->set)
 					XmbDrawString(dzen.dpy, pm, cur_fnt->set,
@@ -833,15 +854,17 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 				max_y = MAX(max_y, py+dzen.font.height);
 
 				if(block_align==-1) {
-					if(!pos_is_fixed || *linep =='\0')
+					if(!pos_is_fixed || *linep =='\0') {
 						px += tw;
+						max_x = MAX(max_x, px);
+					}
 				} else {
 					if(pos_is_fixed)
 						px = opx;
 					else
 						px = opx+block_width;
+					max_x = MAX(max_x, px);
 				}
-
 				block_align=block_width=-1;
 			}
 
@@ -851,6 +874,16 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 			j=0; t=-1; tval=NULL;
 			next_pos = get_token(linep, &t, &tval);
 			linep += next_pos;
+			if (t == leftalign) {
+				next_align = ALIGNLEFT;
+				break;
+			} else if (t == centeralign) {
+				next_align = ALIGNCENTER;
+				break;
+			} else if (t == rightalign) {
+				next_align = ALIGNRIGHT;
+				break;
+			}
 
 			/* ^^ escapes */
 			if(next_pos == 0)
@@ -880,28 +913,22 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 
 		} else {
 			if(align == ALIGNLEFT)
-				xorig[LNR2WINDOW(lnr)] = 0;
+				xorig = 0;
 			if(align == ALIGNCENTER) {
-				xorig[LNR2WINDOW(lnr)] = (lnr != -1) ?
+				xorig = (lnr != -1) ?
 					(dzen.slave_win.width - px)/2 :
 					(dzen.title_win.width - px)/2;
 			}
 			else if(align == ALIGNRIGHT) {
-				xorig[LNR2WINDOW(lnr)] = (lnr != -1) ?
+				xorig = (lnr != -1) ?
 					(dzen.slave_win.width - px) :
 					(dzen.title_win.width - px);
 			}
 		}
 
 
-		if(lnr != -1) {
-			XCopyArea(dzen.dpy, pm, dzen.slave_win.drawable[lnr], dzen.gc,
-                    0, 0, dzen.w, dzen.line_height, xorig[LNR2WINDOW(lnr)], 0);
-		}
-		else {
-			XCopyArea(dzen.dpy, pm, dzen.title_win.drawable, dzen.gc,
-					0, 0, dzen.w, dzen.line_height, xorig[LNR2WINDOW(lnr)], 0);
-		}
+		XCopyArea(dzen.dpy, pm, (lnr != -1 ? dzen.slave_win.drawable[lnr] : dzen.title_win.drawable), dzen.gc,
+				  0, 0, max_x, dzen.line_height, xorig, 0);
 		XFreePixmap(dzen.dpy, pm);
 
 		/* reset font to default */
@@ -918,6 +945,17 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 #ifdef DZEN_XFT
 		XftDrawDestroy(xftd);
 #endif
+	}
+
+	sens_w *w = &window_sens[LNR2WINDOW(lnr)];
+	for(i=sens_areas_start; i<(*w).sens_areas_cnt; i++) {
+		(*w).sens_areas[i].start_x += xorig;
+		(*w).sens_areas[i].end_x += xorig;
+	}
+
+	if (!nodraw && next_align != -1) {
+		/* linep */
+		return parse_line(linep + 1, lnr, next_align, reverse, 0);
 	}
 
 	return nodraw ? rbuf : NULL;

@@ -436,13 +436,23 @@ Positioning:
                        a.k.a. absolute positioning
                        For maximum predictability ^^pa() should only be
                        used with '-ta l' or '-sa l'
+
+	^^left()           Align next input to left. Reset settings (fg, bg, fn, etc)
+	^^center()         Align next input to center. Reset settings (fg, bg, fn, etc)
+	^^right()          Align next input to rigth. Reset settings (fg, bg, fn, etc)
+					   Example:
+						 ^^left()^^fg(red)Left ^^center()^^fg(green)Center ^^right()^^fg(blue)Right
+					   Giving:
+^left()^fg(red)Left ^center()^fg(green)Center ^right()^fg(blue)Right
+
+
 Other:
 ------
 
     ^^tw()              draw to title window
-                       This command has some annoyances, as only 
+                       This command has some annoyances, as only
                        the input after the command will be drawn
-                       to the title window, so it is best used 
+                       to the title window, so it is best used
                        only once and as first command per line
                        Subject to be improved in the future.
 

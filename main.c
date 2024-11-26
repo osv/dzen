@@ -906,7 +906,7 @@ main(int argc, char *argv[]) {
 	dzen.title_win.width = dzen.slave_win.width = 0;
 	dzen.title_win.alignment = ALIGNCENTER;
 	dzen.slave_win.alignment = ALIGNLEFT;
-	dzen.fnt = FONT;
+	dzen.fnt = estrdup(FONT);
 	dzen.bg  = estrdup(BGCOLOR);
 	dzen.fg  = estrdup(FGCOLOR);
 	dzen.slave_win.max_lines  = 0;
@@ -998,7 +998,7 @@ main(int argc, char *argv[]) {
 			}
 		}
 		else if(!strncmp(argv[i], "-fn", 4)) {
-			if(++i < argc) dzen.fnt = argv[i];
+			if(++i < argc) dzen.fnt = estrdup(argv[i]);
 		}
 		else if(!strncmp(argv[i], "-e", 3)) {
 			if(++i < argc) action_string = argv[i];

@@ -1156,6 +1156,16 @@ parse_non_drawing_commands(char * text) {
 		return 0;
 	}
 
+	if(!strncmp(text, "^normfn(", strlen("^normfn("))) {
+		char *tval = extract_between_parentheses(text);
+		if (tval) {
+			free((char *)dzen.fnt);
+			dzen.fnt = estrdup(tval);
+			setfont(dzen.fnt);
+		}
+		return 0;
+	}
+
 	return 1;
 }
 

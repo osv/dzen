@@ -42,8 +42,11 @@ jobs:
             xdotool \
             imagemagick \
             x11-apps \
-            xvfb
-        # Save a list of installed packages to cache key
+            xvfb \
+            x11-xkb-utils \
+            xkb-data
+
+      # Save a list of installed packages to cache key
       - run: dpkg-query -W -f='${binary:Package}\n' > apt-packages-list.txt
 
         #  Generate the configure script

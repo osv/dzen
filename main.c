@@ -906,9 +906,9 @@ main(int argc, char *argv[]) {
 	dzen.title_win.width = dzen.slave_win.width = 0;
 	dzen.title_win.alignment = ALIGNCENTER;
 	dzen.slave_win.alignment = ALIGNLEFT;
-	dzen.fnt = FONT;
-	dzen.bg  = BGCOLOR;
-	dzen.fg  = FGCOLOR;
+	dzen.fnt = estrdup(FONT);
+	dzen.bg  = estrdup(BGCOLOR);
+	dzen.fg  = estrdup(FGCOLOR);
 	dzen.slave_win.max_lines  = 0;
 	dzen.running = True;
 	dzen.xinescreen = 0;
@@ -998,7 +998,7 @@ main(int argc, char *argv[]) {
 			}
 		}
 		else if(!strncmp(argv[i], "-fn", 4)) {
-			if(++i < argc) dzen.fnt = argv[i];
+			if(++i < argc) dzen.fnt = estrdup(argv[i]);
 		}
 		else if(!strncmp(argv[i], "-e", 3)) {
 			if(++i < argc) action_string = argv[i];
@@ -1010,10 +1010,10 @@ main(int argc, char *argv[]) {
 			if(++i < argc) dzen.slave_win.name = argv[i];
 		}
 		else if(!strncmp(argv[i], "-bg", 4)) {
-			if(++i < argc) dzen.bg = argv[i];
+			if(++i < argc) dzen.bg = estrdup(argv[i]);
 		}
 		else if(!strncmp(argv[i], "-fg", 4)) {
-			if(++i < argc) dzen.fg = argv[i];
+			if(++i < argc) dzen.fg = estrdup(argv[i]);
 		}
 		else if(!strncmp(argv[i], "-x", 3)) {
 			if(++i < argc) dzen.title_win.x = dzen.slave_win.x = atoi(argv[i]);

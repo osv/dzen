@@ -1036,6 +1036,26 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 	return nodraw ? rbuf : NULL;
 }
 
+char*
+extract_between_parentheses(const char* str) {
+    if (!str) return NULL;
+
+    const char *start = strchr(str, '(');
+    if (!start) return NULL;
+    start++;
+
+    const char *end = strchr(start, ')');
+    if (!end) return NULL;
+
+    size_t len = end - start;
+    char *result = malloc(len + 1);
+    if (!result) return NULL;
+
+    memcpy(result, start, len);
+    result[len] = '\0';
+    return result;
+}
+
 int
 parse_non_drawing_commands(char * text) {
 
@@ -1103,6 +1123,46 @@ parse_non_drawing_commands(char * text) {
 
 	if(!strncmp(text, "^exit()", strlen("^exit()"))) {
 		a_exit(NULL);
+		return 0;
+	}
+
+	if(!strncmp(text, "^normfg(", strlen("^normfg("))) {
+		char *tval = extract_between_parentheses(text);
+		if (tval) {
+			if((dzen.norm[ColFG] = getcolor(tval)) == ~0lu)
+				eprint("dzen: error, cannot allocate color '%s'\n", tval);
+			free((char *)dzen.fg);
+			dzen.fg = estrdup(tval);
+			XSetForeground(dzen.dpy, dzen.gc, dzen.norm[ColFG]);
+			XSetBackground(dzen.dpy, dzen.gc, dzen.norm[ColBG]);
+			XSetForeground(dzen.dpy, dzen.rgc, dzen.norm[ColBG]);
+			XSetBackground(dzen.dpy, dzen.rgc, dzen.norm[ColFG]);
+		}
+		return 0;
+	}
+
+	if(!strncmp(text, "^normbg(", strlen("^normbg("))) {
+		char *tval = extract_between_parentheses(text);
+		if (tval) {
+			if((dzen.norm[ColBG] = getcolor(tval)) == ~0lu)
+				eprint("dzen: error, cannot allocate color '%s'\n", tval);
+			free((char *)dzen.bg);
+			dzen.bg = estrdup(tval);
+			XSetForeground(dzen.dpy, dzen.gc, dzen.norm[ColFG]);
+			XSetBackground(dzen.dpy, dzen.gc, dzen.norm[ColBG]);
+			XSetForeground(dzen.dpy, dzen.rgc, dzen.norm[ColBG]);
+			XSetBackground(dzen.dpy, dzen.rgc, dzen.norm[ColFG]);
+		}
+		return 0;
+	}
+
+	if(!strncmp(text, "^normfn(", strlen("^normfn("))) {
+		char *tval = extract_between_parentheses(text);
+		if (tval) {
+			free((char *)dzen.fnt);
+			dzen.fnt = estrdup(tval);
+			setfont(dzen.fnt);
+		}
 		return 0;
 	}
 

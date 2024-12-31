@@ -488,3 +488,42 @@ Use different aligns (`^left()` and so on). Should reset settings
 ### Crop: 400x180+0+0
 
 ![reference](./integration-tests/reference_15-align-commands.png)
+
+
+## Test: 16 normbg/normfg commands
+
+### Args: -l 5 -e onstart=uncollapse -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg pink
+
+### Pipe data
+
+`^normfg` and `^normbg` used for changing fg and bg. You should use `^tw()` and `^cs()` to clear all
+
+```
+^normfg(yellow)
+^normbg(red)
+^tw()Head
+^cs()
+Line 1
+Line 2
+```
+
+### Crop: 300x180+0+0
+
+![reference](./integration-tests/reference_16-norm-1.png)
+
+### Pipe data
+
+`^normfn` is used for changing default font. You should use `^tw()` and `^cs()` to clear all
+
+```
+^normfn(DejaVu Sans Mono:size=8:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none)
+^tw()Head
+^cs()
+Line 1
+Line 2
+```
+
+### Crop: 300x180+0+0
+
+![reference](./integration-tests/reference_16-norm-2-font.png)
+

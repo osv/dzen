@@ -460,6 +460,18 @@ Other:
                        This command must be the first and only command
                        per line.
 
+    ^^normfg(COLOR)     Set the normal foreground color (that will be
+                       used when ^^bg()). You might want to use ^^tw()
+                       and ^^cs() after. This command must be the first
+                       and only command per line.
+
+    ^^normbg(COLOR)     Set the normal background color (that will be
+                       used when ^^bg()). You might want to use ^^tw()
+                       and ^^cs() after. This command must be the first
+                       and only command per line.
+
+    ^^normfn(FONT)      Set the normal font.
+
     ^^ib(VALUE)         ignore background setting, VALUE can be either
                        1 to ignore or 0 to not ignore the bg color set
                        with ^^bg(color)

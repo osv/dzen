@@ -47,6 +47,9 @@ INCS = -I. -I/usr/include -I${X11INC}
 LIBS = -L/usr/lib -lc -L${X11LIB} -lX11 -lXpm `pkg-config --libs xft`
 CFLAGS = -Wall -Os ${INCS} -DVERSION=\"${VERSION}\" -DDZEN_XPM -DDZEN_XFT `pkg-config --cflags xft`
 
+# ## Option 6.a: With XPM and XFT and XCursot
+# LIBS = -L/usr/lib -lc -L${X11LIB} -lXcursor -lX11 -lXpm `pkg-config --libs xft`
+# CFLAGS = -Wall -g -Os ${INCS} -DVERSION=\"${VERSION}\" -DDZEN_XCURSOR -DDZEN_XPM -DDZEN_XFT `pkg-config --cflags xft`
 
 ## Option 7: With Xinerama and XFT
 #LIBS = -L/usr/lib -lc -L${X11LIB} -lX11 -lXinerama `pkg-config --libs xft`

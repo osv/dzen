@@ -7,6 +7,10 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xresource.h>
+#include <X11/cursorfont.h>
+#ifdef DZEN_XCURSOR
+#include <X11/Xcursor/Xcursor.h>
+#endif
 #ifdef DZEN_XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif
@@ -160,6 +164,9 @@ struct DZEN {
 
 	/* should always be 0 if DZEN_XINERAMA not defined */
 	int xinescreen;
+
+	Cursor cursor_arrow;
+	Cursor cursor_hand;
 };
 
 extern Dzen dzen;

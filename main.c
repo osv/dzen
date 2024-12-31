@@ -52,6 +52,8 @@ clean_up(void) {
 	XFreeGC(dzen.dpy, dzen.gc);
 	XFreeGC(dzen.dpy, dzen.rgc);
 	XFreeGC(dzen.dpy, dzen.tgc);
+	XFreeCursor(dzen.dpy, dzen.cursor_arrow);
+	XFreeCursor(dzen.dpy, dzen.cursor_hand);
 	XDestroyWindow(dzen.dpy, dzen.title_win.win);
 	XCloseDisplay(dzen.dpy);
 }
@@ -512,7 +514,7 @@ x_create_windows(int use_ewmh_dock) {
 	/* window attributes */
 	wa.override_redirect = (use_ewmh_dock ? 0 : 1);
 	wa.background_pixmap = ParentRelative;
-	wa.event_mask = ExposureMask | ButtonReleaseMask | ButtonPressMask | ButtonMotionMask | EnterWindowMask | LeaveWindowMask | KeyPressMask;
+	wa.event_mask = ExposureMask | ButtonReleaseMask | ButtonPressMask | ButtonMotionMask | EnterWindowMask | LeaveWindowMask | KeyPressMask | PointerMotionMask;
 
 #ifdef DZEN_XINERAMA
 	queryscreeninfo(dzen.dpy, &si, dzen.xinescreen);
@@ -693,24 +695,28 @@ handle_xev(void) {
 				do_action(leaveslave);
 			}
 			break;
+
 		case ButtonRelease:
+		{
 			if(dzen.slave_win.ismenu) {
-				for(i=0; i < dzen.slave_win.max_lines; i++)
-					if(ev.xbutton.window == dzen.slave_win.line[i])
+				for(i=0; i < dzen.slave_win.max_lines; i++) {
+					if(ev.xbutton.window == dzen.slave_win.line[i]) {
 						dzen.slave_win.sel_line = i;
+					}
+				}
 			}
 
 			/* clickable areas */
 			int w_id = ev.xbutton.window == dzen.title_win.win ? 0 : 1;
 			sens_w w = window_sens[w_id];
-			for(i=w.sens_areas_cnt; i>=0; i--) {
+			for(i = w.sens_areas_cnt - 1; i >= 0; i--) {
 				if(ev.xbutton.window == w.sens_areas[i].win &&
-						ev.xbutton.button == w.sens_areas[i].button &&
-						(ev.xbutton.x >=  w.sens_areas[i].start_x &&
-						ev.xbutton.x <=  w.sens_areas[i].end_x) &&
-						(ev.xbutton.y >=  w.sens_areas[i].start_y &&
-						ev.xbutton.y <=  w.sens_areas[i].end_y) &&
-						w.sens_areas[i].active) {
+				   ev.xbutton.button == w.sens_areas[i].button &&
+				   (ev.xbutton.x >= w.sens_areas[i].start_x &&
+				    ev.xbutton.x <= w.sens_areas[i].end_x) &&
+				   (ev.xbutton.y >= w.sens_areas[i].start_y &&
+				    ev.xbutton.y <= w.sens_areas[i].end_y) &&
+				    w.sens_areas[i].active) {
 					spawn(w.sens_areas[i].cmd);
 					sa_clicked++;
 					break;
@@ -718,36 +724,50 @@ handle_xev(void) {
 			}
 			if(!sa_clicked) {
 				switch(ev.xbutton.button) {
-					case Button1:
-						do_action(button1);
-						break;
-					case Button2:
-						do_action(button2);
-						break;
-					case Button3:
-						do_action(button3);
-						break;
-					case Button4:
-						do_action(button4);
-						break;
-					case Button5:
-						do_action(button5);
-						break;
-					case Button6:
-						do_action(button6);
-						break;
-					case Button7:
-						do_action(button7);
-						break;
+					case Button1: do_action(button1); break;
+					case Button2: do_action(button2); break;
+					case Button3: do_action(button3); break;
+					case Button4: do_action(button4); break;
+					case Button5: do_action(button5); break;
+					case Button6: do_action(button6); break;
+					case Button7: do_action(button7); break;
 				}
 			}
-			break;
+		}
+		break;
+
 		case KeyPress:
 			XLookupString(&ev.xkey, buf, sizeof buf, &ksym, 0);
-			do_action(ksym+keymarker);
+			do_action(ksym + keymarker);
 			break;
 
-		/* TODO: XRandR rotation and size  */
+		case MotionNotify:
+		{
+			int w_id = (ev.xmotion.window == dzen.title_win.win) ? 0 : 1;
+			sens_w w = window_sens[w_id];
+
+			int over_clickable = 0;
+
+			/* Go through all defined click-areas for this window */
+			for(i = 0; i < w.sens_areas_cnt; i++) {
+				click_a *ca = &w.sens_areas[i];
+				if(ca->active &&
+				   ca->win == ev.xmotion.window &&
+				   ev.xmotion.x >= ca->start_x && ev.xmotion.x <= ca->end_x &&
+				   ev.xmotion.y >= ca->start_y && ev.xmotion.y <= ca->end_y)
+				{
+					XDefineCursor(dzen.dpy, ev.xmotion.window, dzen.cursor_hand);
+					over_clickable = 1;
+					break;
+				}
+			}
+
+			if(!over_clickable) {
+				XDefineCursor(dzen.dpy, ev.xmotion.window, dzen.cursor_arrow);
+			}
+		}
+		break;
+		/* TODO: XRandR rotation and size, etc. */
 	}
 }
 
@@ -1124,6 +1144,13 @@ main(int argc, char *argv[]) {
 			!dzen.slave_win.max_lines)
 		dzen.slave_win.max_lines = 1;
 
+#ifdef DZEN_XCURSOR
+	dzen.cursor_arrow = XcursorLibraryLoadCursor(dzen.dpy, "left_ptr");
+	dzen.cursor_hand  = XcursorLibraryLoadCursor(dzen.dpy, "hand2");
+#else
+	dzen.cursor_arrow = XCreateFontCursor(dzen.dpy, XC_left_ptr);
+	dzen.cursor_hand  = XCreateFontCursor(dzen.dpy, XC_hand2);
+#endif
 
 	x_create_windows(use_ewmh_dock);
 

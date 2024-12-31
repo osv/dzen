@@ -12,6 +12,7 @@ mkShell {
     xorg.libXft
     xorg.libXinerama
     xorg.libXpm
+    xorg.libXcursor
     pkg
 
     valgrind

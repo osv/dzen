@@ -745,10 +745,7 @@ handle_xev(void) {
 		{
 			int w_id = (ev.xmotion.window == dzen.title_win.win) ? 0 : 1;
 			sens_w w = window_sens[w_id];
-
 			int over_clickable = 0;
-
-			/* Go through all defined click-areas for this window */
 			for(i = 0; i < w.sens_areas_cnt; i++) {
 				click_a *ca = &w.sens_areas[i];
 				if(ca->active &&
@@ -761,7 +758,6 @@ handle_xev(void) {
 					break;
 				}
 			}
-
 			if(!over_clickable) {
 				XDefineCursor(dzen.dpy, ev.xmotion.window, dzen.cursor_arrow);
 			}

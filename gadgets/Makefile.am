@@ -2,7 +2,7 @@
 bin_PROGRAMS = dbar gdbar gcpubar textwidth
 
 # Common sources used by multiple programs
-common_sources = dbar.c
+common_sources = dbar.c dbar.h
 
 # dbar program
 dbar_SOURCES = dbar-main.c dbar.c

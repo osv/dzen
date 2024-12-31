@@ -14,6 +14,7 @@ EXTRA_DIST = \
   README \
   README.dzen \
   help \
+  integration-tests \
   run_integration_tests \
   TESTS.md \
   .gitignore \

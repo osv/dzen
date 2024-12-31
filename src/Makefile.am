@@ -8,6 +8,8 @@ dzen2_SOURCES = \
   main.c \
   draw.c \
   util.c \
+  action.h \
+  dzen.h \
   action.c
 
 # We can add extra CFLAGS or LIBS if needed, e.g.

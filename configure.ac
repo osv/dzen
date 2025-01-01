@@ -1,6 +1,5 @@
 # -- configure.ac --
 
-# Require Autoconf 2.69 or later
 AC_PREREQ([2.69])
 
 AC_INIT([dzen2], [1.0.0], [olexandr.syd@gmail.com])
@@ -62,19 +61,16 @@ AC_ARG_ENABLE([xinerama],
 # Library checks
 # -----------------------------
 # For X11 itself:
-PKG_CHECK_MODULES([X11], [x11])
-# This sets variables like $X_CFLAGS, $X_LIBS, $X_PRE_LIBS
+PKG_CHECK_MODULES([X11], [x11],
+  [],
+  [AC_MSG_ERROR([*** X11 not found!  Please install X11 development libraries.])])
 CPPFLAGS="$CPPFLAGS $X11_CFLAGS"
 LIBS="$LIBS $X11_LIBS"
-
-dnl # By default, put all found libs in LIBS/CFLAGS.  Then optionally detect xpm/xft/etc.
-dnl CPPFLAGS="$CPPFLAGS $X_CFLAGS"
-dnl LIBS="$LIBS $X_LIBS"
 
 # Check for XPM if enable_xpm != no
 HAVE_XPM="no"
 if test "x$enable_xpm" != "xno"; then
-  AC_CHECK_LIB([Xpm], [XpmCreateImageFromData],
+  AC_CHECK_LIB([Xpm], [XpmReadFileToPixmap],
     [HAVE_XPM="yes"; LIBS="$LIBS -lXpm"],
     [AC_MSG_WARN([Xpm library not found, disabling XPM support])])
 fi

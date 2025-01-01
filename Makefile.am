@@ -6,7 +6,6 @@ if ENABLE_GADGETS
   SUBDIRS += gadgets
 endif
 
-# "make dist" can be configured to include all your needed files:
 EXTRA_DIST = \
   CREDITS \
   LICENSE \

@@ -42,7 +42,7 @@ To enable all features and compile gadgets use next configure options:
     ^fg(grey85)make install
 
 ^fg(Khaki)Note: Using the `--enable-FEATURE` options requires libraries to be installed.
-^fg(Khaki)      You might want to disable some featyre by `--disable-FEATURE`
+^fg(Khaki)      You might want to disable some feature by `--disable-FEATURE`
 
 
 ^fg(#6fbf47)Contribute:

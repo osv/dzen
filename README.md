@@ -42,7 +42,7 @@ To enable all features and compile gadgets use next configure options:
     make install
 
 Note: Using the `--enable-FEATURE` options requires libraries to be installed.
-      You might want to disable some featyre by `--disable-FEATURE`
+      You might want to disable some feature by `--disable-FEATURE`
 
 
 Contribute:

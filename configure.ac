@@ -1,7 +1,7 @@
 # -- configure.ac --
 
 AC_PREREQ([2.69])
-AC_INIT([dzen2], [1.0.0], [olexandr.syd@gmail.com])
+AC_INIT([dzen2], [1.0.0], [olexandr.syd@gmail.com], [dzen2])
 AC_CONFIG_HEADERS([config.h])
 
 AM_INIT_AUTOMAKE([foreign -Wall -Werror subdir-objects])
@@ -160,9 +160,9 @@ AS_IF([test "x$XINERAMA_ENABLED" = "xyes"], [
 # ----------------------------------------------------------
 AC_ARG_ENABLE([gadgets],
   [AS_HELP_STRING([--enable-gadgets],
-  [Build dzen2 gadgets (dbar, gdbar, etc.) @<:@default=disabled@:>@])],
+  [Build dzen2 gadgets (dbar, gdbar, etc.) @<:@default=enabled@:>@])],
   [enable_gadgets="$enableval"],
-  [enable_gadgets="no"]
+  [enable_gadgets="yes"]
 )
 AM_CONDITIONAL([ENABLE_GADGETS], [test "x$enable_gadgets" = "xyes"])
 AS_IF([test "x$enable_gadgets" = "xyes"], [

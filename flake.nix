@@ -51,7 +51,7 @@
               description = "A lightweight and customizable status bar for X11";
               license = licenses.mit;
               homepage = "https://github.com/osv/dzen";
-              maintainers = [ "Olexander Sydorchuk <olexandr.syd@gmail.com>" ];
+              maintainers = [ "Olexandr Sydorchuk <olexandr.syd@gmail.com>" ];
               platforms = platforms.unix;
             };
           };

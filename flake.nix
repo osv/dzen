@@ -102,6 +102,7 @@
 
             xorg.xwd
             imagemagick
+            pandoc
           ];
 
           shellHook = ''

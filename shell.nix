@@ -19,6 +19,9 @@ mkShell {
 
     xorg.xwd
     imagemagick
+
+    # for updating man page
+    pandoc
   ];
 
   shellHook = ''

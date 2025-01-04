@@ -10,11 +10,14 @@ bin_SCRIPTS = dzen2-help
 CLEANFILES = $(bin_SCRIPTS)
 dist_doc_DATA = README.dzen README.md
 
+dist_man_MANS = dzen2.1
+
 EXTRA_DIST = \
   CREDITS \
   LICENSE \
   INSTALL \
   README.md \
+  dzen2.1 \
   README.dzen \
   dzen2-help.in \
   integration-tests \
@@ -36,7 +39,21 @@ dzen2-help: dzen2-help.in Makefile
 test:
 	./run_integration_tests
 
-update-readme: ./README.dzen
+update-man: ./README.md Makefile
+	@echo "Generating dzen2.1 man page with metadata:"
+	@echo "  DATE: $(DATE)"
+	@echo "  AUTHOR: $(AUTHOR)"
+	@echo "  VERSION: $(VERSION)"
+	pandoc ./README.md \
+		--metadata date="$(shell date +%Y-%m-%d)" \
+		--metadata author="Robert Manea" \
+		--metadata author="Olexandr Sydorchuk" \
+		--metadata version="$(VERSION)" \
+		--metadata title="$(PACKAGE)" \
+		--metadata section="1" \
+		-s -t man -o dzen2.1
+
+./README.md: ./README.dzen
 # 1) Temporarily replace ^^tag(...) with <DC>tag(...)
 # 2) Remove single-caret ^tag(...)
 # 3) Convert <DC>tag(...) back into ^tag(...)

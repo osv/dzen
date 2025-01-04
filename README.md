@@ -51,9 +51,9 @@ Contribute:
 Feature requests, patches or anything else related to dzen can be send
 to: https://github.com/osv/dzen
 
-To update README.md from README.dzen, run:
+To update man page and README.md from README.dzen, run:
 
-    make update-readme
+    make update-man
 
 To run integration tests, DejaVu fonts and compilation with the `--enable-xft` options are required:
 
@@ -586,56 +586,65 @@ Examples:
 ---------
 
 * Display message and timeout after 10 seconds:
-    (echo "This is a message"; sleep 10) | dzen2 -bg darkred -fg grey85 -fn fixed
+
+      (echo "This is a message"; sleep 10) | dzen2 -bg darkred -fg grey85 -fn fixed
 
 
 * Display message and never timeout:
-    echo "This is a message"| dzen2 -p
+
+      echo "This is a message"| dzen2 -p
 
 
 * Display updating single line message:
-    for i in $(seq 1 20); do A=${A}'='; print $A; sleep 1; done | dzen2
+
+      for i in $(seq 1 20); do A=${A}'='; print $A; sleep 1; done | dzen2
 
 
 * Display header and a message with multiple lines:
-    (echo Header; cal; sleep 20) | dzen2 -l 8
 
-    Displays "Header" in the title window and the output of cal in the
-    8 lines high slave window.
+      (echo Header; cal; sleep 20) | dzen2 -l 8
+
+Displays "Header" in the title window and the output of cal in the
+8 lines high slave window.
 
 
 * Display updating messages:
-    (echo Header; while true; do echo test$((i++)); sleep 1; done) | dzen2 -l 12
 
-    The slave window will update contents if new input has arrived.
+      (echo Header; while true; do echo test$((i++)); sleep 1; done) | dzen2 -l 12
+
+The slave window will update contents if new input has arrived.
 
 
 * Display log files:
-    (su -c "echo LOGFILENAME; tail -f /var/log/messages") | dzen2 -l 20 -x 100 -y 300 -w 500
+
+      (su -c "echo LOGFILENAME; tail -f /var/log/messages") | dzen2 -l 20 -x 100 -y 300 -w 500
 
 
 * Monthly schedule with remind:
-    (echo Monthly Schedule; remind -c1 -m) | dzen2 -l 52 -w 410 -p -fn lime -bg '#e0e8ea' -fg black -x 635
+
+      (echo Monthly Schedule; remind -c1 -m) | dzen2 -l 52 -w 410 -p -fn lime -bg '#e0e8ea' -fg black -x 635
 
 
 * Simple menu:
-    echo "Applications" | dzen2 -l 4 -p -m < menufile
+
+      echo "Applications" | dzen2 -l 4 -p -m < menufile
 
 
 * Horizontal menu without any files:
-    {echo Menu; echo -e "xterm\nxclock\nxeyes\nxfontsel"} | dzen2 -l 4 -m h -p
+
+      {echo Menu; echo -e "xterm\nxclock\nxeyes\nxfontsel"} | dzen2 -l 4 -m h -p
 
 
 * Extract PIDs from the process table:
 
-    {echo Procs; ps -a} | dzen2 -m -l 12 -p \
-    -e 'button1=menuprint;button3=exit;button4=scrollup:3;button5=scrolldown:3;entertitle=uncollapse;leaveslave=collapse' \
+      {echo Procs; ps -a} | dzen2 -m -l 12 -p \
+      -e 'button1=menuprint;button3=exit;button4=scrollup:3;button5=scrolldown:3;entertitle=uncollapse;leaveslave=collapse' \
             | awk '{print $1}'
 
 
 * Dzen as xmonad (see http://xmonad.org) statusbar:
 
-    status.sh | dzen2 -ta r -fn '-*-profont-*-*-*-*-11-*-*-*-*-*-iso8859' -bg '#aecf96' -fg black \
+      status.sh | dzen2 -ta r -fn '-*-profont-*-*-*-*-11-*-*-*-*-*-iso8859' -bg '#aecf96' -fg black \
         -p -e 'sigusr1=raise;sigusr2=lower;onquit=exec:rm /tmp/dzen2-pid;button3=exit' & echo $! > /tmp/dzen2-pid
 
 

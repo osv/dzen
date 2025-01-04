@@ -1,0 +1,62 @@
+#!/bin/sh
+
+OPTS=(
+    -bg "#111111"
+    -fg "grey70"
+    -p
+    -l 30
+    -e "onstart=uncollapse,scrollhome,grabkeys;\
+button5=scrolldown;\
+key_Down=scrolldown;\
+button4=scrollup;\
+key_Up=scrollup;\
+key_Page_Down=scrolldown:30;\
+key_Page_Up=scrollup:30;\
+key_Escape=exit;\
+button3=exit;\
+entertitle=grabkeys;\
+enterslave=grabkeys"
+)
+
+BINDIR='@bindir@'
+DOCDIR='@docdir@'
+
+find_dzen2() {
+    if [ -x ./src/dzen2 ]; then
+        # Local development
+        echo "./src/dzen2"
+    elif [ -x "$BINDIR/dzen2" ]; then
+        # Installed binary
+        echo "$BINDIR/dzen2"
+    else
+        echo ""
+    fi
+}
+
+find_readme() {
+    if [ -f README.dzen ]; then
+        # Local development
+        echo "README.dzen"
+    elif [ -f "$DOCDIR/README.dzen" ]; then
+        # Installed documentation
+        echo "$DOCDIR/README.dzen"
+    else
+        echo ""
+    fi
+}
+
+DZEN2_BIN=$(find_dzen2)
+README_FILE=$(find_readme)
+
+if [ -x "$DZEN2_BIN" ]; then
+    if [ -f "$README_FILE" ]; then
+        (
+            echo "^fg(#323232)^bg(#5FBF77) Documentation (use: scrollwheel, arrow keys, PgUP/PgDown to scroll. Escape or right mouse button to quit)";
+            cat "$README_FILE"
+        ) | "$DZEN2_BIN" "${OPTS[@]}"
+    else
+        echo "Error: README.dzen not found. Please ensure the file is available."
+    fi
+else
+    echo "Error: dzen2 binary not found. Please build the project by running 'make' or ensure dzen2 is installed."
+fi

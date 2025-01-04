@@ -33,7 +33,7 @@ clean_up(void) {
 	int i;
 
 	free_event_list();
-#ifndef DZEN_XFT
+#ifndef HAVE_XFT
 	if(dzen.font.set)
 		XFreeFontSet(dzen.dpy, dzen.font.set);
 	else
@@ -271,7 +271,7 @@ qsi_no_xinerama(Display *dpy, XRectangle *rect) {
 	rect->height = DisplayHeight(dpy, DefaultScreen(dpy));
 }
 
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 static void
 queryscreeninfo(Display *dpy, XRectangle *rect, int screen) {
 	XineramaScreenInfo *xsi = NULL;
@@ -303,7 +303,7 @@ set_docking_ewmh_info(Display *dpy, Window w, int dock) {
 	char *host_name;
 	XTextProperty txt_prop;
 	XRectangle si;
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 	XineramaScreenInfo *xsi;
 	int screen_count,i,max_height;
 #endif
@@ -332,7 +332,7 @@ set_docking_ewmh_info(Display *dpy, Window w, int dock) {
 
 
 	XGetWindowAttributes(dpy, w, &wa);
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 	queryscreeninfo(dpy,&si,dzen.xinescreen);
 #else
 	qsi_no_xinerama(dpy,&si);
@@ -345,7 +345,7 @@ set_docking_ewmh_info(Display *dpy, Window w, int dock) {
 		strut_s[2] = strut[2];
 	}
 	else if((wa.y - si.y + wa.height) == si.height) {
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 		max_height = si.height;
 		xsi = XineramaQueryScreens(dpy,&screen_count);
 		for(i=0; i < screen_count; i++) {
@@ -516,7 +516,7 @@ x_create_windows(int use_ewmh_dock) {
 	wa.background_pixmap = ParentRelative;
 	wa.event_mask = ExposureMask | ButtonReleaseMask | ButtonPressMask | ButtonMotionMask | EnterWindowMask | LeaveWindowMask | KeyPressMask | PointerMotionMask;
 
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 	queryscreeninfo(dzen.dpy, &si, dzen.xinescreen);
 #else
 	qsi_no_xinerama(dzen.dpy, &si);
@@ -1051,7 +1051,7 @@ main(int argc, char *argv[]) {
 				fnpre = estrdup(argv[i]);
 			}
 		}
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 		else if(!strncmp(argv[i], "-xs", 4)) {
 			if(++i < argc) dzen.xinescreen = atoi(argv[i]);
 		}
@@ -1062,13 +1062,13 @@ main(int argc, char *argv[]) {
 			printf("dzen-"VERSION", (C)opyright 2007-2009 Robert Manea\n");
 			printf(
 			"Enabled optional features: "
-#ifdef DZEN_XMP
+#ifdef HAVE_XMP
 			" XPM "
 #endif
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 			" XFT"
 #endif
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 			" XINERAMA "
 #endif
 			"\n"
@@ -1081,7 +1081,7 @@ main(int argc, char *argv[]) {
 				   "             [-e <string>] [-l <lines>]  [-fn <font>] [-bg <color>] [-fg <color>]\n"
 				   "             [-geometry <geometry string>] [-expand <left|right>] [-dock]\n"
 				   "             [-title-name <string>] [-slave-name <string>]\n"
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 				   "             [-xs <screen>]\n"
 #endif
 				  );
@@ -1140,7 +1140,7 @@ main(int argc, char *argv[]) {
 			!dzen.slave_win.max_lines)
 		dzen.slave_win.max_lines = 1;
 
-#ifdef DZEN_XCURSOR
+#ifdef HAVE_XCURSOR
 	dzen.cursor_arrow = XcursorLibraryLoadCursor(dzen.dpy, "left_ptr");
 	dzen.cursor_hand  = XcursorLibraryLoadCursor(dzen.dpy, "hand2");
 #else

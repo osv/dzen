@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 #include <X11/xpm.h>
 #endif
 
@@ -74,7 +74,7 @@ int get_token(const char*  line, int * t, char **tval);
 
 static unsigned int
 textnw(Fnt *font, const char *text, unsigned int len) {
-#ifndef DZEN_XFT
+#ifndef HAVE_XFT
 	XRectangle r;
 
 	if(font->set) {
@@ -191,7 +191,7 @@ void free_all_caches() {
 
 void
 setfont(const char *fontstr) {
-#ifndef DZEN_XFT
+#ifndef HAVE_XFT
 	char *def, **missing;
 	int i, n;
 
@@ -405,7 +405,7 @@ search_icon_cache(const char* name) {
 	return -1;
 }
 
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 static void
 cache_icon(const char* name, Pixmap pm, int w, int h) {
 	if(icon_cnt >= MAX_ICON_CACHE)
@@ -464,18 +464,18 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 	/* X stuff */
 	long lastfg = dzen.norm[ColFG], lastbg = dzen.norm[ColBG];
 	Fnt *cur_fnt = NULL;
-#ifndef DZEN_XFT
+#ifndef HAVE_XFT
 	XGCValues gcv;
 #endif
 	Drawable pm=0, bm;
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 	int free_xpm_attrib = 0;
 	Pixmap xpm_pm;
 	XpmAttributes xpma;
 	XpmColorSymbol xpms;
 #endif
 
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 	XftDraw *xftd=NULL;
 	XftColor xftc;
 	char *xftcs;
@@ -522,24 +522,24 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 					dzen.line_height, DefaultDepth(dzen.dpy, dzen.screen));
 		}
 
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 		xftd = XftDrawCreate(dzen.dpy, pm, DefaultVisual(dzen.dpy, dzen.screen), 
 				DefaultColormap(dzen.dpy, dzen.screen));
 #endif
 
 		if(!reverse) {
 			XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 			xpms.pixel = dzen.norm[ColBG];
 #endif
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 			xftcs_bg = (char *)dzen.bg;
 			xftcs_bgf = 0;
 #endif
 		}
 		else {
 			XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColFG]);
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 			xpms.pixel = dzen.norm[ColFG];
 #endif
 		}
@@ -552,7 +552,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 			XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
 		}
 
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 		xpms.name = NULL;
 		xpms.value = (char *)"none";
 
@@ -564,7 +564,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 		xpma.valuemask = XpmColormap|XpmDepth|XpmVisual|XpmColorSymbols;
 #endif
 
-#ifndef DZEN_XFT 
+#ifndef HAVE_XFT
 		if(!dzen.font.set){
 			gcv.font = dzen.font.xfont->fid;
 			XChangeGC(dzen.dpy, dzen.tgc, GCFont, &gcv);
@@ -621,7 +621,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 									px += !pos_is_fixed ? bm_w : 0;
 									max_y = MAX(max_y, y+bm_h);
 								}
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 								else if(XpmReadFileToPixmap(dzen.dpy, dzen.title_win.win, tval, &xpm_pm, NULL, &xpma) == XpmSuccess) {
 									setcolor(&pm, px, xpma.width, lastfg, lastbg, reverse, nobg);
 
@@ -774,7 +774,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 
 						case bg:
 							lastbg = tval[0] ? (unsigned)getcolor(tval) : dzen.norm[ColBG];
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 							if(xftcs_bgf) free(xftcs_bg);				
 							if(tval[0]) {
 								xftcs_bg = estrdup(tval);
@@ -790,7 +790,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 						case fg:
 							lastfg = tval[0] ? (unsigned)getcolor(tval) : dzen.norm[ColFG];
 							XSetForeground(dzen.dpy, dzen.tgc, lastfg);
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 							if(tval[0]) {
 								xftcs = estrdup(tval);
 								xftcs_f = 1;
@@ -803,7 +803,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 
 						case fn:
 							if(tval[0]) {
-#ifndef DZEN_XFT		
+#ifndef HAVE_XFT
 								if(!strncmp(tval, "dfnt", 4)) {
 									cur_fnt = &(dzen.fnpl[atoi(tval+4)]);
 
@@ -818,7 +818,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 							}
 							else {
 								cur_fnt = &dzen.font;
-#ifndef DZEN_XFT		
+#ifndef HAVE_XFT
 								if(!cur_fnt->set){
 									gcv.font = cur_fnt->xfont->fid;
 									XChangeGC(dzen.dpy, dzen.tgc, GCFont, &gcv);
@@ -897,7 +897,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 				if(!nobg)
 					setcolor(&pm, px, tw, lastfg, lastbg, reverse, nobg);
 				
-#ifndef DZEN_XFT
+#ifndef HAVE_XFT
 				if(cur_fnt->set)
 					XmbDrawString(dzen.dpy, pm, cur_fnt->set,
 							dzen.tgc, px, py + cur_fnt->ascent, lbuf, strlen(lbuf));
@@ -1010,14 +1010,14 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 		if(font_was_set)
 			setfont(dzen.fnt ? dzen.fnt : FONT);
 
-#ifdef DZEN_XPM
+#ifdef HAVE_XPM
 		if(free_xpm_attrib) {
 			XFreeColors(dzen.dpy, xpma.colormap, xpma.pixels, xpma.npixels, xpma.depth);
 			XpmFreeAttributes(&xpma);
 		}
 #endif
 
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 		XftDrawDestroy(xftd);
 #endif
 	}

@@ -1,0 +1,72 @@
+# Ignore all files in the integration-tests directory
+integration-tests/*
+
+# Do not ignore files that start with 'reference_'
+!integration-tests/reference_*
+
+# Ignore build and configuration artifacts
+/aclocal.m4
+/autom4te.cache/
+/config.guess
+/config.log
+/config.status
+/config.sub
+/configure
+/depcomp
+/install-sh
+config.h*
+Makefile
+Makefile.in
+/missing
+/stamp-h1
+/compile
+# Ignore directories created by build tools
+/build/
+/.libs/
+.deps
+/.aux/
+.dirstamp
+# Ignore compiled object files and binary files
+*.o
+*.lo
+*.la
+*.al
+*.so
+*.dylib
+*.a
+*.lib
+*.exe
+*.out
+*.app
+
+# Ignore generated headers
+*.h.gch
+
+# Ignore Ctags and Etags files
+tags
+TAGS
+
+# Ignore temporary files created by editors
+*~
+\#*\#
+.\#*
+*.swp
+*.swo
+*.tmp
+*.bak
+*.old
+
+# Ignore log files
+*.log
+
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore backup files created by some editors
+*~
+*.bak
+*.backup
+*.orig
+*.rej

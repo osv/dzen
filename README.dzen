@@ -583,7 +583,7 @@ you can easily draw your own icons.
 
 
 ^fg(#6fbf47)Examples:
-^fg(#6fbf47)---------
+^fg(#6fbf47)=========
 
 ^fg(red)*^fg(grey70) Display message and timeout after 10 seconds:
 

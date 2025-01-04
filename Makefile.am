@@ -40,10 +40,6 @@ test:
 	./run_integration_tests
 
 update-man: ./README.md Makefile
-	@echo "Generating dzen2.1 man page with metadata:"
-	@echo "  DATE: $(DATE)"
-	@echo "  AUTHOR: $(AUTHOR)"
-	@echo "  VERSION: $(VERSION)"
 	pandoc ./README.md \
 		--metadata date="$(shell date +%Y-%m-%d)" \
 		--metadata author="Robert Manea" \

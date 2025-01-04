@@ -583,7 +583,7 @@ Some examples:
 
 
 Examples:
----------
+=========
 
 * Display message and timeout after 10 seconds:
 

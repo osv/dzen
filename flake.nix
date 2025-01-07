@@ -102,7 +102,7 @@
 
             xorg.xwd
             imagemagick
-            pandoc
+            pandoc              # Update man pages: `make update-man`
           ];
 
           shellHook = ''

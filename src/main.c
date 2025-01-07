@@ -1059,17 +1059,21 @@ main(int argc, char *argv[]) {
 		else if(!strncmp(argv[i], "-dock", 6))
 			use_ewmh_dock = 1;
 		else if(!strncmp(argv[i], "-v", 3)) {
-			printf("dzen-"VERSION", (C)opyright 2007-2009 Robert Manea\n");
+			printf("dzen-"VERSION", (C)opyright 2007-2009 Robert Manea");
+			printf(", (C)opyright 2025 Olexandr Sydorchuk\n");
 			printf(
 			"Enabled optional features: "
-#ifdef HAVE_XMP
-			" XPM "
+#ifdef HAVE_XPM
+			" XPM"
 #endif
 #ifdef HAVE_XFT
 			" XFT"
 #endif
 #ifdef HAVE_XINERAMA
-			" XINERAMA "
+			" XINERAMA"
+#endif
+#ifdef HAVE_XCURSOR
+			" XCURSOR"
 #endif
 			"\n"
 			);

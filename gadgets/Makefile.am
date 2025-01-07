@@ -19,3 +19,38 @@ gcpubar_LDADD = $(LIBS)
 # textwidth
 textwidth_SOURCES = textwidth.c
 textwidth_LDADD = $(LIBS)
+
+dist_doc_DATA = README.dbar.md \
+	README.gcpubar.md \
+	README.gdbar.md
+
+dist_man_MANS = dbar.1 \
+	gcpubar.1 \
+	gdbar.1
+
+.PHONY: update-man
+
+update-man:
+	pandoc ./README.dbar.md \
+		--metadata date="$(shell date +%Y-%m-%d)" \
+		--metadata author="Robert Manea" \
+		--metadata version="$(VERSION)" \
+		--metadata title="$(PACKAGE)" \
+		--metadata section="1" \
+		-s -t man -o dbar.1
+
+	pandoc ./README.gcpubar.md \
+		--metadata date="$(shell date +%Y-%m-%d)" \
+		--metadata author="Robert Manea" \
+		--metadata version="$(VERSION)" \
+		--metadata title="$(PACKAGE)" \
+		--metadata section="1" \
+		-s -t man -o gcpubar.1
+
+	pandoc ./README.gdbar.md \
+		--metadata date="$(shell date +%Y-%m-%d)" \
+		--metadata author="Robert Manea" \
+		--metadata version="$(VERSION)" \
+		--metadata title="$(PACKAGE)" \
+		--metadata section="1" \
+		-s -t man -o gdbar.1

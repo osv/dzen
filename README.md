@@ -12,6 +12,20 @@ use in combination with dzen.
 Script archive with a collection of interesting ideas:
   http://gotmor.googlepages.com/dzenscriptarchive
 
+About this dzen2 fork
+=====================
+
+Main differences between the original and this fork of `dzen2`:
+
+* Improved performance for color/font changing (caching X11 resources).
+* Increased line size from 8k to 256k.
+* Align commands: `^left()`, `^center()`, `^right()`.
+  You can now run a single dzen instance to render workspaces on the
+  left side and other widgets on the right side.
+* Improved theme changing on the fly. Allows setting default fg/bg color and font.
+  See `^normfg(COLOR)`, `^normbg(COLOR)`, `^normfg(FONT)`.
+* Added integration test (you can run: `make test`).
+
 
 Features
 ========
@@ -68,7 +82,7 @@ Running dzen
     -fg     foreground color
     -bg     background color
     -fn     font
-    -ta     alignement of title window content
+    -ta     alignment of title window content
             l(eft), c(center), r(ight)
     -tw     title window width
     -sa     alignment of slave window, see "-ta"
@@ -120,7 +134,7 @@ Dzen's window layout is as follows:
 
 The first line you provide to dzen always goes to the title window,
 all other consecutive lines will be drawn to the slave window unless
-you explicitly overide this with the "(5) In-text formating language"
+you explicitly override this with the "(5) In-text formating language"
 command ^tw().
 
 
@@ -137,17 +151,17 @@ A2:  With the default event/action handling the slave window will
      window. See "(2) Events and actions" if you'd like to change
      this.
 
-Q3:  If I echo some text or cat a file dzen closes itself imediatelly.
+Q3:  If I echo some text or cat a file dzen closes itself immediately.
 A3:  There are 2 different approaches dzen uses to terminate itself,
      see next section "Termination".
 
 Q4:  Ok, the title and slave thing works, can I update the
      contents of both windows at the same time?
 A4:  Sure, see "(4) Simultaneous updates" or use the in-text
-     command "^tw()" to explicitly draw to the title windwow.
+     command "^tw()" to explicitly draw to the title window.
      See "(5) In-Text formating language" for further details
 
-Q5:  Can i chnage color of my input at runtime?
+Q5:  Can I change color of my input at runtime?
 A5:  Yes, you can change both background and foreground colors and
      much more See "(5) In-Text formating language".
 
@@ -205,7 +219,7 @@ The command line syntax is as follows:
 
 
 Every event can take any number of actions and every action can take any number
-of options. (By default limited to 64 each, easily changable in action.h)
+of options. (By default limited to 64 each, easily changeable in action.h)
 
 An example:
 
@@ -439,9 +453,9 @@ Positioning:
      _CENTER           Move current x-position to center of the window
      _BOTTOM           Move current y-position to the bottom edge
 
-    ^left()           Align next input to left. Reset settings (fg, bg, fn, etc)
-    ^center()         Align next input to center. Reset settings (fg, bg, fn, etc)
-    ^right()          Align next input to rigth. Reset settings (fg, bg, fn, etc)
+    ^left()            Align next input to left. Reset settings (fg, bg, fn, etc)
+    ^center()          Align next input to center. Reset settings (fg, bg, fn, etc)
+    ^right()           Align next input to rigth. Reset settings (fg, bg, fn, etc)
                        Example:
                          ^left()^fg(red)Left ^center()^fg(green)Center ^right()^fg(blue)Right
                        Giving:
@@ -562,10 +576,10 @@ Some examples:
 
 
    Input for icons:
-          ^i(bitmaps/envelope.xbm) I am an envelope ^fg(yellow)and ^i(bitmaps/battery.xbm) I'm a baterry.
+          ^i(bitmaps/envelope.xbm) I am an envelope ^fg(yellow)and ^i(bitmaps/battery.xbm) I'm a battery.
 
    Resulting in:
-           I am an envelope and  I'm a baterry.
+           I am an envelope and  I'm a battery.
 
 
    Input for rectangles:

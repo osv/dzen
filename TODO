@@ -1,24 +1,30 @@
-#  documentation
+<!-- -*- mode: markdown -*- -->
 
-          o `-dock' and `-geometry' options are undocumented
+Documentation
+=============
 
-
-#  X related
-
-          o XRandR support (MEDIUM PRIORITY)
-          o cache XPM files in order to improve drawing
-            performace (HIGH PRIORITY, done in svn trunk)
+- [ ] `-dock' and `-geometry' options are undocumented
 
 
-#  extend available actions
+X related
+=========
 
-          o set font action (LOW PRIORITY)
-          o any other useful action (LOW PRIORITY)
+- [ ] XRandR support (MEDIUM PRIORITY)
+- [ ] Cache XPM files in order to improve drawing
+      performace (HIGH PRIORITY, done in svn trunk)
 
 
-# user interface
+Extend available actions
+========================
 
-          o improve in-text command to draw
-            to the title window (MEDIUM PRIORITY, done in svn trunk)
-          o auto fit window width to
-            text length (MEDIUM PRIORITY, done in svn trunk)
+- [ ] Set font action (LOW PRIORITY)
+- [ ] Any other useful action (LOW PRIORITY)
+
+
+User interface
+==============
+
+- [ ] Improve in-text command to draw
+      to the title window (MEDIUM PRIORITY, done in svn trunk)
+- [ ] Auto fit window width to
+      text length (MEDIUM PRIORITY, done in svn trunk)

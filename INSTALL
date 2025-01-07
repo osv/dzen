@@ -1,9 +1,13 @@
-====================================
-dzen, (c) 2007-2010 by Robert Manea
-      (c) 2025 by Olexandr Sydorchuk
-====================================
+<!-- -*- mode: markdown -*- -->
+
+dzen
+====
+
+(c) 2007-2010 by Robert Manea
+(c) 2025 by Olexandr Sydorchuk
 
 Build:
+------
 
     autoreconf -vfi
     ./configure
@@ -11,20 +15,21 @@ Build:
     make install
 
 Configure options:
+------------------
 
-   --enable-gadgets / --disable-gadgets
+    --enable-gadgets / --disable-gadgets
                 Enable or disable building dzen2 gadgets. Default - enabled.
 
-   --enable-xpm / --disable-xpm
+     --enable-xpm / --disable-xpm
                 Enable or disable XPM support. Default - auto.
 
-   --enable-xft / --disable-xft
+     --enable-xft / --disable-xft
                 Enable or disable XFT support. Default - auto.
 
-   --enable-xcursor / --disable-xcursor
+     --enable-xcursor / --disable-xcursor
                 Enable or disable XCursor support. Default - auto.
 
-   --enable-xinerama / --disable-xinerama
+     --enable-xinerama / --disable-xinerama
                 Enable or disable Xinerama support. Default - auto.
 
-Use "./dzen2-help" to view a nicely formated version of the documentation.
+Use "./dzen2-help" to view a nicely formatted version of the documentation.

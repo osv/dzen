@@ -16,9 +16,6 @@ EXTRA_DIST = \
   CREDITS \
   LICENSE \
   INSTALL \
-  README.md \
-  dzen2.1 \
-  README.dzen \
   dzen2-help.in \
   integration-tests \
   run_integration_tests \
@@ -34,12 +31,12 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test
+.PHONY: test update-man
 
 test:
 	./run_integration_tests
 
-update-man: ./README.md Makefile
+update-man: ./README.md
 	pandoc ./README.md \
 		--metadata date="$(shell date +%Y-%m-%d)" \
 		--metadata author="Robert Manea" \
@@ -48,6 +45,7 @@ update-man: ./README.md Makefile
 		--metadata title="$(PACKAGE)" \
 		--metadata section="1" \
 		-s -t man -o dzen2.1
+	$(MAKE) -C gadgets update-man || exit 1;
 
 ./README.md: ./README.dzen
 # 1) Temporarily replace ^^tag(...) with <DC>tag(...)

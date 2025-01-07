@@ -38,6 +38,7 @@ jobs:
             libx11-dev \
             libxft-dev \
             libxpm-dev \
+            libxcursor-dev \
             fonts-dejavu-core \
             xdotool \
             imagemagick \

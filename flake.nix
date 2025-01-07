@@ -96,12 +96,11 @@
             xorg.libXinerama
             xorg.libXpm
             xorg.libXcursor
-            pkg
 
-            valgrind
+            valgrind            # I want check for memory leak, `printer-app | valgrind -s --leak-check=full --show-leak-kinds=all ./dzen2 ...`
 
-            xorg.xwd
-            imagemagick
+            xorg.xwd            # for `make test`
+            imagemagick         # for `make test`
             pandoc              # Update man pages: `make update-man`
           ];
 

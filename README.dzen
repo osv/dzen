@@ -224,7 +224,7 @@ of options. (By default limited to 64 each, easily changeable in action.h)
 
 An example:
 
-   ^fg(grey85)-e 'button1=exec:xterm:firefox;entertitle=uncollapse,unhide;button3=exit'
+    ^fg(grey85)-e 'button1=exec:xterm:firefox;entertitle=uncollapse,unhide;button3=exit'
 
 Meaning:
 

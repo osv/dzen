@@ -224,7 +224,7 @@ of options. (By default limited to 64 each, easily changeable in action.h)
 
 An example:
 
-   -e 'button1=exec:xterm:firefox;entertitle=uncollapse,unhide;button3=exit'
+    -e 'button1=exec:xterm:firefox;entertitle=uncollapse,unhide;button3=exit'
 
 Meaning:
 

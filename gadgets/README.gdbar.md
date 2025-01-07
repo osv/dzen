@@ -1,8 +1,9 @@
-=================================
- gdbar, (c) 2007 by Robert Manea
-=================================
+gdbar
+=====
 
-gdbar is an application that generates fully graphical progress meters,
+(c) 2007 by Robert Manea
+
+`gdbar` is an application that generates fully graphical progress meters,
 from some values you supply to it.
 
 It has the same input semantics as dbar (see README.dbar). In contrast
@@ -31,5 +32,5 @@ Options:
              '\n' at the end of the bar    (default: do print '\n')
 
 
-See README.dbar for further details!
+See `dbar` for further details!
 

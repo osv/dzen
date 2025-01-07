@@ -1,6 +1,7 @@
 #ifndef __DBAR_H
 #define __DBAR_H
 
+#include "../config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

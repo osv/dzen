@@ -4,17 +4,19 @@
  *
  */
 
+#include "../config.h"
+
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xresource.h>
 #include <X11/cursorfont.h>
-#ifdef DZEN_XCURSOR
+#ifdef HAVE_XCURSOR
 #include <X11/Xcursor/Xcursor.h>
 #endif
-#ifdef DZEN_XINERAMA
+#ifdef HAVE_XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 #include <X11/Xft/Xft.h>
 #endif
 
@@ -61,7 +63,7 @@ struct Fnt {
 	int ascent;
 	int descent;
 	int height;
-#ifdef DZEN_XFT
+#ifdef HAVE_XFT
 	XftFont *xftfont;
 	XGlyphInfo extents;
 	int width;
@@ -162,7 +164,7 @@ struct DZEN {
 	long cur_line;
 	int ret_val;
 
-	/* should always be 0 if DZEN_XINERAMA not defined */
+	/* should always be 0 if HAVE_XINERAMA not defined */
 	int xinescreen;
 
 	Cursor cursor_arrow;

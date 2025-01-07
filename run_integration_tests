@@ -24,7 +24,7 @@ run_test() {
 
   # Run the app using coproc and capture the PID
   eval "args=($cmd_args)"
-  coproc program_coproc { exec ./dzen2 -p "${args[@]}" &> app_output.txt; }
+  coproc program_coproc { exec ./src/dzen2 -p "${args[@]}" &> app_output.txt; }
   local app_pid=$program_coproc_PID
 
   # Wait for the app to start (adjust this time if necessary)

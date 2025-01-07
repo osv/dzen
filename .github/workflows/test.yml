@@ -13,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code
+      # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v3
 
-     # Step 2: Restore apt cache
+      # Restore apt cache
       - name: Restore APT Cache
         uses: actions/cache@v3
         with:
@@ -26,29 +26,45 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-apt-
 
-      # Step 3: Install build and test dependencies
+      # Install build and test dependencies
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
             libx11-dev \
             libxft-dev \
             libxpm-dev \
+            libxcursor-dev \
+            libxinerama-dev \
             fonts-dejavu-core \
             xdotool \
             imagemagick \
             x11-apps \
-            xvfb
-        # Save a list of installed packages to cache key
+            xvfb \
+            x11-xkb-utils \
+            xkb-data
+
+      # Save a list of installed packages to cache key
       - run: dpkg-query -W -f='${binary:Package}\n' > apt-packages-list.txt
 
-      # Step 4: Build the app using Makefile
+      # Generate the configure script
+      - name: Generate configure script
+        run: autoreconf -vif
+
+      # Run configure
+      - name: Configure the project
+        run: ./configure --enable-gadgets --enable-xft --enable-xpm --enable-xinerama --enable-xcursor
+
+      # Build the app using Makefile
       - name: Build the application
         run: |
           make
 
-      # Step 5: Start the Xvfb (Virtual Framebuffer)
+      # Start the Xvfb (Virtual Framebuffer)
       - name: Start Xvfb (Virtual Framebuffer)
         run: |
           # Start Xvfb on display :99
@@ -68,3 +84,10 @@ jobs:
         with:
           name: screenshots
           path: integration-tests
+
+      # TODO: fix build without xft too
+      - name: Compile without xinerama, xcursor, xpm
+        run: |
+          make clean
+          ./configure --disable-xinerama --disable-xcursor --disable-xpm
+          make

@@ -1,25 +1,35 @@
-==================================
- dzen, (c) 2007 by Robert Manea
-==================================
+<!-- -*- mode: markdown -*- -->
 
+dzen
+====
 
-Edit config.mk to match your local setup (dzen is installed into
-the /usr/local namespace by default).
+(c) 2007-2010 by Robert Manea
+(c) 2025 by Olexandr Sydorchuk
 
-Afterwards enter the following command to build and install dzen (if
-necessary as root):
+Build:
+------
 
-    make clean install
+    autoreconf -vfi
+    ./configure
+    make
+    make install
 
+Configure options:
+------------------
 
-Optionally if you want to use dzen's gadgets:
+    --enable-gadgets / --disable-gadgets
+                Enable or disable building dzen2 gadgets. Default - enabled.
 
-    cd gadgets
-    make clean install
+     --enable-xpm / --disable-xpm
+                Enable or disable XPM support. Default - auto.
 
+     --enable-xft / --disable-xft
+                Enable or disable XFT support. Default - auto.
 
-Note:       By default dzen will not be compiled with Xinerama and XPM support.
-            Uncomment the respective lines in config.mk to change this.
+     --enable-xcursor / --disable-xcursor
+                Enable or disable XCursor support. Default - auto.
 
+     --enable-xinerama / --disable-xinerama
+                Enable or disable Xinerama support. Default - auto.
 
-Use "./help" to view a nicely formated version of the documentation.
+Use "./dzen2-help" to view a nicely formatted version of the documentation.

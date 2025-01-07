@@ -25,6 +25,7 @@ Main differences between the original and this fork of `dzen2`:
 * Improved theme changing on the fly. Allows setting default fg/bg color and font.
   See `^normfg(COLOR)`, `^normbg(COLOR)`, `^normfg(FONT)`.
 * Added integration test (you can run: `make test`).
+* To make assembly easier, used GNU Autotools instead of a simple Makefile.
 
 
 Features

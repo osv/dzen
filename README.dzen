@@ -25,6 +25,7 @@ Main differences between the original and this fork of `dzen2`:
 ^fg(red)*^fg(grey70) Improved theme changing on the fly. Allows setting default fg/bg color and font.
   See `^^normfg(COLOR)`, `^^normbg(COLOR)`, `^^normfg(FONT)`.
 ^fg(red)*^fg(grey70) Added integration test (you can run: `make test`).
+^fg(red)*^fg(grey70) To make assembly easier, used GNU Autotools instead of a simple Makefile.
 
 
 ^fg(#6fbf47)Features

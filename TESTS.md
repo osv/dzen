@@ -527,3 +527,50 @@ Line 2
 
 ![reference](./integration-tests/reference_16-norm-2-font.png)
 
+## Test: 17 Delayed persist `-p 2`
+
+This test run in persist 2 second mode. App must exit after 1 second
+
+### Args: -h 30 -w 300 -p 2
+
+### Mouse: 400,10
+
+Ensure the mouse is not over the window.
+
+### Sleep: 1
+
+Sleep for 1 second, and check if still running
+
+### Dzen app is running?: yes
+
+### Sleep: 2
+
+### Dzen app is running?: no
+
+## Test: 18 Tooltip behavior `-p 1`
+
+This test runs in persist mode for 1 second. The app must exit after 1 second,
+but only if the mouse is not over the window.
+
+### Args: -h 30 -w 300 -p 1
+
+Use `-p 1`, delay for 1 seconds
+
+### Mouse: 10,10
+
+Move mouse over window
+
+### Sleep: 2
+
+### Dzen app is running?: yes
+
+The app must still be running.
+
+### Mouse: 400,10
+
+Move mouse somewhere
+
+### Sleep: 2
+
+### Dzen app is running?: no
+

@@ -45,6 +45,7 @@ run_test() {
   local crop_geometry=""
   local reference_screenshot=""
   local check_num=0
+
   for step in "${steps[@]}"; do
     IFS='|' read -r action params <<< "$step"
     case "$action" in
@@ -78,11 +79,16 @@ run_test() {
         ;;
       'screenshot')
         # Get the window's geometry (position and size)
-        local window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
-        local window_x=$(echo "$window_geometry" | grep 'X=' | cut -d '=' -f 2)
-        local window_y=$(echo "$window_geometry" | grep 'Y=' | cut -d '=' -f 2)
-        local window_width=$(echo "$window_geometry" | grep 'WIDTH=' | cut -d '=' -f 2)
-        local window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
+        local window_geometry
+        window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
+        local window_x
+        local window_y
+        local window_width
+        local window_height
+        window_x=$(echo "$window_geometry" | grep 'X=' | cut -d '=' -f 2)
+        window_y=$(echo "$window_geometry" | grep 'Y=' | cut -d '=' -f 2)
+        window_width=$(echo "$window_geometry" | grep 'WIDTH=' | cut -d '=' -f 2)
+        window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
 
         check_num=$((check_num + 1))
         reference_screenshot="$params"
@@ -126,14 +132,40 @@ run_test() {
         echo -e "$decoded_pipe_data" >&"${program_coproc[1]}"
         sleep 0.1
         ;;
+
+      'sleep')
+        echo -en "Sleep for ${params}s, "
+        sleep "$params"
+        ;;
+
+      'dzen_running')
+        check_num=$((check_num + 1))
+        if [ "$params" = "yes" ]; then
+          if kill -0 "$app_pid" 2>/dev/null; then
+            echo -en "$check_num: Dzen running? yes ${GREEN}Pass. ${NC}"
+          else
+            echo -e "\n${RED}$check_num: Error:\nExpected app to be running, but it is not (PID: $app_pid).${NC}"
+            all_tests_passed=false
+          fi
+        else  # "no"
+          if kill -0 "$app_pid" 2>/dev/null; then
+            echo -e "\n${RED}$check_num: Error:\nExpected app NOT to be running, but it's alive (PID: $app_pid).${NC}"
+            all_tests_passed=false
+          else
+            echo -en "$check_num: Dzen running? no ${GREEN}Pass. ${NC}"
+          fi
+        fi
+        ;;
     esac
   done
   echo
 
-  # Close the coprocess
-  kill "$app_pid"
-  exec {program_coproc[1]}>&-
-  exec {program_coproc[0]}>&-
+  if kill -0 "$app_pid" 2>/dev/null; then
+    # Close the coprocess
+    kill "$app_pid"
+    exec {program_coproc[1]}>&-
+    exec {program_coproc[0]}>&-
+  fi
 }
 
 # Function to parse the test cases from markdown
@@ -195,7 +227,17 @@ run_tests() {
       '### Crop: '*)
         steps+=("crop|${line#'### Crop: '}")
         ;;
+
+      '### Sleep: '*)
+        steps+=("sleep|${line#'### Sleep: '}")
+        ;;
+
+      '### Dzen app is running?: '*)
+        steps+=("dzen_running|${line#'### Dzen app is running?: '}")
+        ;;
+
       *)
+        # Collect lines for pipe_data if we are in a pipe_data block
         if $in_pipe_data; then
           pipe_data_block+="$line"$'\n'
         fi
@@ -203,6 +245,7 @@ run_tests() {
     esac
   done < "$test_file"
 
+  # Run the last test if file ended without a new test block
   if [ -n "$test_name" ]; then
     run_test "$test_name" "$cmd_args" "${steps[@]}"
   fi

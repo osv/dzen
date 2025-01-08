@@ -21,7 +21,8 @@ EXTRA_DIST = \
   run_integration_tests \
   TESTS.md \
   .gitignore \
-  shell.nix \
+  flake.nix \
+  flake.lock \
   .envrc
 
 do_subst = sed -e 's,[@]bindir[@],$(bindir),g' \

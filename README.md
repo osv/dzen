@@ -26,7 +26,8 @@ Main differences between the original and this fork of `dzen2`:
   See `^normfg(COLOR)`, `^normbg(COLOR)`, `^normfg(FONT)`.
 * Added integration test (you can run: `make test`).
 * To make assembly easier, used GNU Autotools instead of a simple Makefile.
-
+* `-p` with argument n persist for n seconds,
+  only when the mouse is not over the window (like popup or tooltip).
 
 Features
 ========
@@ -178,8 +179,9 @@ Termination:
 
 * Timed termination: if EOF is received -> terminate
   - unless the `-p` option is set
-    - `-p` without argument persist forever
-    - `-p` with argument n  persist for n seconds
+    - `-p` Without argument persist forever
+    - `-p` With argument n persist for n seconds,
+           only when the mouse is not over the window.
 
 * Interactive termination: if mouse button3 is clicked -> terminate
   - this is the default behaviour, see (2)
@@ -230,13 +232,13 @@ Meaning:
 
 - `button1=exec:xterm:firefox;`
 On Button1 event (Button1 press on the mouse) execute xterm and
-    firefox.
+firefox.
 
 Note: xterm and firefox are options to the exec action
 
 - `entertitle=uncollapse,unhide;`
 On entertitle (mouse pointer enters the title window) uncollapse
-    slave window and unhide the title window
+slave window and unhide the title window
 
 - `button3=exit`
 On button3 event exit dzen

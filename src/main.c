@@ -74,6 +74,7 @@ static void
 catch_sigterm(int s) {
 	(void)s;
 	do_action(onexit);
+	clean_up();
 }
 
 static void
@@ -657,6 +658,27 @@ x_redraw(Window w) {
 	}
 }
 
+static int timeout_active = 0;
+static struct itimerval timer = {0};
+
+static void
+reset_timer(void) {
+	memset(&timer, 0, sizeof(timer));
+	fprintf(stderr, "reset\n");
+	setitimer(ITIMER_REAL, &timer, NULL);
+	timeout_active = 0;
+}
+
+static void
+start_timer(int seconds) {
+	if (timeout_active) return;
+	timer.it_value.tv_sec = seconds;
+	timer.it_value.tv_usec = 0;
+	fprintf(stderr, "start\n");
+	setitimer(ITIMER_REAL, &timer, NULL);
+	timeout_active = 1;
+}
+
 static void
 handle_xev(void) {
 	XEvent ev;
@@ -671,6 +693,9 @@ handle_xev(void) {
 				x_redraw(ev.xexpose.window);
 			break;
 		case EnterNotify:
+			if (dzen.timeout > 0) {
+				reset_timer();
+			}
 			if(dzen.slave_win.ismenu) {
 				for(i=0; i < dzen.slave_win.max_lines; i++)
 					if(ev.xcrossing.window == dzen.slave_win.line[i])
@@ -683,14 +708,18 @@ handle_xev(void) {
 				do_action(enterslave);
 			break;
 		case LeaveNotify:
+			if (dzen.timeout > 0 && ev.xcrossing.detail != NotifyInferior) {
+				start_timer(dzen.timeout);
+			}
 			if(dzen.slave_win.ismenu) {
 				for(i=0; i < dzen.slave_win.max_lines; i++)
 					if(ev.xcrossing.window == dzen.slave_win.line[i])
 						x_unhilight_line(i);
 			}
 			if(!dzen.slave_win.ishmenu
-					&& ev.xcrossing.window == dzen.title_win.win)
+			   && ev.xcrossing.window == dzen.title_win.win) {
 				do_action(leavetitle);
+			}
 			if(ev.xcrossing.window == dzen.slave_win.win) {
 				do_action(leaveslave);
 			}
@@ -820,14 +849,6 @@ event_loop(void) {
 				if((dr = read_stdin()) == -1)
 					return;
 				handle_newl();
-			}
-			if(dr == -2 && dzen.timeout > 0) {
-				/* set an alarm to kill us after the timeout */
-				struct itimerval t;
-				memset(&t, 0, sizeof t);
-				t.it_value.tv_sec = dzen.timeout;
-				t.it_value.tv_usec = 0;
-				setitimer(ITIMER_REAL, &t, NULL);
 			}
 			if(FD_ISSET(xfd, &rmask))
 				handle_xev();
@@ -993,8 +1014,10 @@ main(int argc, char *argv[]) {
 				dzen.timeout = strtoul(argv[i+1], &endptr, 10);
 				if(*endptr)
 					dzen.timeout = 0;
-				else
+				else {
 					i++;
+					start_timer(dzen.timeout);
+				}
 			}
 		}
 		else if(!strncmp(argv[i], "-ta", 4)) {

@@ -22,7 +22,8 @@ textwidth_LDADD = $(LIBS)
 
 dist_doc_DATA = README.dbar.md \
 	README.gcpubar.md \
-	README.gdbar.md
+	README.gdbar.md \
+	README.textwidth.md
 
 dist_man_MANS = dbar.1 \
 	gcpubar.1 \

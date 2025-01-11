@@ -147,30 +147,6 @@ XftFont* get_cached_font(Display *display, int screen, const char *font_name) {
 	return font;
 }
 
-long get_cached_color(Display *display, int screen, const char *colstr) {
-	long *cached_color = get_cached_value(&color_cache, colstr);
-	if (cached_color) {
-		return *cached_color;
-	}
-
-	Colormap cmap = DefaultColormap(display, screen);
-	XColor color;
-	if (!XAllocNamedColor(display, cmap, colstr, &color, &color)) {
-		return -1;
-	}
-
-	long *color_value = malloc(sizeof(long));
-	*color_value = color.pixel;
-	add_to_cache(&color_cache, colstr, color_value);
-
-	return color.pixel;
-}
-
-long
-getcolor(const char *colstr) {
-	return get_cached_color(dzen.dpy, dzen.screen, colstr);
-}
-
 void free_cache(Cache **cache) {
 	Cache *current = *cache;
 	while (current) {
@@ -181,12 +157,6 @@ void free_cache(Cache **cache) {
 		current = next;
 	}
 	*cache = NULL;
-}
-
-/* Free all caches before exiting, TODO: when I can call this? */
-void free_all_caches() {
-	free_cache(&font_cache);
-	free_cache(&color_cache);
 }
 
 void
@@ -773,7 +743,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 							break;
 
 						case bg:
-							lastbg = tval[0] ? (unsigned)getcolor(tval) : dzen.norm[ColBG];
+							lastbg = tval[0] ? (unsigned)get_color(tval) : dzen.norm[ColBG];
 #ifdef HAVE_XFT
 							if(xftcs_bgf) free(xftcs_bg);				
 							if(tval[0]) {
@@ -788,7 +758,7 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 							break;
 
 						case fg:
-							lastfg = tval[0] ? (unsigned)getcolor(tval) : dzen.norm[ColFG];
+							lastfg = tval[0] ? (unsigned)get_color(tval) : dzen.norm[ColFG];
 							XSetForeground(dzen.dpy, dzen.tgc, lastfg);
 #ifdef HAVE_XFT
 							if(tval[0]) {
@@ -1129,7 +1099,7 @@ parse_non_drawing_commands(char * text) {
 	if(!strncmp(text, "^normfg(", strlen("^normfg("))) {
 		char *tval = extract_between_parentheses(text);
 		if (tval) {
-			if((dzen.norm[ColFG] = getcolor(tval)) == ~0lu)
+			if((dzen.norm[ColFG] = get_color(tval)) == ~0lu)
 				eprint("dzen: error, cannot allocate color '%s'\n", tval);
 			free((char *)dzen.fg);
 			dzen.fg = estrdup(tval);
@@ -1144,7 +1114,7 @@ parse_non_drawing_commands(char * text) {
 	if(!strncmp(text, "^normbg(", strlen("^normbg("))) {
 		char *tval = extract_between_parentheses(text);
 		if (tval) {
-			if((dzen.norm[ColBG] = getcolor(tval)) == ~0lu)
+			if((dzen.norm[ColBG] = get_color(tval)) == ~0lu)
 				eprint("dzen: error, cannot allocate color '%s'\n", tval);
 			free((char *)dzen.bg);
 			dzen.bg = estrdup(tval);

@@ -33,6 +33,7 @@ clean_up(void) {
 	int i;
 
 	free_event_list();
+	free_all_caches();
 #ifndef HAVE_XFT
 	if(dzen.font.set)
 		XFreeFontSet(dzen.dpy, dzen.font.set);
@@ -504,9 +505,9 @@ x_create_windows(int use_ewmh_dock) {
 	root = RootWindow(dzen.dpy, dzen.screen);
 
 	/* style */
-	if((dzen.norm[ColBG] = getcolor(dzen.bg)) == ~0lu)
+	if((dzen.norm[ColBG] = get_color(dzen.bg)) == ~0lu)
 		eprint("dzen: error, cannot allocate color '%s'\n", dzen.bg);
-	if((dzen.norm[ColFG] = getcolor(dzen.fg)) == ~0lu)
+	if((dzen.norm[ColFG] = get_color(dzen.fg)) == ~0lu)
 		eprint("dzen: error, cannot allocate color '%s'\n", dzen.fg);
 	setfont(dzen.fnt);
 
@@ -1175,6 +1176,8 @@ main(int argc, char *argv[]) {
 	dzen.cursor_hand  = XCreateFontCursor(dzen.dpy, XC_hand2);
 #endif
 
+
+	init_all_caches();
 	x_create_windows(use_ewmh_dock);
 
 	if(!dzen.slave_win.ishmenu)

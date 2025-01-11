@@ -186,7 +186,6 @@ extern char * parse_line(const char * text,
 		int align, 
 		int reverse, 
 		int nodraw);
-extern long getcolor(const char *colstr);		/* returns color of colstr */
 extern void setfont(const char *fontstr);		/* sets global font */
 extern unsigned int textw(const char *text);	/* returns width of text in px */
 extern void drawheader(const char *text);
@@ -197,3 +196,11 @@ extern void *emalloc(unsigned int size);		/* allocates memory, exits on error */
 extern void eprint(const char *errstr, ...);	/* prints errstr and exits with 1 */
 extern char *estrdup(const char *str);			/* duplicates str, exits on allocation error */
 extern void spawn(const char *arg);				/* execute arg */
+
+/* caches.c */
+Fnt *find_or_create_font(const char *str);
+long get_color(const char *str);                /* returns color of colstr */
+Pixmap find_or_create_icon(const char *str);
+
+void init_all_caches();
+void free_all_caches();

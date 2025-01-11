@@ -91,6 +91,7 @@
             automake
             pkg-config
             gcc
+            gdb
             xorg.libX11.dev
             xorg.libXft
             xorg.libXinerama

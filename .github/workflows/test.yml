@@ -45,7 +45,7 @@ jobs:
           # Set the DISPLAY environment variable to use the virtual display
           export DISPLAY=:99
           # waiting for framebuffer
-          sleep 3
+          sleep 4
           fc-list
           # run tests
           make test

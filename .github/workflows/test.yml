@@ -19,12 +19,7 @@ jobs:
 
       # Restore apt cache
       - name: Restore APT Cache
-        uses: actions/cache@v3
-        with:
-          path: /var/cache/apt
-          key: ${{ runner.os }}-apt-${{ hashFiles('apt-packages-list.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
+        uses: awalsh128/cache-apt-pkgs-action@latest
 
       # Install build and test dependencies
       - name: Install Dependencies
@@ -47,9 +42,6 @@ jobs:
             xvfb \
             x11-xkb-utils \
             xkb-data
-
-      # Save a list of installed packages to cache key
-      - run: dpkg-query -W -f='${binary:Package}\n' > apt-packages-list.txt
 
       # Generate the configure script
       - name: Generate configure script

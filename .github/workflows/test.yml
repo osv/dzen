@@ -80,7 +80,7 @@ jobs:
       # Step 6: Upload screenshots and diffs as artifacts if tests fail
       - name: Upload screenshots as artifacts (for debugging)
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: screenshots
           path: integration-tests

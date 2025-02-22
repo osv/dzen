@@ -39,6 +39,7 @@ clean_up(void) {
 		XFreeFontSet(dzen.dpy, dzen.font.set);
 	else
 		XFreeFont(dzen.dpy, dzen.font.xfont);
+	FcFini();
 #endif
 
 	XFreePixmap(dzen.dpy, dzen.title_win.drawable);

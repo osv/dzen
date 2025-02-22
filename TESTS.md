@@ -373,7 +373,7 @@ No area, +1px X after area2
 
 ## Test: 11 Icons
 
-### Args: -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
+### Args: -fn "DejaVu Sans Mono:size=10:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 ### Pipe data
 
@@ -382,6 +382,16 @@ No area, +1px X after area2
 ```
 
 ![reference](./integration-tests/reference_11-icons.png)
+
+### Pipe data
+
+Multiple background of icons
+
+```
+^fg(black)^bg(red)b/r^i(bitmaps/envelope.xbm)^i(bitmaps/battery_on.xpm)  ^fg(red)^bg(blue)r/b^i(bitmaps/envelope.xbm)^i(bitmaps/battery_on.xpm) ^fg(black)^bg(pink)b/p^i(bitmaps/envelope.xbm)^i(bitmaps/battery_on.xpm)
+```
+
+![reference](./integration-tests/reference_11-icons-2-backgrounds.png)
 
 
 ## Test: 12 Action: 'menuprint'

@@ -16,7 +16,6 @@
 #endif
 
 #define ARGLEN 256
-#define MAX_ICON_CACHE 32
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #define LNR2WINDOW(lnr) lnr==-1?0:1
@@ -28,7 +27,6 @@ typedef struct ICON_C {
 	int w, h;
 } icon_c;
 
-icon_c icons[MAX_ICON_CACHE];
 int icon_cnt;
 int otx;
 
@@ -363,41 +361,8 @@ get_block_align_vals(char *s, int *a, int *w)
 	return r;
 }
 
-
-static int
-search_icon_cache(const char* name) {
-	int i;
-
-	for(i=0; i < MAX_ICON_CACHE; i++)
-		if(!strncmp(icons[i].name, name, ARGLEN))
-			return i;
-
-	return -1;
-}
-
-#ifdef HAVE_XPM
-static void
-cache_icon(const char* name, Pixmap pm, int w, int h) {
-	if(icon_cnt >= MAX_ICON_CACHE)
-		icon_cnt = 0;
-
-	if(icons[icon_cnt].p)
-		XFreePixmap(dzen.dpy, icons[icon_cnt].p);
-
-	strncpy(icons[icon_cnt].name, name, ARGLEN);
-	icons[icon_cnt].w = w;
-	icons[icon_cnt].h = h;
-	icons[icon_cnt].p = pm;
-	icon_cnt++;
-}
-#endif
-
-
 char *
 parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
-	/* bitmaps */
-	unsigned int bm_w, bm_h;
-	int bm_xh, bm_yh;
 	/* rectangles, cirlcles*/
 	int rectw, recth, rectx, recty;
 	/* positioning */
@@ -438,12 +403,6 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 	XGCValues gcv;
 #endif
 	Drawable pm=0, bm;
-#ifdef HAVE_XPM
-	int free_xpm_attrib = 0;
-	Pixmap xpm_pm;
-	XpmAttributes xpma;
-	XpmColorSymbol xpms;
-#endif
 
 #ifdef HAVE_XFT
 	XftDraw *xftd=NULL;
@@ -499,9 +458,6 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 
 		if(!reverse) {
 			XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
-#ifdef HAVE_XPM
-			xpms.pixel = dzen.norm[ColBG];
-#endif
 #ifdef HAVE_XFT
 			xftcs_bg = (char *)dzen.bg;
 			xftcs_bgf = 0;
@@ -509,9 +465,6 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 		}
 		else {
 			XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColFG]);
-#ifdef HAVE_XPM
-			xpms.pixel = dzen.norm[ColFG];
-#endif
 		}
 		XFillRectangle(dzen.dpy, pm, dzen.tgc, 0, 0, dzen.w, dzen.h);
 
@@ -521,18 +474,6 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 		else {
 			XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
 		}
-
-#ifdef HAVE_XPM
-		xpms.name = NULL;
-		xpms.value = (char *)"none";
-
-		xpma.colormap = DefaultColormap(dzen.dpy, dzen.screen);
-		xpma.depth = DefaultDepth(dzen.dpy, dzen.screen);
-		xpma.visual = DefaultVisual(dzen.dpy, dzen.screen);
-		xpma.colorsymbols = &xpms;
-		xpma.numsymbols = 1;
-		xpma.valuemask = XpmColormap|XpmDepth|XpmVisual|XpmColorSymbols;
-#endif
 
 #ifndef HAVE_XFT
 		if(!dzen.font.set){
@@ -565,55 +506,44 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 			else {
 				if(t != -1 && tval) {
 					switch(t) {
-						case icon:
-							if(MAX_ICON_CACHE && (ip=search_icon_cache(tval)) != -1) {
-								int y;
-								XCopyArea(dzen.dpy, icons[ip].p, pm, dzen.tgc,
-										0, 0, icons[ip].w, icons[ip].h, px, y=(set_posy ? py :
-										(dzen.line_height >= (signed)icons[ip].h ?
-										(dzen.line_height - icons[ip].h)/2 : 0)));
-								max_x = MAX(max_x, px + icons[ip].w);
-								px += !pos_is_fixed ? icons[ip].w : 0;
-								max_y = MAX(max_y, y+icons[ip].h);
-							} else {
-								int y;
-								if(XReadBitmapFile(dzen.dpy, pm, tval, &bm_w,
-											&bm_h, &bm, &bm_xh, &bm_yh) == BitmapSuccess
-										&& (h/2 + px + (signed)bm_w < dzen.w)) {
-									setcolor(&pm, px, bm_w, lastfg, lastbg, reverse, nobg);
+						case icon: {
+							Icon* icon_obj = get_icon(tval);
+							if (icon_obj && icon_obj->pm != None) {
+								int y = (set_posy ? py
+												  : (dzen.line_height >= (int) icon_obj->h
+														 ? (dzen.line_height - (int) icon_obj->h) / 2
+														 : 0));
 
-									XCopyPlane(dzen.dpy, bm, pm, dzen.tgc,
-											0, 0, bm_w, bm_h, px, y=(set_posy ? py :
-											(dzen.line_height >= (int)bm_h ?
-												(dzen.line_height - (int)bm_h)/2 : 0)), 1);
-									XFreePixmap(dzen.dpy, bm);
-									max_x = MAX(max_x, px + bm_w);
-									px += !pos_is_fixed ? bm_w : 0;
-									max_y = MAX(max_y, y+bm_h);
+								setcolor(&pm, px, icon_obj->w, lastfg, lastbg, reverse, nobg);
+
+								if (icon_obj->is_xbm) {
+									/* 1-bit XBM => plane copy. */
+									XCopyPlane(dzen.dpy, icon_obj->pm, pm, dzen.tgc,
+											   0, 0, icon_obj->w, icon_obj->h, px, y, 1);
+								} else {
+									/* If XPM => do XCopyArea. */
+									/* But now we also check if there's a mask. */
+									if (icon_obj->mask_pm != None) {
+										/* Setup clip mask so we only draw opaque bits. */
+										XSetClipMask(dzen.dpy, dzen.tgc, icon_obj->mask_pm);
+										XSetClipOrigin(dzen.dpy, dzen.tgc, px, y);
+									}
+									XCopyArea(dzen.dpy, icon_obj->pm, pm, dzen.tgc,
+											  0, 0, icon_obj->w, icon_obj->h, px, y);
+									/* Restore normal clipping if we set a mask. */
+									if (icon_obj->mask_pm != None) {
+										XSetClipMask(dzen.dpy, dzen.tgc, None);
+									}
 								}
-#ifdef HAVE_XPM
-								else if(XpmReadFileToPixmap(dzen.dpy, dzen.title_win.win, tval, &xpm_pm, NULL, &xpma) == XpmSuccess) {
-									setcolor(&pm, px, xpma.width, lastfg, lastbg, reverse, nobg);
 
-									if(MAX_ICON_CACHE)
-										cache_icon(tval, xpm_pm, xpma.width, xpma.height);
-
-									XCopyArea(dzen.dpy, xpm_pm, pm, dzen.tgc,
-											0, 0, xpma.width, xpma.height, px, y=(set_posy ? py :
-											(dzen.line_height >= (int)xpma.height ?
-												(dzen.line_height - (int)xpma.height)/2 : 0)));
-									max_x = MAX(max_x, px + xpma.width);
-									px += !pos_is_fixed ? xpma.width : 0;
-									max_y = MAX(max_y, y+xpma.height);
-
-									/* freed by cache_icon() */
-									//XFreePixmap(dzen.dpy, xpm_pm);
-									free_xpm_attrib = 1;
+								max_x = MAX(max_x, px + icon_obj->w);
+								if (!pos_is_fixed) {
+									px += icon_obj->w;
 								}
-#endif
+								max_y = MAX(max_y, y + icon_obj->h);
 							}
-							break;
-
+							/* else: failed to load icon; do nothing. */
+						} break;
 
 						case rect:
 							get_rect_vals(tval, &rectw, &recth, &rectx, &recty);
@@ -979,13 +909,6 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 		/* reset font to default */
 		if(font_was_set)
 			setfont(dzen.fnt ? dzen.fnt : FONT);
-
-#ifdef HAVE_XPM
-		if(free_xpm_attrib) {
-			XFreeColors(dzen.dpy, xpma.colormap, xpma.pixels, xpma.npixels, xpma.depth);
-			XpmFreeAttributes(&xpma);
-		}
-#endif
 
 #ifdef HAVE_XFT
 		XftDrawDestroy(xftd);

@@ -19,6 +19,9 @@
 #ifdef HAVE_XFT
 #include <X11/Xft/Xft.h>
 #endif
+#ifdef HAVE_XPM
+#include <X11/xpm.h>
+#endif
 
 #define FONT		"-*-fixed-*-*-*-*-*-*-*-*-*-*-*-*"
 #define BGCOLOR		"#111111"
@@ -69,6 +72,19 @@ struct Fnt {
 	int width;
 #endif
 };
+
+typedef struct {
+	Pixmap       pm;
+	unsigned int w;
+	unsigned int h;
+	Bool         is_xbm;
+	Pixmap       mask_pm;
+#ifdef HAVE_XPM
+	/* We keep a copy of the attributes so we can call XFreeColors + XpmFreeAttributes */
+	/* Possibly track a flag to know if we actually had to allocate colormap cells */
+	XpmAttributes xpma;
+#endif
+} Icon;
 
 /* clickable areas */
 typedef struct _CLICK_A {
@@ -200,7 +216,7 @@ extern void spawn(const char *arg);				/* execute arg */
 /* caches.c */
 Fnt *find_or_create_font(const char *str);
 long get_color(const char *str);                /* returns color of colstr */
-Pixmap find_or_create_icon(const char *str);
+Icon *get_icon(const char *str);
 
 void init_all_caches();
 void free_all_caches();

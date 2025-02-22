@@ -1,3 +1,10 @@
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+
 #include "dzen.h"
 #include "kvstore.h"
 
@@ -70,6 +77,51 @@ icon_destroy_item(void* value) {
     free(icon);
 }
 
+static char cached_cwd[PATH_MAX] = {0};
+
+static const char*
+get_cached_cwd() {
+    if (cached_cwd[0] == '\0') {
+        if (!getcwd(cached_cwd, sizeof(cached_cwd))) {
+            /* If getcwd fails, set cached_cwd to an empty string */
+            cached_cwd[0] = '\0';
+        }
+    }
+    return cached_cwd;
+}
+
+static char*
+expand_path(const char* path) {
+    if (!path) return NULL;
+
+    char* expanded = NULL;
+    if (path[0] == '~') {
+        /* Expand ~ to home directory */
+        const char* home = getenv("HOME");
+        if (!home) {
+            errno = ENOENT;
+            return NULL;
+        }
+        /* Allocate space for home + rest of path + null terminator */
+        expanded = malloc(strlen(home) + strlen(path));
+        if (!expanded) return NULL;
+        sprintf(expanded, "%s%s", home, path + 1);
+    } else if (path[0] != '/') {
+        /* Relative path: use cached CWD */
+        const char* cwd = get_cached_cwd();
+        if (!cwd || cwd[0] == '\0') {
+            return NULL;
+        }
+        expanded = malloc(strlen(cwd) + strlen(path) + 2);
+        if (!expanded) return NULL;
+        sprintf(expanded, "%s/%s", cwd, path);
+    } else {
+        /* Absolute path: simply duplicate it */
+        expanded = strdup(path);
+    }
+    return expanded;
+}
+
 static int
 icon_load_xpm(const char* path, Icon* icon) {
 #ifdef HAVE_XPM
@@ -119,24 +171,28 @@ icon_load_xbm(const char* path, Icon* icon) {
     return 1; /* failure */
 }
 
-/*
- * Main function that gets an icon from the store or loads it into the store.
- */
 Icon*
 get_icon(const char* path) {
     if (!path || !*path)
         return NULL;
 
+    /* Expand the path to an absolute path with ~ and relative paths resolved */
+    char* expanded_path = expand_path(path);
+    if (!expanded_path) {
+        return NULL;
+    }
+
     /* Check if the icon is already cached. */
-    Icon* icon = (Icon*) kvstore_get(icon_store, path);
+    Icon* icon = (Icon*) kvstore_get(icon_store, expanded_path);
     if (icon) {
-        /* Already in the cache */
+        free(expanded_path);
         return icon;
     }
 
     /* Otherwise, we must load a new icon. */
     icon = (Icon*) malloc(sizeof(Icon));
     if (!icon) {
+        free(expanded_path);
         return NULL; /* out of memory */
     }
     icon->pm = None;
@@ -144,17 +200,19 @@ get_icon(const char* path) {
     icon->h  = 0;
 
     /* 1) Try XPM if available. If that fails, 2) fall back to XBM. */
-    if (icon_load_xpm(path, icon) != 0) {
+    if (icon_load_xpm(expanded_path, icon) != 0) {
         /* Fallback to XBM. */
-        if (icon_load_xbm(path, icon) != 0) {
+        if (icon_load_xbm(expanded_path, icon) != 0) {
             /* Both attempts failed. */
             free(icon);
+            free(expanded_path);
             return NULL;
         }
     }
 
     /* Store it in the kvstore for future use. */
-    kvstore_set(icon_store, path, icon);
+    kvstore_set(icon_store, expanded_path, icon);
+    free(expanded_path);
     return icon;
 }
 

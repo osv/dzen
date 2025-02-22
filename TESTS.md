@@ -377,8 +377,9 @@ No area, +1px X after area2
 
 ### Pipe data
 
+
 ```
-^fg(green)^i(bitmaps/envelope.xbm)^i(bitmaps/battery_on.xpm)
+^fg(green)^i(bitmaps/envelope.xbm)^i(./bitmaps/battery_on.xpm)
 ```
 
 ![reference](./integration-tests/reference_11-icons.png)

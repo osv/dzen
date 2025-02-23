@@ -23,7 +23,7 @@ check_dependencies() {
     fi
 }
 
-check_dependencies xwd convert magick xdotool base64
+check_dependencies xwd convert compare xdotool base64
 
 # Define ANSI color codes for green (pass) and red (fail)
 GREEN='\033[0;32m'
@@ -129,8 +129,8 @@ run_test() {
         # Compare with the reference screenshot
         if [ -f "$reference_screenshot" ]; then
           local diff_screenshot="$SCREENSHOT_DIR/diffs/diff_${screenshot}"
-          magick compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
-          diff=$(magick compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" null: 2>&1)
+          compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
+          diff=$(compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" null: 2>&1)
           if (( diff > delta_threshold )); then
             echo -e "\n${RED}$check_num: Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
             echo -e "${RED} See ./${diff_screenshot}${NC}\n"

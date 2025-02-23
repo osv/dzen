@@ -22,6 +22,27 @@ jobs:
           packages: imagemagick autoconf automake libtool pkg-config libx11-dev libxft-dev libxpm-dev libxcursor-dev libxinerama-dev fonts-dejavu-core xdotool x11-apps xvfb x11-xkb-utils xkb-data
           version: 2.1
 
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            libx11-dev \
+            libxft-dev \
+            libxpm-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            fonts-dejavu-core \
+            xdotool \
+            imagemagick \
+            x11-apps \
+            xvfb \
+            x11-xkb-utils \
+            xkb-data
+
       # Generate the configure script
       - name: Generate configure script
         run: autoreconf -vif
@@ -34,8 +55,6 @@ jobs:
       - name: Build the application
         run: |
           make
-      - name: list all
-        run: apt list --installed
 
       # Start the Xvfb (Virtual Framebuffer)
       - name: Start Xvfb (Virtual Framebuffer)

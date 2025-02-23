@@ -21,8 +21,8 @@ jobs:
       - name: Restore APT Cache
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: autoconf automake libtool pkg-config libx11-dev libxft-dev libxpm-dev libxcursor-dev libxinerama-dev fonts-dejavu-core xdotool imagemagick x11-apps xvfb x11-xkb-utils xkb-data
-          version: 2.0
+          packages: imagemagick autoconf automake libtool pkg-config libx11-dev libxft-dev libxpm-dev libxcursor-dev libxinerama-dev fonts-dejavu-core xdotool x11-apps xvfb x11-xkb-utils xkb-data
+          version: 2.1
 
       # Generate the configure script
       - name: Generate configure script

@@ -34,6 +34,8 @@ jobs:
       - name: Build the application
         run: |
           make
+      - name: list all
+        run: apt list --installed
 
       # Start the Xvfb (Virtual Framebuffer)
       - name: Start Xvfb (Virtual Framebuffer)
@@ -47,9 +49,6 @@ jobs:
           fc-list
           # run tests
           make test
-
-      - name: list all
-        run: apt list --installed
 
       # Step 6: Upload screenshots and diffs as artifacts if tests fail
       - name: Upload screenshots as artifacts (for debugging)

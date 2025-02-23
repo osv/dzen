@@ -4,20 +4,18 @@ on:
   push:
     branches:
       - '**'  # Run on all branches
-  pull_request:
-    branches:
-      - '**'  # Run on all pull requests
+  # pull_request:
+  #   branches:
+  #     - '**'  # Run on all pull requests
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the code
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Restore apt cache
       - name: Restore APT Cache
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
@@ -49,6 +47,9 @@ jobs:
           fc-list
           # run tests
           make test
+
+      - name: list all
+        run: apt list --installed
 
       # Step 6: Upload screenshots and diffs as artifacts if tests fail
       - name: Upload screenshots as artifacts (for debugging)

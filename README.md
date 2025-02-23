@@ -28,6 +28,7 @@ Main differences between the original and this fork of `dzen2`:
 * To make assembly easier, used GNU Autotools instead of a simple Makefile.
 * `-p` with argument n persist for n seconds,
   only when the mouse is not over the window (like popup or tooltip).
+* Change the mouse pointer when hovering over the action area.
 
 Features
 ========

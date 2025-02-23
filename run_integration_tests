@@ -5,6 +5,26 @@ SCREENSHOT_DIR="integration-tests"
 mkdir -p "$SCREENSHOT_DIR"
 mkdir -p "$SCREENSHOT_DIR/diffs"
 
+check_dependencies() {
+    local missing_dependencies=()
+
+    # Check for each dependency
+    for dep in "$@"; do
+        if ! type "$dep" &>/dev/null; then
+            missing_dependencies+=("$dep")
+        fi
+    done
+
+    # If there are missing dependencies, print them and exit
+    if [ ${#missing_dependencies[@]} -ne 0 ]; then
+        echo >&2 "Missing executables: ${missing_dependencies[@]}"
+        echo >&2 "Exiting"
+        exit 1
+    fi
+}
+
+check_dependencies xwd convert magick xdotool base64
+
 # Define ANSI color codes for green (pass) and red (fail)
 GREEN='\033[0;32m'
 RED='\033[0;31m'

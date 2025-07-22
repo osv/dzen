@@ -37,6 +37,7 @@ dzen2-help: dzen2-help.in Makefile
 test:
 	./run_integration_tests
 
+# TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
 update-man: ./README.md
 	pandoc ./README.md \
 		--metadata date="$(shell date +%Y-%m-%d)" \

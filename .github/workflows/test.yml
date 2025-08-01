@@ -20,7 +20,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@v1.4.3
         with:
           packages: imagemagick autoconf automake libtool pkg-config libx11-dev libxft-dev libxpm-dev libxcursor-dev libxinerama-dev fonts-dejavu-core xdotool x11-apps xvfb x11-xkb-utils xkb-data
-          version: 2.2
+          version: 2.3
 
       # Generate the configure script
       - name: Generate configure script

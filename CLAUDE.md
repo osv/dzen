@@ -62,7 +62,7 @@ The `test_perfomance` script provides a comprehensive test environment that simu
 
 # Memory analysis - comprehensive Valgrind check and save report to ./valgrind-out.txt
 # This script runs `valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt`
-timeout 10s ./test_perfomance --valgrind 2>&1
+timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?"
 
 # Performance profiling - generates perf.data for analysis
 ./test_perfomance --perf
@@ -157,9 +157,9 @@ echo "^fg(red)Error:^fg() Something went wrong" | ./src/dzen2 -p
 echo "50" | ./gadgets/gdbar -w 200 -h 20
 
 # Run test_perfomance with different modes
-./test_perfomance                              # Normal test mode - displays complex dzen2 bar with live updates
-timeout 10s ./test_perfomance --valgrind 2>&1  # Run with Valgrind memory checking - logs to valgrind-out.txt
-./test_perfomance --perf                       # Run with perf profiling - creates perf.data for analysis
+./test_perfomance # Normal test mode - displays complex dzen2 bar with live updates
+timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?"  # Run with Valgrind memory checking - logs to valgrind-out.txt
+./test_perfomance --perf # Run with perf profiling - creates perf.data for analysis
 
 # Fix Valgrind file descriptor limit error (no need if run ./test_perfomance)
 ulimit -n 65536  # Set before running valgrind if you get "Private file creation failed" error
@@ -193,12 +193,12 @@ ulimit -n 65536  # Set before running valgrind if you get "Private file creation
 
    ```bash
    # Run for specific duration and analyze
-   timeout 10s ./test_perfomance --valgrind 2>&1    # Stop after 10 seconds
+   timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?" # Stop after 10 seconds
    cat valgrind-out.txt | grep "ERROR SUMMARY"      # Check error count
    cat valgrind-out.txt | grep "LEAK SUMMARY" -A 5  # Check memory leaks
    
    # Run valgrind manually:
-   timeout 10s ./test_perfomance --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p
+   timeout 10s ./test_perfomance --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p; echo "Exit code: $?"
    ```
 
 ## Code Style

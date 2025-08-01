@@ -331,10 +331,17 @@ get_pos_vals(char *s, int *d, int *a) {
 		} else
 			ret=2;
 
-		if(s[++i]) {
-			*a=atoi(s+i);
-		} else
-			ret = 1;
+		// Check if we found a semicolon (onlyx==0 means semicolon was found)
+		if(!onlyx && i < 127) {  // Ensure we have room to increment
+			i++; // Move past the semicolon
+			if(s[i]) {
+				*a = atoi(s+i);
+			} else {
+				ret = 1; // Empty after semicolon
+			}
+		} else {
+			ret = 1; // No semicolon found or at buffer limit
+		}
 
 		if(onlyx) ret=1;
 

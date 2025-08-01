@@ -23,10 +23,10 @@
 #include <X11/xpm.h>
 #endif
 
-#define FONT		"-*-fixed-*-*-*-*-*-*-*-*-*-*-*-*"
-#define BGCOLOR		"#111111"
-#define FGCOLOR		"grey70"
-#define ESC_CHAR    '^'
+#define FONT     "-*-fixed-*-*-*-*-*-*-*-*-*-*-*-*"
+#define BGCOLOR  "#111111"
+#define FGCOLOR  "grey70"
+#define ESC_CHAR '^'
 
 #define ALIGNCENTER 0
 #define ALIGNLEFT   1
@@ -35,18 +35,18 @@
 #define TOPWINDOW   0
 #define SLAVEWINDOW 1
 
-#define MIN_BUF_SIZE   1024
+#define MIN_BUF_SIZE 1024
 #ifndef MAX_LINE_LEN
-#define MAX_LINE_LEN   262144
+#define MAX_LINE_LEN 262144
 #endif
 #define MAX_CLICKABLE_AREAS 256
 
 #ifndef Button6
-# define Button6 6
+#define Button6 6
 #endif
 
 #ifndef Button7
-# define Button7 7
+#define Button7 7
 #endif
 
 enum { ColFG, ColBG, ColLast };
@@ -54,137 +54,136 @@ enum { ColFG, ColBG, ColLast };
 /* exapansion directions */
 enum { noexpand, left, right, both };
 
-typedef struct DZEN Dzen;
-typedef struct Fnt Fnt;
-typedef struct TW TWIN;
-typedef struct SW SWIN;
+typedef struct DZEN   Dzen;
+typedef struct Fnt    Fnt;
+typedef struct TW     TWIN;
+typedef struct SW     SWIN;
 typedef struct _Sline Sline;
 
 struct Fnt {
-	XFontStruct *xfont;
-	XFontSet set;
-	int ascent;
-	int descent;
-	int height;
+    XFontStruct *xfont;
+    XFontSet     set;
+    int          ascent;
+    int          descent;
+    int          height;
 #ifdef HAVE_XFT
-	XftFont *xftfont;
-	XGlyphInfo extents;
-	int width;
+    XftFont   *xftfont;
+    XGlyphInfo extents;
+    int        width;
 #endif
 };
 
 typedef struct {
-	Pixmap       pm;
-	unsigned int w;
-	unsigned int h;
-	Bool         is_xbm;
-	Pixmap       mask_pm;
+    Pixmap       pm;
+    unsigned int w;
+    unsigned int h;
+    Bool         is_xbm;
+    Pixmap       mask_pm;
 #ifdef HAVE_XPM
-	/* We keep a copy of the attributes so we can call XFreeColors + XpmFreeAttributes */
-	/* Possibly track a flag to know if we actually had to allocate colormap cells */
-	XpmAttributes xpma;
+    /* We keep a copy of the attributes so we can call XFreeColors + XpmFreeAttributes */
+    /* Possibly track a flag to know if we actually had to allocate colormap cells */
+    XpmAttributes xpma;
 #endif
 } Icon;
 
 /* clickable areas */
 typedef struct _CLICK_A {
-    int active;
-	int button;
-	int start_x;
-	int end_x;
-	int start_y;
-	int end_y;
-	Window win;		//(line)window to which the action is attached
-	char cmd[1024];
+    int    active;
+    int    button;
+    int    start_x;
+    int    end_x;
+    int    start_y;
+    int    end_y;
+    Window win; //(line)window to which the action is attached
+    char   cmd[1024];
 } click_a;
 
 typedef struct _SENS_PER_WINDOW {
-	click_a sens_areas[MAX_CLICKABLE_AREAS];
-	int sens_areas_cnt;
+    click_a sens_areas[MAX_CLICKABLE_AREAS];
+    int     sens_areas_cnt;
 } sens_w;
 
 //0: top window, 1: slave window
 extern sens_w window_sens[2];
 
-
 /* title window */
 struct TW {
-	int x, y, width, height;
+    int x, y, width, height;
 
-	char *name;
-	Window win;
-	Drawable drawable;
-	char alignment;
-	int expand;
-	int x_right_corner;
-	Bool ishidden;
+    char    *name;
+    Window   win;
+    Drawable drawable;
+    char     alignment;
+    int      expand;
+    int      x_right_corner;
+    Bool     ishidden;
 };
 
 /* slave window */
 struct SW {
-	int x, y, width, height;
+    int x, y, width, height;
 
-	char *name;
-	Window win;
-	Window *line;
-	Drawable *drawable;
+    char     *name;
+    Window    win;
+    Window   *line;
+    Drawable *drawable;
 
-	/* input buffer */
-	char **tbuf; 
-	int tsize;
-	int tcnt;
-	/* line fg colors */
-	unsigned long *tcol;
+    /* input buffer */
+    char **tbuf;
+    int    tsize;
+    int    tcnt;
+    /* line fg colors */
+    unsigned long *tcol;
 
-	int max_lines;
-	int first_line_vis;
-	int last_line_vis;
-	int sel_line;
+    int max_lines;
+    int first_line_vis;
+    int last_line_vis;
+    int sel_line;
 
-	char alignment;
-	Bool ismenu;
-	Bool ishmenu;
-	Bool issticky;
-	Bool ismapped;
+    char alignment;
+    Bool ismenu;
+    Bool ishmenu;
+    Bool issticky;
+    Bool ismapped;
 };
 
 struct DZEN {
-	int x, y, w, h;
-	Bool running;
-	unsigned long norm[ColLast];
+    int           x, y, w, h;
+    Bool          running;
+    unsigned long norm[ColLast];
 
-	TWIN title_win;
-	SWIN slave_win;
+    TWIN title_win;
+    SWIN slave_win;
 
-	/* sensitive areas */
-	Window sa_win;
+    /* sensitive areas */
+    Window sa_win;
 
-	const char *fnt;
-	const char *bg;
-	const char *fg;
-	int line_height;
+    const char *fnt;
+    const char *bg;
+    const char *fg;
+    int         line_height;
 
-	Display *dpy;
-	int screen;
-	unsigned int depth;
+    Display     *dpy;
+    int          screen;
+    unsigned int depth;
 
-	Visual *visual;
-	GC gc, rgc, tgc;
-	Fnt font;
-	Fnt fnpl[64];
+    Visual *visual;
+    GC      gc, rgc, tgc;
+    Fnt     font;
+    Fnt     fnpl[64];
 
-	Bool ispersistent;
-	Bool tsupdate;
-	Bool colorize;
-	unsigned long timeout;
-	long cur_line;
-	int ret_val;
+    Bool          ispersistent;
+    Bool          tsupdate;
+    Bool          colorize;
+    unsigned long timeout;
+    long          cur_line;
+    int           ret_val;
 
-	/* should always be 0 if HAVE_XINERAMA not defined */
-	int xinescreen;
+    /* should always be 0 if HAVE_XINERAMA not defined */
+    int xinescreen;
 
-	Cursor cursor_arrow;
-	Cursor cursor_hand;
+    Cursor cursor_arrow;
+    Cursor cursor_hand;
 };
 
 extern Dzen dzen;
@@ -193,29 +192,22 @@ void free_buffer(void);
 void x_draw_body(void);
 
 /* draw.c */
-extern void drawtext(const char *text,
-		int reverse,
-		int line,
-		int align);
-extern char * parse_line(const char * text, 
-		int linenr, 
-		int align, 
-		int reverse, 
-		int nodraw);
-extern void setfont(const char *fontstr);		/* sets global font */
-extern unsigned int textw(const char *text);	/* returns width of text in px */
-extern void drawheader(const char *text);
-extern void drawbody(char *text);
+extern void         drawtext(const char *text, int reverse, int line, int align);
+extern char        *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
+extern void         setfont(const char *fontstr); /* sets global font */
+extern unsigned int textw(const char *text); /* returns width of text in px */
+extern void         drawheader(const char *text);
+extern void         drawbody(char *text);
 
 /* util.c */
-extern void *emalloc(unsigned int size);		/* allocates memory, exits on error */
-extern void eprint(const char *errstr, ...);	/* prints errstr and exits with 1 */
-extern char *estrdup(const char *str);			/* duplicates str, exits on allocation error */
-extern void spawn(const char *arg);				/* execute arg */
+extern void *emalloc(unsigned int size); /* allocates memory, exits on error */
+extern void  eprint(const char *errstr, ...); /* prints errstr and exits with 1 */
+extern char *estrdup(const char *str); /* duplicates str, exits on allocation error */
+extern void  spawn(const char *arg); /* execute arg */
 
 /* caches.c */
-Fnt *find_or_create_font(const char *str);
-long get_color(const char *str);                /* returns color of colstr */
+Fnt  *find_or_create_font(const char *str);
+long  get_color(const char *str); /* returns color of colstr */
 Icon *get_icon(const char *str);
 
 void init_all_caches();

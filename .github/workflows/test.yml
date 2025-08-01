@@ -19,8 +19,30 @@ jobs:
       - name: Restore APT Cache
         uses: awalsh128/cache-apt-pkgs-action@v1.4.3
         with:
-          packages: imagemagick autoconf automake libtool pkg-config libx11-dev libxft-dev libxpm-dev libxcursor-dev libxinerama-dev fonts-dejavu-core xdotool x11-apps xvfb x11-xkb-utils xkb-data
+          packages: |
+            imagemagick
+            autoconf
+            automake
+            libtool
+            pkg-config
+            libx11-dev
+            libxft-dev
+            libxpm-dev
+            libxcursor-dev
+            libxinerama-dev
+            fonts-dejavu-core
+            xdotool
+            x11-apps
+            xvfb
+            x11-xkb-utils
+            xkb-data
+            clang-format
           version: 2.3
+
+      # Check code formatting
+      - name: Check code formatting
+        run: |
+          find . -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
 
       # Generate the configure script
       - name: Generate configure script

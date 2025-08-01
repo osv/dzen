@@ -1,10 +1,10 @@
 #ifndef KVSTORE_H
 #define KVSTORE_H
 
-#include <stddef.h>  /* For size_t */
+#include <stddef.h> /* For size_t */
 
 #ifndef KVSTORE_CAPACITY
-# define KVSTORE_CAPACITY 501
+#define KVSTORE_CAPACITY 501
 #endif
 /*
  * Type for a user-provided destructor function for the store's values.
@@ -33,10 +33,7 @@ typedef struct KeyValueStore KeyValueStore;
  * Returns:
  *  - Pointer to a newly allocated KeyValueStore, or NULL if allocation fails.
  */
-KeyValueStore* kvstore_create(
-    kv_destroy_item_func destructor,
-    kv_create_item_func constructor
-);
+KeyValueStore *kvstore_create(kv_destroy_item_func destructor, kv_create_item_func constructor);
 
 /*
  * Destroy an existing key-value store.
@@ -64,7 +61,7 @@ int kvstore_set(KeyValueStore *store, const char *key, void *value);
  *
  * Returns the value pointer if the key is found, or NULL otherwise.
  */
-void* kvstore_get(KeyValueStore *store, const char *key);
+void *kvstore_get(KeyValueStore *store, const char *key);
 
 /*
  * Find or create an item by key.
@@ -74,6 +71,6 @@ void* kvstore_get(KeyValueStore *store, const char *key);
  *
  * If no constructor is set and the key is not found, returns NULL.
  */
-void* kvstore_find_or_create(KeyValueStore *store, const char *key);
+void *kvstore_find_or_create(KeyValueStore *store, const char *key);
 
 #endif /* KVSTORE_H */

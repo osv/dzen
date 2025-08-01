@@ -821,16 +821,6 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 
 				XftDrawStringUtf8(xftd, &xftc, 
 						cur_fnt->xftfont, px, py + dzen.font.xftfont->ascent, (const FcChar8 *)lbuf, strlen(lbuf));
-
-				if(xftcs_f) {
-					free(xftcs);
-					xftcs_f = 0;
-				}
-				if(xftcs_bgf) {
-					free(xftcs_bg);
-					xftcs_bgf = 0;
-				}
-
 #endif
 
 				max_y = MAX(max_y, py+dzen.font.height);
@@ -918,6 +908,13 @@ parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
 			setfont(dzen.fnt ? dzen.fnt : FONT);
 
 #ifdef HAVE_XFT
+		/* Free allocated color strings at function exit */
+		if(xftcs_f) {
+			free(xftcs);
+		}
+		if(xftcs_bgf) {
+			free(xftcs_bg);
+		}
 		XftDrawDestroy(xftd);
 #endif
 	}

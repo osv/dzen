@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Set reasonable file descriptor limit for Valgrind
+ulimit -n 65536
+
 read_sleep() {
     local IFS
     [[ -n "${_snore_fd:-}" ]] || exec {_snore_fd}<> <(:)
@@ -26,8 +29,6 @@ printer_simplest() {
 }
 
 test_valgrind() {
-    # Set reasonable file descriptor limit for Valgrind
-    ulimit -n 65536
     printer | valgrind -s --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./src/dzen2 -dock -ta l -h 30 \
         -y 40 \
         -fg "#33e" \
@@ -36,8 +37,6 @@ test_valgrind() {
 }
 
 test_valgrind2() {
-    # Set reasonable file descriptor limit for Valgrind
-    ulimit -n 65536
     printer | valgrind ./src/dzen2 -dock -ta l -h 30 \
         -y 40 \
         -fg "#33e" \

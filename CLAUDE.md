@@ -189,17 +189,16 @@ ulimit -n 65536  # Set before running valgrind if you get "Private file creation
    - `bt` - Show backtrace
 
 4. **Memory Debugging with Valgrind**:
+   Instructions:
+
    ```bash
-   # Run full memory analysis (logs to valgrind-out.txt)
-   ./test_perfomance --valgrind
-   
    # Run for specific duration and analyze
    timeout 10s ./test_perfomance --valgrind 2>&1    # Stop after 10 seconds
    cat valgrind-out.txt | grep "ERROR SUMMARY"      # Check error count
    cat valgrind-out.txt | grep "LEAK SUMMARY" -A 5  # Check memory leaks
    
    # Run valgrind manually:
-   ./test_perfomance --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p
+   timeout 10s ./test_perfomance --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p
    ```
 
 ## Code Style

@@ -4,52 +4,23 @@ on:
   push:
     branches:
       - '**'  # Run on all branches
-  pull_request:
-    branches:
-      - '**'  # Run on all pull requests
+  # pull_request:
+  #   branches:
+  #     - '**'  # Run on all pull requests
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the code
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Restore apt cache
       - name: Restore APT Cache
-        uses: actions/cache@v3
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
         with:
-          path: /var/cache/apt
-          key: ${{ runner.os }}-apt-${{ hashFiles('apt-packages-list.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      # Install build and test dependencies
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            libx11-dev \
-            libxft-dev \
-            libxpm-dev \
-            libxcursor-dev \
-            libxinerama-dev \
-            fonts-dejavu-core \
-            xdotool \
-            imagemagick \
-            x11-apps \
-            xvfb \
-            x11-xkb-utils \
-            xkb-data
-
-      # Save a list of installed packages to cache key
-      - run: dpkg-query -W -f='${binary:Package}\n' > apt-packages-list.txt
+          packages: imagemagick autoconf automake libtool pkg-config libx11-dev libxft-dev libxpm-dev libxcursor-dev libxinerama-dev fonts-dejavu-core xdotool x11-apps xvfb x11-xkb-utils xkb-data
+          version: 2.3
 
       # Generate the configure script
       - name: Generate configure script
@@ -68,11 +39,11 @@ jobs:
       - name: Start Xvfb (Virtual Framebuffer)
         run: |
           # Start Xvfb on display :99
-          Xvfb :99 -screen 0 1920x1080x24  &
+          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
           # Set the DISPLAY environment variable to use the virtual display
           export DISPLAY=:99
           # waiting for framebuffer
-          sleep 3
+          sleep 4
           fc-list
           # run tests
           make test
@@ -80,7 +51,7 @@ jobs:
       # Step 6: Upload screenshots and diffs as artifacts if tests fail
       - name: Upload screenshots as artifacts (for debugging)
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: screenshots
           path: integration-tests

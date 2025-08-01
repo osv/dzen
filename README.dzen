@@ -28,6 +28,7 @@ Main differences between the original and this fork of `dzen2`:
 ^fg(red)*^fg(grey70) To make assembly easier, used GNU Autotools instead of a simple Makefile.
 ^fg(red)*^fg(grey70) `-p` with argument n persist for n seconds,
   only when the mouse is not over the window (like popup or tooltip).
+^fg(red)*^fg(grey70) Change the mouse pointer when hovering over the action area.
 
 ^fg(#6fbf47)Features
 ^fg(#6fbf47)========

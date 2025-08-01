@@ -5,12 +5,15 @@ bin_PROGRAMS = dzen2
 
 # Source files for building dzen2
 dzen2_SOURCES = \
-  main.c \
-  draw.c \
-  util.c \
+  action.c \
   action.h \
+  caches.c \
+  draw.c \
   dzen.h \
-  action.c
+  kvstore.c \
+  kvstore.h \
+  main.c \
+  util.c
 
 # We can add extra CFLAGS or LIBS if needed, e.g.
 

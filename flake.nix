@@ -2,7 +2,7 @@
   description = "Nix flake for dzen2 with devShell support";
 
   # inputs.nixpkgs.url = "github:NixOS/nixpkgs";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/51063ed4";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/b17375d3bb7c";
 
   outputs = { self, nixpkgs, ... }:
     let
@@ -91,6 +91,7 @@
             automake
             pkg-config
             gcc
+            gdb
             xorg.libX11.dev
             xorg.libXft
             xorg.libXinerama
@@ -102,6 +103,8 @@
             xorg.xwd            # for `make test`
             imagemagick         # for `make test`
             pandoc              # Update man pages: `make update-man`
+            linuxKernel.packages.linux_xanmod_stable.perf
+            clang-tools         # clang-tidy
           ];
 
           shellHook = ''

@@ -19,6 +19,9 @@
 #ifdef HAVE_XFT
 #include <X11/Xft/Xft.h>
 #endif
+#ifdef HAVE_XPM
+#include <X11/xpm.h>
+#endif
 
 #define FONT		"-*-fixed-*-*-*-*-*-*-*-*-*-*-*-*"
 #define BGCOLOR		"#111111"
@@ -69,6 +72,19 @@ struct Fnt {
 	int width;
 #endif
 };
+
+typedef struct {
+	Pixmap       pm;
+	unsigned int w;
+	unsigned int h;
+	Bool         is_xbm;
+	Pixmap       mask_pm;
+#ifdef HAVE_XPM
+	/* We keep a copy of the attributes so we can call XFreeColors + XpmFreeAttributes */
+	/* Possibly track a flag to know if we actually had to allocate colormap cells */
+	XpmAttributes xpma;
+#endif
+} Icon;
 
 /* clickable areas */
 typedef struct _CLICK_A {
@@ -186,7 +202,6 @@ extern char * parse_line(const char * text,
 		int align, 
 		int reverse, 
 		int nodraw);
-extern long getcolor(const char *colstr);		/* returns color of colstr */
 extern void setfont(const char *fontstr);		/* sets global font */
 extern unsigned int textw(const char *text);	/* returns width of text in px */
 extern void drawheader(const char *text);
@@ -197,3 +212,11 @@ extern void *emalloc(unsigned int size);		/* allocates memory, exits on error */
 extern void eprint(const char *errstr, ...);	/* prints errstr and exits with 1 */
 extern char *estrdup(const char *str);			/* duplicates str, exits on allocation error */
 extern void spawn(const char *arg);				/* execute arg */
+
+/* caches.c */
+Fnt *find_or_create_font(const char *str);
+long get_color(const char *str);                /* returns color of colstr */
+Icon *get_icon(const char *str);
+
+void init_all_caches();
+void free_all_caches();

@@ -70,3 +70,9 @@ __pycache__/
 *.backup
 *.orig
 *.rej
+
+# build artifacts
+gadgets
+
+.direnv
+.claude

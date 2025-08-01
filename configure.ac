@@ -1,7 +1,7 @@
 # -- configure.ac --
 
 AC_PREREQ([2.69])
-AC_INIT([dzen2], [1.0.0], [olexandr.syd@gmail.com], [dzen2])
+AC_INIT([dzen2], [1.1.0], [olexandr.syd@gmail.com], [dzen2])
 AC_CONFIG_HEADERS([config.h])
 
 AM_INIT_AUTOMAKE([foreign -Wall -Werror subdir-objects])

@@ -73,3 +73,6 @@ __pycache__/
 
 # build artifacts
 gadgets
+
+.direnv
+.claude

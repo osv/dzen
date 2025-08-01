@@ -19,6 +19,7 @@ EXTRA_DIST = \
   dzen2-help.in \
   integration-tests \
   test_e2e \
+  test_perfomance \
   TESTS.md \
   .gitignore \
   flake.nix \

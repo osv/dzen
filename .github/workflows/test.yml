@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -37,7 +37,7 @@ jobs:
             x11-xkb-utils
             xkb-data
             clang-format
-          version: 2.3
+          version: 2.4
 
       # Check code formatting
       - name: Check code formatting

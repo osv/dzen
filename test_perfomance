@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+read_sleep() {
+    local IFS
+    [[ -n "${_snore_fd:-}" ]] || exec {_snore_fd}<> <(:)
+    read ${1:+-t "$1"} -u $_snore_fd || :
+}
+
+printer() {
+    i=0
+    while true; do
+        i=$((i + 1))
+        printf "%s %s\n" \
+            "${i}^pa(100)^fn(Terminus:size=10:style=Light)^ca(5, xdotool set_desktop 5)^ca(4, xdotool set_desktop 3)^ca(1, xdotool set_desktop 0)^fg(#ccc)^bg(#000) 1:DEV ^ca()^ca(1, xdotool set_desktop 1)^fg(#ccc)^bg(#000) 2:WWW ^ca()^ca(1, xdotool set_desktop 2)^fg(#ccc)^bg(#000) 3:SYS ^ca()^ca(1, xdotool set_desktop 3)^fg(#ccc)^bg(#000) 4:DOC ^ca()^p(0;-3)^ca(1, xdotool set_desktop 4)^fg(#fff)^bg(#330) 5:VBOX ^ca()^p()^ca(1, xdotool set_desktop 5)^fg(#ccc)^bg(#000) 6:CHAT ^ca()^ca(1, xdotool set_desktop 6)^fg(#ccc)^bg(#000) 7:MUS ^ca()^ca(1, xdotool set_desktop 7)^fg(#444)^bg(#000) 8:VID ^ca()^ca(1, xdotool set_desktop 8)^fg(#ccc)^bg(#000) 9:GFX ^ca()^ca()^ca()^fg()^bg()" \
+            "^ib(1)^fg(#ddd)^r(62x26)^fg(#777)^ro(62x26-62)^p(-62)^p()^p(61)^fg(#281)^r(1x5-1-2)^p(4)^ib()^p()^p(1)^ib(1)^p()^fg(#777)^ro(45x26)^p(-45)^ba(45,_CENTER)NET^fn(Terminus-8)^fg(#777)^p(_TOP)^p(-3;2)^ro(60x14)^p(-57;0)^ba(57,_LEFT)D   173KB^fg(#777)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)U     1KB^fg(#777)^p(_TOP)^p(-3;2)^ro(60x14)^p(-57;0)^ba(57,_LEFT)Ping  81^fg(#777)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)Torrnt --^fg(#777)^p(_TOP)^p(-3;2)^ro(60x14)^p(-57;0)^ba(57,_LEFT)id Pixy^fg(#777)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)Lvl -45db^fg(#777)^p(_TOP)^p(-3;2)^ro(60x14)^p(-57;0)^ba(57,_LEFT)Wifi On^fg(#777)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)Iw wlp7s0^ib()^p()^p(3)^fg(#33e)^bg(#e7e7e7)^fn(Terminus:size=14:style=Light)^ib(1)^p()^fg(#b82)^ro(45x26})^p(-45)^ba(45,_CENTER)VPN^fn(Terminus-8)^fg(#b82)^p(_TOP)^p(-3;2)^r(50x14)^fg(#e7e7e7)^p(-50;0)^ba(50,_CENTER)Prod^fg(#b82)^p(_TOP)^p(-52;2)^r(50x13-0+13)^fg(#e7e7e7)^p(-50;0)^ba(50,_CENTER)Dev^ib()^p()^p(3)^fg(#33e)^bg(#e7e7e7)^fn(Terminus:size=14:style=Light) ^ca(1, kill -SIGUSR1 260925)CPU 6% ^p(_BOTTOM)^p(-3)^ib(1)^fg(#ddd)^r(7x26+0-28)^fg(#777)^ro(7x26-7+0)^p(-7)^p(_BOTTOM)^p(-3)^fg(#a33)^r(5x0+1-3)^p(0;+1)^fg(#281)^r(5x1-5-2)^fg(#80b)^r(5x0-5-1)^p(0;+1)^fg(#66b)^r(5x0-5-1)^p(0;+1)^p(4)^ib()^p()^p(_BOTTOM)^p(-3)^ib(1)^fg(#ddd)^r(97x26+0-28)^fg(#777)^ro(97x26-97+0)^p(-97)^p(_BOTTOM)^p(-3)^fg(#a33)^r(3x0+1-3)^p(0;+1)^fg(#281)^r(3x2-3-3)^fg(#80b)^r(3x0-3-1)^p(0;+1)^fg(#66b)^r(3x0-3-1)^p(0;+1)^p(32)^p(_BOTTOM)^p(-3)^fg(#a33)^r(3x0+1-3)^p(0;+1)^fg(#281)^r(3x3-3-4)^fg(#80b)^r(3x0-3-1)^p(0;+1)^fg(#66b)^r(3x0-3-1)^p(0;+1)^p(_BOTTOM)^p(-3)^fg(#a33)^r(3x0+1-3)^p(0;+1)^fg(#281)^r(3x6-3-7)^fg(#80b)^r(3x0-3-1)^p(0;+1)^fg(#66b)^r(3x0-3-1)^p(0;+1)^p(_BOTTOM)^p(-3)^fg(#a33)^r(3x0+1-3)^p(0;+1)^fg(#281)^r(3x7-3-8)^fg(#80b)^r(3x1-3-2)^fg(#66b)^r(3x0-3-1)^p(0;+1)^p(32)^p(_BOTTOM)^p(-3)^fg(#a33)^r(3x0+1-3)^p(0;+1)^fg(#281)^r(3x3-3-4)^fg(#80b)^r(3x2-3-3)^fg(#66b)^r(3x0-3-1)^p(0;+1)^p(_BOTTOM)^p(-3)^fg(#a33)^r(3x0+1-3)^p(0;+1)^fg(#281)^r(3x2-3-3)^fg(#80b)^r(3x1-3-2)^fg(#66b)^r(3x0-3-1)^p(0;+1)^p(12)^ib()^p()^ca() ^p(_TOP)^p(;2)^fg(#33e)^fn(Terminus-8)^ba(70,_LEFT)Mem   61%^ib(1)^fg(#333)^r(1x7-12+1)^r(10x1-0+2)^p(2;-3)^ib(1)^p(1,0)^fg(#a33)^r(38x7})^p(1,0)^fg(#281)^r(22x7})^p(1,0)^fg(#80b)^r(3x7})^p(1,0)^fg(#66b)^r(4x7})^p(1,0)^p(-72,0)^fg(#333)^ro(104x7)^ib()^ib(1)^p(-175;14)^fg(#33e)^ba(70,_LEFT)Swap  --%^fg(#333)^r(1x7-12+4)^r(10x1-0+4)^p(2;-3)^ib(1)^p(1,0)^p(-1,0)^fg(#333)^ro(104x7)^ib()^p()^ib()^fn(Terminus:size=14:style=Light)^p(-104)^ib(1)^p(1,0)^fg(#a33)^r(7x7})^p(1,0)^p(-9,0)^fg(#333)^ro(104x7)^ib()^p(2)^r(10x1)^r(1x20)^p(4)^ib(1)^p()^fg(#b82)^ro(45x26})^p(-45)^ba(45,_CENTER)GPU^fn(Terminus-8)^fg(#b82)^p(_TOP)^p(-3;2)^ro(60x14)^p(-57;0)^ba(57,_LEFT)Fan   0%^fg(#b82)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)t    44°C^fg(#b82)^p(_TOP)^p(-3;2)^r(60x14)^fg(#e7e7e7)^p(-57;0)^ba(57,_LEFT)Pwr  33W^fg(#b82)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)GPU  36%^fg(#b82)^p(_TOP)^p(-3;2)^ro(60x14)^p(-57;0)^ba(57,_LEFT)M  810MHz^fg(#b82)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)P  405MHz^fg(#b82)^p(_TOP)^p(-3;2)^ro(60x14)^p(-57;0)^ba(57,_LEFT)Dec   0%^fg(#b82)^p(_TOP)^p(-62;2)^ro(60x13-0+13)^p(-57;0)^ba(57,_LEFT)Enc   0%^ib()^p()^p(3)^fg(#33e)^bg(#e7e7e7)^fn(Terminus:size=14:style=Light) ^p(_BOTTOM)^p(-3)^ib(1)^fg(#ddd)^r(161x28+0-29)^fg(#777)^ro(161x28-161+0)^p(-161)^p(8)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x19+1-21)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x15+1-17)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x1+1-3)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x1+1-3)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x1+1-3)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x6+1-8)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x9+1-11)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x1+1-3)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x7+1-9)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(2)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x7+1-9)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x10+1-12)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x8+1-10)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x14+1-16)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x10+1-12)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x1+1-3)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x2+1-4)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x7+1-9)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x3+1-5)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x6+1-8)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x5+1-7)^p(_BOTTOM)^p(-3)^fg(#66b)^r(1x4+1-6)^p(4)^ib()^p()^p(_BOTTOM)^p(-3)^ib(1)^fg(#ddd)^r(61x28+0-29)^fg(#777)^ro(61x28-61+0)^p(-61)^p(64)^ib()^p() ^fg(#33e)^ca(1, kill -SIGUSR1 260913)22:06^ca()^i(bitmaps/battery_on.xpm)^i(bitmaps/volume.xbm)"
+        # read_sleep 0.01
+    done
+}
+
+printer_simplest() {
+    i=0
+    while true; do
+        i=$((i + 1))
+        printf "%s %s\n" "${i}"
+    done
+}
+
+test_valgrind() {
+    # Set reasonable file descriptor limit for Valgrind
+    ulimit -n 65536
+    printer | valgrind -s --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt ./src/dzen2 -dock -ta l -h 30 \
+        -y 40 \
+        -fg "#33e" \
+        -bg "#e7e7e7" \
+        -e "button3=exit"
+}
+
+test_valgrind2() {
+    # Set reasonable file descriptor limit for Valgrind
+    ulimit -n 65536
+    printer | valgrind ./src/dzen2 -dock -ta l -h 30 \
+        -y 40 \
+        -fg "#33e" \
+        -bg "#e7e7e7" \
+        -e "button3=exit"
+}
+test_perf() {
+    printer | perf record ./src/dzen2 -dock -ta l -h 30 \
+        -y 40 \
+        -fg "#33e" \
+        -bg "#e7e7e7" \
+        -e "button3=exit"
+}
+
+test() {
+    printer | ./src/dzen2 -dock -ta l -h 30 \
+        -y 40 \
+        -fg "#33e" \
+        -bg "#e7e7e7" \
+        -e "button3=exit"
+}
+
+test_simple() {
+    printer | ./src/dzen2 -dock -ta l -h 30 \
+        -y 40 \
+        -fg "#33e" \
+        -bg "#e7e7e7" \
+        -e "button3=exit"
+}
+
+
+# Parse command line arguments
+case "${1:-}" in
+    --valgrind)
+        test_valgrind
+        ;;
+    --perf)
+        test_perf
+        ;;
+    --simple)
+        test_simple
+        ;;
+    --printer)
+        printer
+        ;;
+    *)
+        test
+        ;;
+esac

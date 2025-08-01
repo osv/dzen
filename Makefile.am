@@ -18,7 +18,7 @@ EXTRA_DIST = \
   INSTALL \
   dzen2-help.in \
   integration-tests \
-  run_integration_tests \
+  test_e2e \
   TESTS.md \
   .gitignore \
   flake.nix \
@@ -35,7 +35,7 @@ dzen2-help: dzen2-help.in Makefile
 .PHONY: test update-man
 
 test:
-	./run_integration_tests
+	./test_e2e
 
 # TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
 update-man: ./README.md

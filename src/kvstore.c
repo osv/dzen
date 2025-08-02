@@ -8,40 +8,38 @@
  * Simple linked list node that holds a key-value pair along with its hash.
  */
 typedef struct KVNode {
-    char*          key;
+    char          *key;
     unsigned long  hash; /* Cached hash value */
-    void*          value;
-    struct KVNode* next;
+    void          *value;
+    struct KVNode *next;
 } KVNode;
 
 /*
  * Actual internal representation of the key-value store.
  */
 struct KeyValueStore {
-    KVNode**             buckets;
+    KVNode             **buckets;
     size_t               capacity;
     kv_destroy_item_func destructor;
     kv_create_item_func  constructor;
 };
 
 /* Optimized hash function: djb2 by Dan Bernstein */
-static unsigned long
-optimized_hash(const char* str) {
+static unsigned long optimized_hash(const char *str) {
     unsigned long hash = 5381;
     int           c;
-    while ((c = (unsigned char) *str++)) {
+    while ((c = (unsigned char)*str++)) {
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
     }
     return hash;
 }
 
 /* Helper to create a copy of a string */
-static char*
-kv_strdup(const char* src) {
+static char *kv_strdup(const char *src) {
     if (!src)
         return NULL;
     size_t len = strlen(src) + 1;
-    char*  dst = (char*) malloc(len);
+    char  *dst = (char *)malloc(len);
     if (dst) {
         memcpy(dst, src, len);
     }
@@ -51,15 +49,12 @@ kv_strdup(const char* src) {
 /*
  * Create a new KeyValueStore with the specified capacity and optional destructor/constructor.
  */
-KeyValueStore*
-kvstore_create(
-    kv_destroy_item_func destructor,
-    kv_create_item_func  constructor) {
-    KeyValueStore* store = (KeyValueStore*) malloc(sizeof(KeyValueStore));
+KeyValueStore *kvstore_create(kv_destroy_item_func destructor, kv_create_item_func constructor) {
+    KeyValueStore *store = (KeyValueStore *)malloc(sizeof(KeyValueStore));
     if (!store) {
         return NULL;
     }
-    store->buckets = (KVNode**) calloc(KVSTORE_CAPACITY, sizeof(KVNode*));
+    store->buckets = (KVNode **)calloc(KVSTORE_CAPACITY, sizeof(KVNode *));
     if (!store->buckets) {
         free(store);
         return NULL;
@@ -74,10 +69,9 @@ kvstore_create(
  * Free all nodes in the chain.
  * If a destructor is provided, call it for each value.
  */
-static void
-free_bucket_chain(KVNode* node, kv_destroy_item_func destructor) {
+static void free_bucket_chain(KVNode *node, kv_destroy_item_func destructor) {
     while (node) {
-        KVNode* next = node->next;
+        KVNode *next = node->next;
         if (destructor) {
             destructor(node->value);
         } else {
@@ -92,8 +86,7 @@ free_bucket_chain(KVNode* node, kv_destroy_item_func destructor) {
 /*
  * Destroy the entire store.
  */
-void
-kvstore_destroy(KeyValueStore* store) {
+void kvstore_destroy(KeyValueStore *store) {
     if (!store)
         return;
     for (size_t i = 0; i < store->capacity; i++) {
@@ -108,16 +101,15 @@ kvstore_destroy(KeyValueStore* store) {
 /*
  * Insert or replace a key-value pair in the store.
  */
-int
-kvstore_set(KeyValueStore* store, const char* key, void* value) {
+int kvstore_set(KeyValueStore *store, const char *key, void *value) {
     if (!store || !key)
         return -1;
 
     unsigned long hash  = optimized_hash(key);
     size_t        index = hash % store->capacity;
 
-    KVNode* cur  = store->buckets[index];
-    KVNode* prev = NULL;
+    KVNode *cur  = store->buckets[index];
+    KVNode *prev = NULL;
 
     /* Search for existing key */
     while (cur) {
@@ -134,7 +126,7 @@ kvstore_set(KeyValueStore* store, const char* key, void* value) {
     }
 
     /* Not found, create a new node */
-    KVNode* new_node = (KVNode*) malloc(sizeof(KVNode));
+    KVNode *new_node = (KVNode *)malloc(sizeof(KVNode));
     if (!new_node) {
         return -1;
     }
@@ -160,15 +152,14 @@ kvstore_set(KeyValueStore* store, const char* key, void* value) {
 /*
  * Get the value for a given key.
  */
-void*
-kvstore_get(KeyValueStore* store, const char* key) {
+void *kvstore_get(KeyValueStore *store, const char *key) {
     if (!store || !key)
         return NULL;
 
     unsigned long hash  = optimized_hash(key);
     size_t        index = hash % store->capacity;
 
-    KVNode* cur = store->buckets[index];
+    KVNode *cur = store->buckets[index];
     while (cur) {
         if (cur->hash == hash && strcmp(cur->key, key) == 0) {
             return cur->value;
@@ -183,13 +174,12 @@ kvstore_get(KeyValueStore* store, const char* key) {
  * If the key is not found, calls the constructor (if available) to create it,
  * then sets it in the store.
  */
-void*
-kvstore_find_or_create(KeyValueStore* store, const char* key) {
+void *kvstore_find_or_create(KeyValueStore *store, const char *key) {
     if (!store || !key)
         return NULL;
 
     /* Try to get existing value */
-    void* existing = kvstore_get(store, key);
+    void *existing = kvstore_get(store, key);
     if (existing) {
         return existing;
     }
@@ -201,7 +191,7 @@ kvstore_find_or_create(KeyValueStore* store, const char* key) {
     }
 
     /* Create a new value and store it */
-    void* new_value = store->constructor();
+    void *new_value = store->constructor();
     if (new_value) {
         if (kvstore_set(store, key, new_value) != 0) {
             /* Setting failed, clean up if needed */

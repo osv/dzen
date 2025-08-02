@@ -61,3 +61,9 @@ update-man: ./README.md
 	  -e 's/<DC>/^/g' \
 	  README.dzen > README.md
 	@echo "README has been updated."
+
+format:
+	find $(srcdir) -name "*.c" -o -name "*.h" | xargs clang-format -i
+
+check-format:
+	find $(srcdir) -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror

@@ -8,28 +8,26 @@
 #include "dzen.h"
 #include "kvstore.h"
 
-static KeyValueStore* color_store;
-static KeyValueStore* icon_store;
+static KeyValueStore *color_store;
+static KeyValueStore *icon_store;
 
 /*
  * New constructor for color items.  This is used by kvstore_find_or_create
  * whenever a key is not found in the store.  We return a pointer to a long
  * initialized to -1, meaning "not yet allocated via XAllocNamedColor".
  */
-static void*
-color_create_item(void) {
-    long* pixel_ptr = malloc(sizeof(long));
+static void *color_create_item(void) {
+    long *pixel_ptr = malloc(sizeof(long));
     if (pixel_ptr)
         *pixel_ptr = -1;
     return pixel_ptr;
 }
 
-long
-get_color(const char* colstr) {
+long get_color(const char *colstr) {
     if (!colstr || !*colstr)
         return -1;
 
-    long* pixel_ptr = (long*) kvstore_find_or_create(color_store, colstr);
+    long *pixel_ptr = (long *)kvstore_find_or_create(color_store, colstr);
     if (!pixel_ptr)
         return -1; /* constructor not set or store is broken? */
 
@@ -49,9 +47,8 @@ get_color(const char* colstr) {
     return color.pixel;
 }
 
-static void
-icon_destroy_item(void* value) {
-    Icon* icon = (Icon*)value;
+static void icon_destroy_item(void *value) {
+    Icon *icon = (Icon *)value;
 
     if (!icon)
         return;
@@ -68,8 +65,7 @@ icon_destroy_item(void* value) {
 #ifdef HAVE_XPM
     /* Pseudocolor note: free xpma color cells if needed */
     if (icon->xpma.npixels > 0) {
-        XFreeColors(dzen.dpy, icon->xpma.colormap,
-                    icon->xpma.pixels, icon->xpma.npixels, 0);
+        XFreeColors(dzen.dpy, icon->xpma.colormap, icon->xpma.pixels, icon->xpma.npixels, 0);
     }
     XpmFreeAttributes(&icon->xpma);
 #endif
@@ -77,10 +73,9 @@ icon_destroy_item(void* value) {
     free(icon);
 }
 
-static char cached_cwd[PATH_MAX] = {0};
+static char cached_cwd[PATH_MAX] = { 0 };
 
-static const char*
-get_cached_cwd() {
+static const char *get_cached_cwd() {
     if (cached_cwd[0] == '\0') {
         if (!getcwd(cached_cwd, sizeof(cached_cwd))) {
             /* If getcwd fails, set cached_cwd to an empty string */
@@ -90,30 +85,32 @@ get_cached_cwd() {
     return cached_cwd;
 }
 
-static char*
-expand_path(const char* path) {
-    if (!path) return NULL;
+static char *expand_path(const char *path) {
+    if (!path)
+        return NULL;
 
-    char* expanded = NULL;
+    char *expanded = NULL;
     if (path[0] == '~') {
         /* Expand ~ to home directory */
-        const char* home = getenv("HOME");
+        const char *home = getenv("HOME");
         if (!home) {
             errno = ENOENT;
             return NULL;
         }
         /* Allocate space for home + rest of path + null terminator */
         expanded = malloc(strlen(home) + strlen(path));
-        if (!expanded) return NULL;
+        if (!expanded)
+            return NULL;
         sprintf(expanded, "%s%s", home, path + 1);
     } else if (path[0] != '/') {
         /* Relative path: use cached CWD */
-        const char* cwd = get_cached_cwd();
+        const char *cwd = get_cached_cwd();
         if (!cwd || cwd[0] == '\0') {
             return NULL;
         }
         expanded = malloc(strlen(cwd) + strlen(path) + 2);
-        if (!expanded) return NULL;
+        if (!expanded)
+            return NULL;
         sprintf(expanded, "%s/%s", cwd, path);
     } else {
         /* Absolute path: simply duplicate it */
@@ -122,8 +119,7 @@ expand_path(const char* path) {
     return expanded;
 }
 
-static int
-icon_load_xpm(const char* path, Icon* icon) {
+static int icon_load_xpm(const char *path, Icon *icon) {
 #ifdef HAVE_XPM
     /* Zero-initialize so XpmFreeAttributes won't break if something fails early */
     memset(&icon->xpma, 0, sizeof(icon->xpma));
@@ -140,9 +136,7 @@ icon_load_xpm(const char* path, Icon* icon) {
      * By passing &icon->mask_pm, if the XPM has "None" (transparency),
      * we'll get back a valid 1-bit mask, or None if the XPM is fully opaque.
      */
-    if (XpmReadFileToPixmap(dzen.dpy, dzen.title_win.win,
-                            path,
-                            &icon->pm,      /* OUT: the colored Pixmap */
+    if (XpmReadFileToPixmap(dzen.dpy, dzen.title_win.win, path, &icon->pm, /* OUT: the colored Pixmap */
                             &icon->mask_pm, /* OUT: the mask Pixmap (1-bit) */
                             &icon->xpma) == XpmSuccess) {
         icon->w = icon->xpma.width;
@@ -153,44 +147,41 @@ icon_load_xpm(const char* path, Icon* icon) {
     return 1;
 }
 
-static int
-icon_load_xbm(const char* path, Icon* icon) {
+static int icon_load_xbm(const char *path, Icon *icon) {
     Pixmap       bm = None;
     unsigned int bm_w, bm_h;
     int          bm_xh, bm_yh;
 
-    if (XReadBitmapFile(dzen.dpy, dzen.title_win.win, path,
-                        &bm_w, &bm_h, &bm, &bm_xh, &bm_yh) == BitmapSuccess) {
+    if (XReadBitmapFile(dzen.dpy, dzen.title_win.win, path, &bm_w, &bm_h, &bm, &bm_xh, &bm_yh) == BitmapSuccess) {
         icon->mask_pm = None;
-        icon->is_xbm = True;
-        icon->pm = bm;
-        icon->w  = bm_w;
-        icon->h  = bm_h;
+        icon->is_xbm  = True;
+        icon->pm      = bm;
+        icon->w       = bm_w;
+        icon->h       = bm_h;
         return 0; /* success */
     }
     return 1; /* failure */
 }
 
-Icon*
-get_icon(const char* path) {
+Icon *get_icon(const char *path) {
     if (!path || !*path)
         return NULL;
 
     /* Expand the path to an absolute path with ~ and relative paths resolved */
-    char* expanded_path = expand_path(path);
+    char *expanded_path = expand_path(path);
     if (!expanded_path) {
         return NULL;
     }
 
     /* Check if the icon is already cached. */
-    Icon* icon = (Icon*) kvstore_get(icon_store, expanded_path);
+    Icon *icon = (Icon *)kvstore_get(icon_store, expanded_path);
     if (icon) {
         free(expanded_path);
         return icon;
     }
 
     /* Otherwise, we must load a new icon. */
-    icon = (Icon*) malloc(sizeof(Icon));
+    icon = (Icon *)malloc(sizeof(Icon));
     if (!icon) {
         free(expanded_path);
         return NULL; /* out of memory */
@@ -216,14 +207,12 @@ get_icon(const char* path) {
     return icon;
 }
 
-void
-init_all_caches() {
+void init_all_caches() {
     icon_store  = kvstore_create(icon_destroy_item, NULL);
     color_store = kvstore_create(NULL, color_create_item);
 }
 
-void
-free_all_caches() {
+void free_all_caches() {
     kvstore_destroy(icon_store);
     kvstore_destroy(color_store);
 }

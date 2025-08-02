@@ -203,8 +203,5 @@ ulimit -n 65536  # Set before running valgrind if you get "Private file creation
 
 ## Code Style
 
-- Use tabs for indentation (width 8)
-- K&R style braces
-- Functions: `return_type function_name(args)`
-- Keep line length under 100 characters
-- Run `clang-format` if `.clang-format` exis
+- Keep line length under 120 characters
+- Use `make format` after finishing modifying all files or before committing

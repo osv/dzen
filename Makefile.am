@@ -36,7 +36,7 @@ dzen2-help: dzen2-help.in Makefile
 .PHONY: test update-man
 
 test:
-	./test_e2e
+	./test_e2e TESTS.md
 
 # TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
 update-man: ./README.md

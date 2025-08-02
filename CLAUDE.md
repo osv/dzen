@@ -30,15 +30,22 @@ make distclean  # also removes configure-generated files
 The project uses a screenshot-based integration test system:
 
 ```bash
-# Run all integration tests
-./test_e2e
+# Run integration tests with a specific test file
+./test_e2e TESTS.md
+
+# Run custom test files
+./test_e2e custom_tests.md
 ```
 
-Tests are defined in `TESTS.md` and compare screenshots against reference images in `integration-tests/`.
-Files `reference_*.png` are reference screenshots automatically created for TESTS.md and should be committed after adding new tests.
-For example, if reference screenshot name is `./integration-tests/reference_05-position-padding.png`
-Than actual screenshot will be stored without `reference_` prefix as `integration-tests/05-position-padding.png`.
-Diff between actual and reference stored without prefix `reference_` but with prefix `diff_` - `integration-tests/diffs/diff_05-position-padding.png`.
+The test_e2e script requires a test file parameter. Screenshots are organized by test file:
+- Expected screenshots: `integration-tests/<test_basename>/expected/`
+- Actual screenshots: `integration-tests/<test_basename>/actual/`
+- Diff images: `integration-tests/<test_basename>/diffs/`
+
+For example, when running `./test_e2e TESTS.md`:
+- Expected: `integration-tests/TESTS/expected/05-position-padding.png`
+- Actual: `integration-tests/TESTS/actual/05-position-padding.png`
+- Diff: `integration-tests/TESTS/diffs/diff_05-position-padding.png`
 
 ### Testing E2E Architecture
 
@@ -157,8 +164,8 @@ The font functionality has been extracted into a separate module consisting of:
 
 Always run `make test` before committing. If visual output changes are intentional:
 ```bash
-./test_e2e
-git add integration-tests/reference_*.png
+./test_e2e TESTS.md
+git add integration-tests/TESTS/expected/*.png
 ```
 
 ### Testing Font Module
@@ -267,3 +274,5 @@ ulimit -n 65536  # Set before running valgrind if you get "Private file creation
 
 - Keep line length under 120 characters
 - Use `make format` after finishing modifying all files or before committing
+- Ensure new files are part of distribution, file must be included in Makefile.am (for example EXTRA_DIST)
+

@@ -1,9 +1,33 @@
 #!/usr/bin/env bash
 
-# Directory to store screenshots
-SCREENSHOT_DIR="integration-tests"
-mkdir -p "$SCREENSHOT_DIR"
-mkdir -p "$SCREENSHOT_DIR/diffs"
+# Check for test file argument
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <test_file>"
+    echo "Example: $0 TESTS.md"
+    exit 1
+fi
+
+TEST_FILE="$1"
+
+# Check if test file exists
+if [ ! -f "$TEST_FILE" ]; then
+    echo "Error: Test file '$TEST_FILE' not found"
+    exit 1
+fi
+
+# Extract base name without extension for directory naming
+TEST_BASENAME=$(basename "$TEST_FILE" .md)
+
+# Directory structure based on test file
+SCREENSHOT_DIR="integration-tests/$TEST_BASENAME"
+EXPECTED_DIR="$SCREENSHOT_DIR/expected"
+ACTUAL_DIR="$SCREENSHOT_DIR/actual"
+DIFF_DIR="$SCREENSHOT_DIR/diffs"
+
+# Create directories
+mkdir -p "$EXPECTED_DIR"
+mkdir -p "$ACTUAL_DIR"
+mkdir -p "$DIFF_DIR"
 
 check_dependencies() {
     local missing_dependencies=()
@@ -63,7 +87,7 @@ run_test() {
   fi
 
   local crop_geometry=""
-  local reference_screenshot=""
+  local expected_screenshot=""
   local check_num=0
 
   for step in "${steps[@]}"; do
@@ -111,26 +135,26 @@ run_test() {
         window_height=$(echo "$window_geometry" | grep 'HEIGHT=' | cut -d '=' -f 2)
 
         check_num=$((check_num + 1))
-        reference_screenshot="$params"
-        if [[ "$reference_screenshot" = "" ]]; then
+        expected_screenshot="$params"
+        if [[ "$expected_screenshot" = "" ]]; then
           echo -e "\n${RED}$check_num: Error:\n${RED}You forgot to set image in markdown:${NC}"
-          echo -e "${RED}[reference](./integration-tests/reference_$test_name.gif)${NC}\n"
+          echo -e "${RED}![reference](./integration-tests/$TEST_BASENAME/expected/$test_name.png)${NC}\n"
           return
         fi
-        # Save the current screenshot without "reference_" prefix
-        local screenshot="${reference_screenshot/*reference_/}"
-        local screenshot_path="$SCREENSHOT_DIR/$screenshot"
+        # Extract just the filename from the path
+        local screenshot_filename=$(basename "$expected_screenshot")
+        local actual_screenshot_path="$ACTUAL_DIR/$screenshot_filename"
         # Take screenshot
         if [ -n "$crop_geometry" ]; then
-          xwd -root | convert "xwd:-" -crop "$crop_geometry" +repage "$screenshot_path"
+          xwd -root | convert "xwd:-" -crop "$crop_geometry" +repage "$actual_screenshot_path"
         else
-          xwd -root | convert "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$screenshot_path"
+          xwd -root | convert "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$actual_screenshot_path"
         fi
-        # Compare with the reference screenshot
-        if [ -f "$reference_screenshot" ]; then
-          local diff_screenshot="$SCREENSHOT_DIR/diffs/diff_${screenshot}"
-          compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" "$diff_screenshot" 2> /dev/null || true
-          diff=$(compare -metric AE -fuzz 5% "$screenshot_path" "$reference_screenshot" null: 2>&1)
+        # Compare with the expected screenshot
+        if [ -f "$expected_screenshot" ]; then
+          local diff_screenshot="$DIFF_DIR/diff_${screenshot_filename}"
+          compare -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot" "$diff_screenshot" 2> /dev/null || true
+          diff=$(compare -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot" null: 2>&1)
           if (( diff > delta_threshold )); then
             echo -e "\n${RED}$check_num: Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
             echo -e "${RED} See ./${diff_screenshot}${NC}\n"
@@ -139,9 +163,9 @@ run_test() {
             echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
           fi
         else
-          echo -e "\n${RED}$check_num: Error: Reference screenshot not found for $test_name at $reference_screenshot.${NC}"
-          echo -e "${GREEN}  Copying actual screenshot to $reference_screenshot.${NC}\n"
-          cp "$screenshot_path" "$reference_screenshot"
+          echo -e "\n${RED}$check_num: Error: Expected screenshot not found for $test_name at $expected_screenshot.${NC}"
+          echo -e "${GREEN}  Copying actual screenshot to $expected_screenshot.${NC}\n"
+          cp "$actual_screenshot_path" "$expected_screenshot"
           all_tests_passed=false
         fi
         ;;
@@ -240,9 +264,9 @@ run_tests() {
         steps+=("click_and_check|${line#'### Click and check output: '}")
         ;;
       '![reference](./'*)
-        reference_screenshot="${line#'![reference](./'}"
-        reference_screenshot="${reference_screenshot%')'}"
-        steps+=("screenshot|$reference_screenshot")
+        expected_screenshot="${line#'![reference](./'}"
+        expected_screenshot="${expected_screenshot%')'}"
+        steps+=("screenshot|$expected_screenshot")
         ;;
       '### Crop: '*)
         steps+=("crop|${line#'### Crop: '}")
@@ -272,7 +296,7 @@ run_tests() {
 }
 
 # Parse the test cases from the markdown file
-run_tests "TESTS.md"
+run_tests "$TEST_FILE"
 
 # Final result
 echo "---------------------"

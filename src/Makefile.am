@@ -10,6 +10,8 @@ dzen2_SOURCES = \
   caches.c \
   draw.c \
   dzen.h \
+  font.c \
+  font.h \
   kvstore.c \
   kvstore.h \
   main.c \

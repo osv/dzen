@@ -6,6 +6,7 @@
 
 #include "dzen.h"
 #include "action.h"
+#include "font.h"
 
 #include <ctype.h>
 #include <locale.h>
@@ -33,13 +34,7 @@ static void clean_up(void) {
 
     free_event_list();
     free_all_caches();
-#ifndef HAVE_XFT
-    if (dzen.font.set)
-        XFreeFontSet(dzen.dpy, dzen.font.set);
-    else
-        XFreeFont(dzen.dpy, dzen.font.xfont);
-    FcFini();
-#endif
+    font_cleanup();
 
     XFreePixmap(dzen.dpy, dzen.title_win.drawable);
     if (dzen.slave_win.max_lines) {
@@ -752,52 +747,6 @@ static void event_loop(void) {
     return;
 }
 
-static void x_preload(const char *fontstr, int p) {
-    char *def, **missing;
-    int   i, n;
-
-    missing = NULL;
-
-    dzen.fnpl[p].set = XCreateFontSet(dzen.dpy, fontstr, &missing, &n, &def);
-    if (missing)
-        XFreeStringList(missing);
-
-    if (dzen.fnpl[p].set) {
-        XFontSetExtents *font_extents;
-        XFontStruct    **xfonts;
-        char           **font_names;
-        dzen.fnpl[p].ascent = dzen.fnpl[p].descent = 0;
-        font_extents                               = XExtentsOfFontSet(dzen.fnpl[p].set);
-        n                                          = XFontsOfFontSet(dzen.fnpl[p].set, &xfonts, &font_names);
-        for (i = 0, dzen.fnpl[p].ascent = 0, dzen.fnpl[p].descent = 0; i < n; i++) {
-            if (dzen.fnpl[p].ascent < (*xfonts)->ascent)
-                dzen.fnpl[p].ascent = (*xfonts)->ascent;
-            if (dzen.fnpl[p].descent < (*xfonts)->descent)
-                dzen.fnpl[p].descent = (*xfonts)->descent;
-            xfonts++;
-        }
-    } else {
-        if (dzen.fnpl[p].xfont)
-            XFreeFont(dzen.dpy, dzen.fnpl[p].xfont);
-        dzen.fnpl[p].xfont = NULL;
-        if (!(dzen.fnpl[p].xfont = XLoadQueryFont(dzen.dpy, fontstr)))
-            eprint("dzen: error, cannot load font: '%s'\n", fontstr);
-        dzen.fnpl[p].ascent  = dzen.fnpl[p].xfont->ascent;
-        dzen.fnpl[p].descent = dzen.fnpl[p].xfont->descent;
-    }
-    dzen.fnpl[p].height = dzen.fnpl[p].ascent + dzen.fnpl[p].descent;
-}
-
-static void font_preload(char *s) {
-    int   k   = 0;
-    char *buf = strtok(s, ",");
-    while (buf != NULL) {
-        if (k < 64)
-            x_preload(buf, k++);
-        buf = strtok(NULL, ",");
-    }
-}
-
 /* Get alignment from character 'l'eft, 'r'ight and 'c'enter */
 static char alignment_from_char(char align) {
     switch (align) {
@@ -1055,6 +1004,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     init_all_caches();
+    font_init();
     x_create_windows(use_ewmh_dock);
 
     if (!dzen.slave_win.ishmenu)

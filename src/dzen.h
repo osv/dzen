@@ -5,6 +5,7 @@
  */
 
 #include "../config.h"
+#include "font.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -55,23 +56,9 @@ enum { ColFG, ColBG, ColLast };
 enum { noexpand, left, right, both };
 
 typedef struct DZEN   Dzen;
-typedef struct Fnt    Fnt;
 typedef struct TW     TWIN;
 typedef struct SW     SWIN;
 typedef struct _Sline Sline;
-
-struct Fnt {
-    XFontStruct *xfont;
-    XFontSet     set;
-    int          ascent;
-    int          descent;
-    int          height;
-#ifdef HAVE_XFT
-    XftFont   *xftfont;
-    XGlyphInfo extents;
-    int        width;
-#endif
-};
 
 typedef struct {
     Pixmap       pm;
@@ -169,8 +156,8 @@ struct DZEN {
 
     Visual *visual;
     GC      gc, rgc, tgc;
-    Fnt     font;
-    Fnt     fnpl[64];
+    Fnt     font; /* Font management handled by font.c */
+    Fnt     fnpl[64]; /* Font preload pool handled by font.c */
 
     Bool          ispersistent;
     Bool          tsupdate;
@@ -192,12 +179,10 @@ void free_buffer(void);
 void x_draw_body(void);
 
 /* draw.c */
-extern void         drawtext(const char *text, int reverse, int line, int align);
-extern char        *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
-extern void         setfont(const char *fontstr); /* sets global font */
-extern unsigned int textw(const char *text); /* returns width of text in px */
-extern void         drawheader(const char *text);
-extern void         drawbody(char *text);
+extern void  drawtext(const char *text, int reverse, int line, int align);
+extern char *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
+extern void  drawheader(const char *text);
+extern void  drawbody(char *text);
 
 /* util.c */
 extern void *emalloc(unsigned int size); /* allocates memory, exits on error */

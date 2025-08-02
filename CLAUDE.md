@@ -132,6 +132,26 @@ This fork adds caching layers:
 1. **In-text commands**: Add parsing logic to `draw.c:parse_line()`
 2. **Actions**: Define in `action.h` and implement in `action.c`
 3. **Configuration options**: Add to `dzen.h:Dzen` struct and parse in `main.c`
+4. **Font features**: Modify `src/font.c` and `src/font.h` for font-related functionality
+
+### Font Module
+
+The font functionality has been extracted into a separate module consisting of:
+- **`src/font.h`**: Font structure definitions and function declarations
+- **`src/font.c`**: Font management implementation with XFT/non-XFT support
+
+**Key functions:**
+- `font_init()`: Initialize font system
+- `font_cleanup()`: Clean up font resources
+- `setfont(fontstr)`: Set current font (supports both XFT and X11 fonts)
+- `textnw(font, text, len)`: Calculate text width
+- `font_preload(fonts)`: Preload fonts for non-XFT builds (comma-separated list)
+
+**Features:**
+- Conditional compilation for XFT vs non-XFT builds
+- Font caching for XFT builds (improves performance)
+- Font preloading for non-XFT builds (allows `^fn(dfnt0)`, `^fn(dfnt1)`, etc.)
+- Automatic cleanup on program exit
 
 ### Testing Changes
 
@@ -139,6 +159,48 @@ Always run `make test` before committing. If visual output changes are intention
 ```bash
 ./test_e2e
 git add integration-tests/reference_*.png
+```
+
+### Testing Font Module
+
+A dedicated test script `test_font_module` verifies font functionality:
+
+```bash
+# Test current build configuration (auto-detects XFT vs non-XFT)
+./test_font_module
+```
+
+**What it tests:**
+- Basic font functionality (font switching with `^fn()`)
+- Font and color combinations
+- Font preloading (non-XFT builds only)
+- Screenshot-based verification (saved to `./font_test_screenshots/`)
+
+**Test different configurations:**
+```bash
+# Test without XFT (uses X11 core fonts)
+make distclean
+./configure --disable-xft --enable-xpm --enable-xinerama --enable-xcursor
+make
+./test_font_module
+
+# Test with XFT (uses modern font rendering)
+make distclean  
+./configure --enable-xft --enable-xpm --enable-xinerama --enable-xcursor
+make
+./test_font_module
+```
+
+**Manual font testing examples:**
+```bash
+# XFT build - test different XFT fonts
+echo "XFT: ^fn(monospace-12)Monospace^fn() ^fn(serif-14)Serif^fn() Normal" | ./src/dzen2 -p
+
+# Non-XFT build - test X11 fonts
+echo "X11: ^fn(8x16)Large^fn() ^fn(6x13)Small^fn() Normal" | ./src/dzen2 -p -fn "fixed"
+
+# Non-XFT build - test font preloading
+echo "Preloaded: ^fn(dfnt0)Font0^fn() ^fn(dfnt1)Font1^fn() Normal" | ./src/dzen2 -p -fn-preload "6x13,8x16"
 ```
 
 ### Common Tasks

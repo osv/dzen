@@ -1,9 +1,6 @@
 # Ignore all files in the integration-tests directory
-integration-tests/*
-
-# Do not ignore the TESTS subdirectory structure
-!integration-tests/*/expected/
-!integration-tests/*/expected/*.png
+integration-tests/*/actual/*
+integration-tests/*/diffs/*
 
 # Ignore build and configuration artifacts
 /aclocal.m4

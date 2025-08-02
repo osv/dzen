@@ -144,6 +144,7 @@ run_test() {
         # Extract just the filename from the path
         local screenshot_filename=$(basename "$expected_screenshot")
         local actual_screenshot_path="$ACTUAL_DIR/$screenshot_filename"
+        local expected_screenshot_path="$EXPECTED_DIR/$screenshot_filename"
         # Take screenshot
         if [ -n "$crop_geometry" ]; then
           xwd -root | convert "xwd:-" -crop "$crop_geometry" +repage "$actual_screenshot_path"
@@ -151,10 +152,10 @@ run_test() {
           xwd -root | convert "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$actual_screenshot_path"
         fi
         # Compare with the expected screenshot
-        if [ -f "$expected_screenshot" ]; then
+        if [ -f "$expected_screenshot_path" ]; then
           local diff_screenshot="$DIFF_DIR/diff_${screenshot_filename}"
-          compare -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot" "$diff_screenshot" 2> /dev/null || true
-          diff=$(compare -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot" null: 2>&1)
+          compare -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" "$diff_screenshot" 2> /dev/null || true
+          diff=$(compare -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" null: 2>&1)
           if (( diff > delta_threshold )); then
             echo -e "\n${RED}$check_num: Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
             echo -e "${RED} See ./${diff_screenshot}${NC}\n"
@@ -163,9 +164,9 @@ run_test() {
             echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
           fi
         else
-          echo -e "\n${RED}$check_num: Error: Expected screenshot not found for $test_name at $expected_screenshot.${NC}"
-          echo -e "${GREEN}  Copying actual screenshot to $expected_screenshot.${NC}\n"
-          cp "$actual_screenshot_path" "$expected_screenshot"
+          echo -e "\n${RED}$check_num: Error: Expected screenshot not found for $test_name at $expected_screenshot_path.${NC}"
+          echo -e "${GREEN}  Copying actual screenshot to $expected_screenshot_path.${NC}\n"
+          cp "$actual_screenshot_path" "$expected_screenshot_path"
           all_tests_passed=false
         fi
         ;;

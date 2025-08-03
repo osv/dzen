@@ -2,12 +2,20 @@
 
 # Check for test file argument
 if [ $# -ne 1 ]; then
-    echo "Usage: $0 <test_file>"
+    echo "Usage: $0 <test_file>[:<line_number>]"
     echo "Example: $0 TESTS.md"
+    echo "Example: $0 TESTS.md:286  # Run specific test at line 286"
     exit 1
 fi
 
-TEST_FILE="$1"
+# Parse test file and optional line number
+if [[ "$1" =~ ^([^:]+):([0-9]+)$ ]]; then
+    TEST_FILE="${BASH_REMATCH[1]}"
+    TARGET_LINE="${BASH_REMATCH[2]}"
+else
+    TEST_FILE="$1"
+    TARGET_LINE=""
+fi
 
 # Check if test file exists
 if [ ! -f "$TEST_FILE" ]; then
@@ -221,12 +229,58 @@ run_tests() {
   local pipe_data_block=""
   local steps=()
   local in_pipe_data=false
+  local line_number=0
+  local current_test_start=0
+  local target_test_name=""
+  local target_test_start=0
 
+  # First pass: find which test contains the target line
+  if [ -n "$TARGET_LINE" ]; then
+    local temp_line_num=0
+    local temp_test_name=""
+    local temp_test_start=0
+    
+    while IFS= read -r line; do
+      ((temp_line_num++))
+      if [[ $line == '## Test: '* ]]; then
+        # Check if target line was in the previous test
+        if [ -n "$temp_test_name" ] && [ "$TARGET_LINE" -ge "$temp_test_start" ] && [ "$TARGET_LINE" -lt "$temp_line_num" ]; then
+          target_test_name="$temp_test_name"
+          target_test_start="$temp_test_start"
+          break
+        fi
+        temp_test_name="${line#'## Test: '}"
+        temp_test_start=$temp_line_num
+      fi
+    done < "$test_file"
+    
+    # Check if target line is in the last test
+    if [ -z "$target_test_name" ] && [ -n "$temp_test_name" ] && [ "$TARGET_LINE" -ge "$temp_test_start" ]; then
+      target_test_name="$temp_test_name"
+      target_test_start="$temp_test_start"
+    fi
+    
+    if [ -z "$target_test_name" ]; then
+      echo "Error: No test found at line $TARGET_LINE in $test_file"
+      exit 1
+    fi
+  fi
+
+  # Second pass: parse and run tests
+  line_number=0
   while IFS= read -r line || [[ -n "$line" ]]; do
+    ((line_number++))
     case $line in
       '## Test: '*)
         if [ -n "$test_name" ]; then
-          run_test "$test_name" "$cmd_args" "${steps[@]}"
+          # Run test if it's the target test or if no specific test was requested
+          if [ -z "$TARGET_LINE" ] || [ "$test_name" = "$target_test_name" ]; then
+            run_test "$test_name" "$cmd_args" "${steps[@]}"
+            # If we just ran the target test, exit
+            if [ -n "$TARGET_LINE" ]; then
+              return
+            fi
+          fi
           # Reset variables
           test_name=""
           cmd_args=""
@@ -235,6 +289,7 @@ run_tests() {
           in_pipe_data=false
         fi
         test_name="${line#'## Test: '}"
+        current_test_start=$line_number
         ;;
       '### Args: '*)
         cmd_args="${line#'### Args: '}"
@@ -292,7 +347,9 @@ run_tests() {
 
   # Run the last test if file ended without a new test block
   if [ -n "$test_name" ]; then
-    run_test "$test_name" "$cmd_args" "${steps[@]}"
+    if [ -z "$TARGET_LINE" ] || [ "$test_name" = "$target_test_name" ]; then
+      run_test "$test_name" "$cmd_args" "${steps[@]}"
+    fi
   fi
 }
 

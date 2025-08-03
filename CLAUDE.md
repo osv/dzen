@@ -30,12 +30,20 @@ make distclean  # also removes configure-generated files
 The project uses a screenshot-based integration test system:
 
 ```bash
-# Run integration tests with a specific test file
+# Run all integration tests in a test file
 ./test_e2e TESTS.md
 
-# Run custom test files
-./test_e2e custom_tests.md
+# Run a specific test by line number
+./test_e2e TESTS.md:286  # Runs "Test: 9 Block area"
 ```
+
+### Running Specific Tests
+
+You can run a specific test by appending `:<line_number>` to the test file. The line number can be any line between the test start (`## Test:`) and the next test. For example:
+
+- `./test_e2e TESTS.md:1` - Runs "Test: 1 Color" (line 1)
+- `./test_e2e TESTS.md:286` - Runs "Test: 9 Block area" (line 286)
+- `./test_e2e TESTS.md:290` - Also runs "Test: 9 Block area" (line 290 is within the test)
 
 The test_e2e script requires a test file parameter. Screenshots are organized by test file:
 - Expected screenshots: `integration-tests/<test_basename>/expected/`

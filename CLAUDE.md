@@ -56,6 +56,34 @@ Integration tests simulate user interactions and verify visual output:
 4. Compares against reference images using ImageMagick
 5. Simulates mouse/keyboard with `xdotool`
 
+### Testing Xinerama Functionality
+
+The `test_xinerama` script specifically tests multi-monitor support:
+
+```bash
+# Run Xinerama tests
+make test-xinerama
+# or directly
+./test_xinerama
+```
+
+**Prerequisites:**
+- dzen2 must be built with Xinerama support (`--enable-xinerama` configure option)
+- Requires `xserver-xephyr` package for virtual monitor simulation
+- Uses ImageMagick for screenshot comparison
+
+**What test_xinerama does:**
+- Uses Xephyr to create 3 virtual monitors (100x100 each in 3x1 layout)
+- Tests dzen2's `-xs` option for screen-specific positioning
+- Starts dzen2 on second monitor (xs=2) with red background
+- Captures and compares screenshots for regression testing
+- Provides colorized output (errors in red, success in green)
+
+**Screenshot locations:**
+- Expected: `integration-tests/test_xinerama/expected/test.png`
+- Actual: `integration-tests/test_xinerama/actual/test.png`
+- Diff: `integration-tests/test_xinerama/diffs/test.png` (on failure)
+
 ## Manual Testing with test_perfomance
 
 The `test_perfomance` script provides a comprehensive test environment that simulates real-world dzen2 usage:
@@ -224,6 +252,11 @@ echo "^fg(red)Error:^fg() Something went wrong" | ./src/dzen2 -p
 
 # Test gadgets
 echo "50" | ./gadgets/gdbar -w 200 -h 20
+
+# Test Xinerama multi-monitor support
+echo "Monitor 1" | ./src/dzen2 -xs 0 -p  # Display on first monitor
+echo "Monitor 2" | ./src/dzen2 -xs 1 -p  # Display on second monitor
+echo "Monitor 3" | ./src/dzen2 -xs 2 -p  # Display on third monitor
 
 # Run test_perfomance with different modes
 ./test_perfomance # Normal test mode - displays complex dzen2 bar with live updates

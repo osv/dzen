@@ -85,6 +85,18 @@ jobs:
           name: screenshots
           path: integration-tests
 
+      # Test without XFT support
+      - name: Configure and build without XFT
+        run: |
+          make distclean
+          ./configure --disable-xft --enable-xpm --enable-xinerama --enable-xcursor
+          make
+
+      - name: Run non-XFT tests
+        run: |
+          export DISPLAY=:99
+          make test-nonxft
+
       # TODO: fix build without xft too
       - name: Compile without xinerama, xcursor, xpm
         run: |

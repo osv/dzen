@@ -22,6 +22,7 @@ EXTRA_DIST = \
   test_perfomance \
   test_xinerama \
   TESTS.md \
+  TESTS-NONXFT.md \
   .gitignore \
   flake.nix \
   flake.lock \
@@ -38,6 +39,9 @@ dzen2-help: dzen2-help.in Makefile
 
 test:
 	./test_e2e TESTS.md
+
+test-nonxft:
+	./test_e2e TESTS-NONXFT.md
 
 test-xinerama:
 	./test_xinerama

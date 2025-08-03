@@ -34,6 +34,7 @@ jobs:
             xdotool
             x11-apps
             xvfb
+            xserver-xephyr
             x11-xkb-utils
             xkb-data
             clang-format
@@ -69,6 +70,12 @@ jobs:
           fc-list
           # run tests
           make test
+
+      # Run Xinerama-specific tests
+      - name: Run Xinerama tests
+        run: |
+          export DISPLAY=:99
+          make test-xinerama
 
       # Step 6: Upload screenshots and diffs as artifacts if tests fail
       - name: Upload screenshots as artifacts (for debugging)

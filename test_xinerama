@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+# test_xinerama - E2E test for Xinerama functionality using Xephyr
+# Tests dzen2's -xs option with virtual multi-monitor setup
+
+set -e
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BRIGHT_WHITE='\033[1;37m'
+NC='\033[0m' # No Color
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+TEST_DIR="$SCRIPT_DIR/integration-tests/test_xinerama"
+ACTUAL_DIR="$TEST_DIR/actual"
+EXPECTED_DIR="$TEST_DIR/expected" 
+DIFFS_DIR="$TEST_DIR/diffs"
+
+# Create directories
+mkdir -p "$ACTUAL_DIR" "$EXPECTED_DIR" "$DIFFS_DIR"
+
+# Display configuration
+DISPLAY_NUM=":100"
+XEPHYR_PID=""
+
+cleanup() {
+    echo -e "${BRIGHT_WHITE}Cleaning up...${NC}"
+    if [ -n "$XEPHYR_PID" ]; then
+        kill "$XEPHYR_PID" 2>/dev/null || true
+        wait "$XEPHYR_PID" 2>/dev/null || true
+    fi
+}
+
+trap cleanup EXIT
+
+echo -e "${BRIGHT_WHITE}Starting Xephyr with 3 virtual monitors (Xinerama)...${NC}"
+
+# Start Xephyr with 3 virtual monitors in a 2x2 grid layout
+Xephyr +xinerama -ac \
+        -screen 100x100+0+0 \
+        -screen 100x100+100+0 \
+        -screen 100x100+200+0 \
+        "$DISPLAY_NUM" &
+
+XEPHYR_PID=$!
+
+echo -e "${BRIGHT_WHITE}Waiting for Xephyr to start...${NC}"
+sleep 2
+
+# Verify Xephyr is running
+if ! kill -0 "$XEPHYR_PID" 2>/dev/null; then
+    echo -e "${RED}Error: Failed to start Xephyr${NC}"
+    exit 1
+fi
+
+echo -e "${BRIGHT_WHITE}Starting dzen2 on second display (xs=2) with red background...${NC}"
+
+# Start dzen2 on the second screen (middle-top) with red background
+# Use expand right and set height to 30 pixels
+DISPLAY="$DISPLAY_NUM" timeout 3s "$SCRIPT_DIR/src/dzen2" \
+    -xs 2 \
+    -expand right \
+    -h 30 \
+    -bg '#ff0000' \
+    -p &
+
+DZEN_PID=$!
+
+echo -e "${BRIGHT_WHITE}Waiting for dzen2 to render...${NC}"
+sleep 1
+
+echo -e "${BRIGHT_WHITE}Taking screenshot...${NC}"
+# Capture screenshot of all virtual displays
+DISPLAY="$DISPLAY_NUM" import -window root "$ACTUAL_DIR/test.png"
+
+echo -e "${BRIGHT_WHITE}Stopping dzen2...${NC}"
+kill "$DZEN_PID" 2>/dev/null || true
+wait "$DZEN_PID" 2>/dev/null || true
+
+# Check if expected screenshot exists
+EXPECTED_FILE="$EXPECTED_DIR/test.png"
+ACTUAL_FILE="$ACTUAL_DIR/test.png"
+DIFF_FILE="$DIFFS_DIR/test.png"
+
+if [ ! -f "$EXPECTED_FILE" ]; then
+    echo -e "${RED}Expected screenshot doesn't exist. Copying actual to expected...${NC}"
+    cp "$ACTUAL_FILE" "$EXPECTED_FILE"
+    echo -e "${GREEN}Test setup complete. Expected screenshot created at: $EXPECTED_FILE${NC}"
+    echo -e "${BRIGHT_WHITE}Please verify the image shows 3 monitors with red bar on the third monitor.${NC}"
+else
+    echo -e "${BRIGHT_WHITE}Comparing screenshots...${NC}"
+    
+    # Compare images with 5% fuzz tolerance
+    DIFF_PIXELS=$(DISPLAY="$DISPLAY_NUM" compare -metric AE -fuzz 5% "$EXPECTED_FILE" "$ACTUAL_FILE" "$DIFF_FILE" 2>&1 || true)
+    
+    if [ "$DIFF_PIXELS" = "0" ]; then
+        echo -e "${GREEN}✓ Test PASSED: Screenshots match perfectly${NC}"
+        rm -f "$DIFF_FILE"  # Remove diff file if no differences
+        exit 0
+    else
+        echo -e "${RED}✗ Test FAILED: Found $DIFF_PIXELS different pixels${NC}"
+        echo -e "${RED}Diff image saved to: $DIFF_FILE${NC}"
+        echo -e "${RED}Expected: $EXPECTED_FILE${NC}"
+        echo -e "${RED}Actual: $ACTUAL_FILE${NC}"
+        exit 1
+    fi
+fi

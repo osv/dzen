@@ -20,6 +20,7 @@ EXTRA_DIST = \
   integration-tests \
   test_e2e \
   test_perfomance \
+  test_xinerama \
   TESTS.md \
   .gitignore \
   flake.nix \
@@ -33,10 +34,13 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test update-man
+.PHONY: test test-xinerama update-man
 
 test:
 	./test_e2e TESTS.md
+
+test-xinerama:
+	./test_xinerama
 
 # TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
 update-man: ./README.md

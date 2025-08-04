@@ -4,6 +4,10 @@
 USE_VIRTUAL_DISPLAY=true
 XVFB_PID=""
 DISPLAY_NUM=99
+SHOW_IMAGES_ON_SUCCESS=false
+DISABLE_IMAGES=false
+IS_KITTY_TERMINAL=false
+ORIGINAL_DISPLAY="$DISPLAY"
 
 # Function to show help
 show_help() {
@@ -11,18 +15,24 @@ show_help() {
 Usage: $0 [OPTIONS] <test_file>[:<line_number>]
 
 OPTIONS:
-    --help      Show this help message
-    --native    Run tests on native X11 display (current DISPLAY)
-    --virtual   Run tests in virtual Xvfb display (default)
+    --help          Show this help message
+    --native        Run tests on native X11 display (current DISPLAY)
+    --virtual       Run tests in virtual Xvfb display (default)
+    --show-images   Display actual images on success (Kitty terminal only)
+    --no-images     Disable image display even in Kitty terminal
 
 EXAMPLES:
     $0 TESTS.md                    # Run all tests in virtual display
     $0 --native TESTS.md           # Run all tests on native X11 display
     $0 TESTS.md:286                # Run specific test at line 286 in virtual display
     $0 --native TESTS.md:286       # Run specific test at line 286 on native display
+    $0 --show-images TESTS.md      # Show actual images on success (Kitty only)
+    $0 --no-images TESTS.md        # Disable all image display
 
 NOTE: By default, tests run in a virtual Xvfb display for isolation.
       Use --native to run tests on your current X11 display.
+      In Kitty terminal, error images are shown by default; use --no-images to disable.
+      Image display in Kitty works best with --native flag when running from a graphical session.
 EOF
 }
 
@@ -39,6 +49,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --virtual)
             USE_VIRTUAL_DISPLAY=true
+            shift
+            ;;
+        --show-images)
+            SHOW_IMAGES_ON_SUCCESS=true
+            shift
+            ;;
+        --no-images)
+            DISABLE_IMAGES=true
             shift
             ;;
         --)
@@ -91,6 +109,11 @@ DIFF_DIR="$SCREENSHOT_DIR/diffs"
 mkdir -p "$EXPECTED_DIR"
 mkdir -p "$ACTUAL_DIR"
 mkdir -p "$DIFF_DIR"
+
+# Detect if running in Kitty terminal
+if [[ "$TERM" == "xterm-kitty" ]] || [[ -n "$KITTY_WINDOW_ID" ]]; then
+    IS_KITTY_TERMINAL=true
+fi
 
 check_dependencies() {
     local missing_dependencies=()
@@ -158,6 +181,39 @@ NC='\033[0m'  # No Color (reset)
 # Threshold for acceptable difference in screenshots
 delta_threshold=2
 all_tests_passed=true
+
+# Function to display image in Kitty terminal
+display_image_in_kitty() {
+    local image_path=$1
+    local label=$2
+
+    # Only display if in Kitty terminal and images are not disabled
+    if [ "$IS_KITTY_TERMINAL" = true ] && [ "$DISABLE_IMAGES" = false ] && [ -f "$image_path" ]; then
+        # Check if ORIGINAL_DISPLAY is valid
+        if [ -z "$ORIGINAL_DISPLAY" ]; then
+            # Only show warning once
+            if [ "${KITTY_IMAGE_WARNING_SHOWN:-false}" = false ]; then
+                echo "  Note: Kitty image display requires a valid DISPLAY. Use --native flag for best results."
+                KITTY_IMAGE_WARNING_SHOWN=true
+            fi
+            return
+        fi
+
+        # Try to display image with error handling
+        # Use --stdin=no to prevent kitten icat from reading stdin (which would hang the script)
+        if DISPLAY="$ORIGINAL_DISPLAY" kitten icat --stdin=no --align left "$image_path" 2>/dev/null; then
+            if [ -n "$label" ]; then
+                echo -e "  └──[ $label ]"
+            fi
+        else
+            # Only show error once
+            if [ "${KITTY_IMAGE_ERROR_SHOWN:-false}" = false ]; then
+                echo "  Note: Unable to display images in Kitty. Use --native flag or ensure Kitty terminal is accessible."
+                KITTY_IMAGE_ERROR_SHOWN=true
+            fi
+        fi
+    fi
+}
 
 run_test() {
   local test_name=$1
@@ -260,14 +316,25 @@ run_test() {
           if (( diff > delta_threshold )); then
             echo -e "\n${RED}$check_num: Error:\n${RED}Difference in $test_name exceeds threshold! ($diff)${NC}"
             echo -e "${RED} See ./${diff_screenshot}${NC}\n"
+            # Display images in Kitty terminal on error
+            display_image_in_kitty "$expected_screenshot_path" "Expected"
+            display_image_in_kitty "$actual_screenshot_path" "Actual"
+            display_image_in_kitty "$diff_screenshot" "Difference"
             all_tests_passed=false
           else
             echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
+            # Display actual image on success if requested
+            if [ "$SHOW_IMAGES_ON_SUCCESS" = true ]; then
+              echo ""
+              display_image_in_kitty "$actual_screenshot_path" "${GREEN}Actual (success)${NC}"
+            fi
           fi
         else
           echo -e "\n${RED}$check_num: Error: Expected screenshot not found for $test_name at $expected_screenshot_path.${NC}"
           echo -e "${GREEN}  Copying actual screenshot to $expected_screenshot_path.${NC}\n"
           cp "$actual_screenshot_path" "$expected_screenshot_path"
+          # Display the actual screenshot that was just copied
+          display_image_in_kitty "$actual_screenshot_path" "Actual (copied to expected)"
           all_tests_passed=false
         fi
         ;;

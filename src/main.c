@@ -55,6 +55,8 @@ static void clean_up(void) {
     free(dzen.fnt);
     free(dzen.bg);
     free(dzen.fg);
+    free(dzen.title_win.name);
+    free(dzen.slave_win.name);
 }
 
 static void catch_sigusr1(int s) {
@@ -265,6 +267,9 @@ static void queryscreeninfo(Display *dpy, XRectangle *rect, int screen) {
         rect->width  = xsi[screen - 1].width;
         rect->height = xsi[screen - 1].height;
     }
+
+    if (xsi != NULL)
+        XFree(xsi);
 }
 #endif
 
@@ -387,16 +392,26 @@ static void x_read_resources(void) {
     xrm = XResourceManagerString(dzen.dpy);
     if (xrm != NULL) {
         xdb = XrmGetStringDatabase(xrm);
-        if (XrmGetResource(xdb, "dzen2.font", "*", datatype, &xvalue) == True)
+        if (XrmGetResource(xdb, "dzen2.font", "*", datatype, &xvalue) == True) {
+            free(dzen.fnt);
             dzen.fnt = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.foreground", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.foreground", "*", datatype, &xvalue) == True) {
+            free(dzen.fg);
             dzen.fg = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.background", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.background", "*", datatype, &xvalue) == True) {
+            free(dzen.bg);
             dzen.bg = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.titlename", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.titlename", "*", datatype, &xvalue) == True) {
+            free(dzen.title_win.name);
             dzen.title_win.name = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.slavename", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.slavename", "*", datatype, &xvalue) == True) {
+            free(dzen.slave_win.name);
             dzen.slave_win.name = estrdup(xvalue.addr);
+        }
         XrmDestroyDatabase(xdb);
     }
 }
@@ -781,8 +796,8 @@ int main(int argc, char *argv[]) {
     char *endptr, *fnpre = NULL;
 
     /* default values */
-    dzen.title_win.name = "dzen title";
-    dzen.slave_win.name = "dzen slave";
+    dzen.title_win.name = estrdup("dzen title");
+    dzen.slave_win.name = estrdup("dzen slave");
     dzen.cur_line       = 0;
     dzen.ret_val        = 0;
     dzen.title_win.x = dzen.slave_win.x = 0;

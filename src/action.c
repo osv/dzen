@@ -167,14 +167,18 @@ handlerf *get_action_handler(const char *acname) {
 
 void free_event_list(void) {
     int      i;
-    ev_list *item;
+    ev_list *item, *next;
 
     item = head;
     while (item) {
-        for (i = 0; item->action[i]->handler; i++)
+        for (i = 0; i < MAXACTIONS && item->action[i] != NULL; i++)
             free(item->action[i]);
-        item = item->next;
+
+        next = item->next;
+        free(item);
+        item = next;
     }
+    head = NULL;
 }
 
 void fill_ev_table(char *input) {

@@ -25,6 +25,68 @@ make clean
 make distclean  # also removes configure-generated files
 ```
 
+## Project Structure
+
+```
+.
+├── src/               # Main dzen2 source code
+│   ├── main.c        # Entry point and argument parsing
+│   ├── draw.c        # Drawing functions and in-text command parsing
+│   ├── action.c      # Event handling and action execution
+│   ├── caches.c      # Performance optimizations (color/font caching)
+│   ├── font.c        # Font management module
+│   ├── util.c        # Utility functions
+│   └── kvstore.c     # Key-value store for clickable areas
+├── gadgets/          # Auxiliary tools
+│   ├── dbar.c        # Progress bar library
+│   ├── gdbar.c       # Graphical progress bar
+│   ├── gcpubar.c     # CPU usage bar
+│   └── textwidth.c   # Text width calculator
+├── test_e2e          # Integration test runner
+├── test_perfomance   # Performance and memory test tool
+└── test_xinerama     # Multi-monitor test script
+```
+
+## Command Line Options
+
+Below are list of options for `./src/dzen2`
+
+- `-p [seconds]` - Persist for N seconds or indefinitely if no argument
+- `-m [v|h]` - Menu mode: vertical (default) or horizontal
+- `-l <lines>` - Number of lines in slave window (enables slave window)
+- `-fn <font>` - Font specification (XFT or X11 font)
+- `-bg <color>` - Background color
+- `-fg <color>` - Foreground color
+- `-x/-y <pixel>` - Window position
+- `-w/-h <pixel>` - Window width/height
+- `-ta <l|c|r>` - Title window text alignment (left/center/right)
+- `-sa <l|c|r>` - Slave window text alignment
+- `-xs <screen>` - Xinerama screen number (for multi-monitor)
+- `-e <string>` - Event actions (e.g., "onstart=uncollapse")
+- `-u` - Update continuously on stdin
+- `-expand <left|right>` - Direction to expand menu
+- `-dock` - Set `_NET_WM_WINDOW_TYPE_DOCK` property
+- `-v` - Print version and enabled features
+
+### Examples
+
+```bash
+# Basic usage
+echo "Hello World" | ./src/dzen2 -p
+
+# Menu with 5 lines
+(echo "Title"; seq 1 5) | ./src/dzen2 -l 5 -p
+
+# Positioned window with custom colors
+echo "Status" | ./src/dzen2 -x 100 -y 50 -w 200 -h 30 -bg '#1a1a1a' -fg '#ffffff' -p
+
+# Multi-monitor (second screen)
+echo "Monitor 2" | ./src/dzen2 -xs 1 -p
+
+# Auto-uncollapse menu on start
+echo -e "Menu\nItem 1\nItem 2" | ./src/dzen2 -l 2 -e "onstart=uncollapse" -p
+```
+
 ## Running E2E Tests
 
 The project uses a screenshot-based integration test system:
@@ -307,8 +369,8 @@ ulimit -n 65536  # Set before running valgrind if you get "Private file creation
    cat valgrind-out.txt | grep "ERROR SUMMARY"      # Check error count
    cat valgrind-out.txt | grep "LEAK SUMMARY" -A 5  # Check memory leaks
    
-   # Run valgrind manually:
-   timeout 10s ./test_perfomance --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p; echo "Exit code: $?"
+   # Run valgrind manually 10seconds:
+   ./test_perfomance --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p 10; echo "Exit code: $?"
    ```
 
 ## Code Style

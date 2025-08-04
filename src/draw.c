@@ -334,8 +334,6 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
     Drawable pm = 0, bm;
 
 #ifdef HAVE_XFT
-    XftDraw *xftd = NULL;
-    XftColor xftc;
     char    *xftcs;
     int      xftcs_f = 0;
     char    *xftcs_bg;
@@ -367,7 +365,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
     }
     /* parse line and render text */
     else {
-        h     = dzen.font.height;
+        font_get_dimensions(NULL, NULL, &h);
         py    = (dzen.line_height - h) / 2;
         xorig = 0;
 
@@ -379,10 +377,6 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                                dzen.line_height, DefaultDepth(dzen.dpy, dzen.screen));
         }
 
-#ifdef HAVE_XFT
-        xftd =
-            XftDrawCreate(dzen.dpy, pm, DefaultVisual(dzen.dpy, dzen.screen), DefaultColormap(dzen.dpy, dzen.screen));
-#endif
 
         if (!reverse) {
             XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
@@ -401,13 +395,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
         }
 
-#ifndef HAVE_XFT
-        if (!dzen.font.set) {
-            gcv.font = dzen.font.xfont->fid;
-            XChangeGC(dzen.dpy, dzen.tgc, GCFont, &gcv);
-        }
-#endif
-        cur_fnt = &dzen.font;
+        cur_fnt = font_get_current();
 
         if (lnr != -1 && (lnr + dzen.slave_win.first_line_vis >= dzen.slave_win.tcnt)) {
             XCopyArea(dzen.dpy, pm, dzen.slave_win.drawable[lnr], dzen.gc, 0, 0, px, dzen.line_height, xorig, 0);
@@ -565,7 +553,8 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                                 py += n_posy;
                         } else {
                             set_posy = 0;
-                            py       = (dzen.line_height - dzen.font.height) / 2;
+                            font_get_dimensions(NULL, NULL, &h);
+                            py       = (dzen.line_height - h) / 2;
                         }
                         max_x = MAX(max_x, px);
                         break;
@@ -585,7 +574,8 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                                 py = n_posy;
                         } else {
                             set_posy = 0;
-                            py       = (dzen.line_height - dzen.font.height) / 2;
+                            font_get_dimensions(NULL, NULL, &h);
+                            py       = (dzen.line_height - h) / 2;
                         }
                         max_x = MAX(max_x, px);
                         break;
@@ -626,29 +616,14 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
 
                     case fn:
                         if (tval[0]) {
-#ifndef HAVE_XFT
-                            if (!strncmp(tval, "dfnt", 4)) {
-                                cur_fnt = &(dzen.fnpl[atoi(tval + 4)]);
-
-                                if (!cur_fnt->set) {
-                                    gcv.font = cur_fnt->xfont->fid;
-                                    XChangeGC(dzen.dpy, dzen.tgc, GCFont, &gcv);
-                                }
-                            } else
-#endif
-                                setfont(tval);
+                            cur_fnt = font_set(tval);
                         } else {
-                            cur_fnt = &dzen.font;
-#ifndef HAVE_XFT
-                            if (!cur_fnt->set) {
-                                gcv.font = cur_fnt->xfont->fid;
-                                XChangeGC(dzen.dpy, dzen.tgc, GCFont, &gcv);
-                            }
-#else
-                            setfont(dzen.fnt ? dzen.fnt : FONT);
-#endif
+                            font_reset_to_default();
+                            cur_fnt = font_get_current();
                         }
-                        py           = set_posy ? py : (dzen.line_height - cur_fnt->height) / 2;
+                        if (cur_fnt) {
+                            py = set_posy ? py : (dzen.line_height - cur_fnt->height) / 2;
+                        }
                         font_was_set = 1;
                         break;
                     case ca:; //nop to keep gcc happy
@@ -693,10 +668,10 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                 }
 
                 /* check if text is longer than window's width */
-                tw = textnw(cur_fnt, lbuf, strlen(lbuf));
+                tw = font_get_text_width(lbuf, strlen(lbuf));
                 while ((((tw + px) > (dzen.w)) || (block_align != -1 && tw > block_width)) && j >= 0) {
                     lbuf[--j] = '\0';
-                    tw        = textnw(cur_fnt, lbuf, strlen(lbuf));
+                    tw        = font_get_text_width(lbuf, strlen(lbuf));
                 }
 
                 opx = px;
@@ -716,24 +691,20 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                     setcolor(&pm, px, tw, lastfg, lastbg, reverse, nobg);
 
 #ifndef HAVE_XFT
-                if (cur_fnt->set)
-                    XmbDrawString(dzen.dpy, pm, cur_fnt->set, dzen.tgc, px, py + cur_fnt->ascent, lbuf, strlen(lbuf));
-                else
-                    XDrawString(dzen.dpy, pm, dzen.tgc, px, py + dzen.font.ascent, lbuf, strlen(lbuf));
+                font_draw_text(pm, dzen.tgc, px, py, lbuf, strlen(lbuf));
 #else
-                if (reverse) {
-                    XftColorAllocName(dzen.dpy, DefaultVisual(dzen.dpy, dzen.screen),
-                                      DefaultColormap(dzen.dpy, dzen.screen), xftcs_bg, &xftc);
+                if (cur_fnt && cur_fnt->xftfont) {
+                    const char *color_to_use = reverse ? xftcs_bg : xftcs;
+                    font_draw_text_xft(pm, px, py, lbuf, strlen(lbuf), color_to_use, dzen.screen);
                 } else {
-                    XftColorAllocName(dzen.dpy, DefaultVisual(dzen.dpy, dzen.screen),
-                                      DefaultColormap(dzen.dpy, dzen.screen), xftcs, &xftc);
+                    /* Fallback to X11 core fonts */
+                    font_draw_text(pm, dzen.tgc, px, py, lbuf, strlen(lbuf));
                 }
-
-                XftDrawStringUtf8(xftd, &xftc, cur_fnt->xftfont, px, py + dzen.font.xftfont->ascent,
-                                  (const FcChar8 *)lbuf, strlen(lbuf));
 #endif
 
-                max_y = MAX(max_y, py + dzen.font.height);
+                if (cur_fnt) {
+                    max_y = MAX(max_y, py + cur_fnt->height);
+                }
 
                 if (block_align == -1) {
                     if (!pos_is_fixed || *linep == '\0') {
@@ -810,7 +781,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
 
         /* reset font to default */
         if (font_was_set)
-            setfont(dzen.fnt ? dzen.fnt : FONT);
+            font_reset_to_default();
 
 #ifdef HAVE_XFT
         /* Free allocated color strings at function exit */
@@ -820,7 +791,6 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
         if (xftcs_bgf) {
             free(xftcs_bg);
         }
-        XftDrawDestroy(xftd);
 #endif
     }
 
@@ -964,7 +934,7 @@ int parse_non_drawing_commands(char *text) {
         if (tval) {
             free((char *)dzen.fnt);
             dzen.fnt = estrdup(tval);
-            setfont(dzen.fnt);
+            font_set_default(dzen.fnt);
         }
         return 0;
     }

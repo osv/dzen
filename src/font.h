@@ -30,21 +30,39 @@ typedef struct Fnt {
 #endif
 } Fnt;
 
-/* Font management functions */
-void         font_init(void);
-void         font_cleanup(void);
-void         setfont(const char *fontstr);
-unsigned int textnw(Fnt *font, const char *text, unsigned int len);
+/* Initialize font subsystem */
+void font_init(Display *dpy, int screen);
 
-/* Font preloading functions */
-void font_preload(char *s);
-void font_preload_single(const char *fontstr, int p);
+/* Clean up all font resources */
+void font_cleanup(void);
 
-/* Font cache functions */
+/* Set the current font */
+Fnt *font_set(const char *fontstr);
+
+/* Set the default font */
+void font_set_default(const char *fontstr);
+
+/* Get the current font */
+Fnt *font_get_current(void);
+
+/* Reset to default font */
+void font_reset_to_default(void);
+
+/* Calculate text width */
+unsigned int font_get_text_width(const char *text, unsigned int len);
+
+/* Draw text at specified position */
+void font_draw_text(Drawable drawable, GC gc, int x, int y, const char *text, unsigned int len);
+
 #ifdef HAVE_XFT
-void     font_cache_init(void);
-void     font_cache_cleanup(void);
-XftFont *get_cached_font(Display *display, int screen, const char *font_name);
+/* Draw text with XFT at specified position */
+void font_draw_text_xft(Drawable drawable, int x, int y, const char *text, unsigned int len, const char *color, int screen);
 #endif
+
+/* Preload fonts with aliases */
+void font_preload(const char *fonts);
+
+/* Get font height information */
+void font_get_dimensions(int *ascent, int *descent, int *height);
 
 #endif /* FONT_H */

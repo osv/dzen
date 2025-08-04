@@ -229,8 +229,11 @@ static void x_check_geometry(XRectangle scr) {
             s->x = scr.x + (scr.width - s->width);
     }
 
-    if (!dzen.line_height)
-        dzen.line_height = dzen.font.height + 2;
+    if (!dzen.line_height) {
+        int font_height;
+        font_get_dimensions(NULL, NULL, &font_height);
+        dzen.line_height = font_height + 2;
+    }
 
     if (t->y + dzen.line_height > scr.y + scr.height)
         t->y = scr.y + scr.height - dzen.line_height;
@@ -409,7 +412,6 @@ static void x_create_windows(int use_ewmh_dock) {
         eprint("dzen: error, cannot allocate color '%s'\n", dzen.bg);
     if ((dzen.norm[ColFG] = get_color(dzen.fg)) == ~0lu)
         eprint("dzen: error, cannot allocate color '%s'\n", dzen.fg);
-    setfont(dzen.fnt);
 
     x_create_gcs();
 
@@ -1004,7 +1006,8 @@ int main(int argc, char *argv[]) {
 #endif
 
     init_all_caches();
-    font_init();
+    font_init(dzen.dpy, dzen.screen);
+    font_set_default(dzen.fnt);
     x_create_windows(use_ewmh_dock);
 
     if (!dzen.slave_win.ishmenu)

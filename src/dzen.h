@@ -156,8 +156,6 @@ struct DZEN {
 
     Visual *visual;
     GC      gc, rgc, tgc;
-    Fnt     font; /* Font management handled by font.c */
-    Fnt     fnpl[64]; /* Font preload pool handled by font.c */
 
     Bool          ispersistent;
     Bool          tsupdate;

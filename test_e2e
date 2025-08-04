@@ -151,6 +151,9 @@ start_virtual_display() {
     echo "Virtual display started on DISPLAY=${DISPLAY}"
 }
 
+# Global variable to track if we're interrupted
+INTERRUPTED=false
+
 # Function to cleanup virtual display
 cleanup_virtual_display() {
     if [ -n "$XVFB_PID" ]; then
@@ -161,8 +164,26 @@ cleanup_virtual_display() {
     fi
 }
 
+# Function to handle interruption
+handle_interrupt() {
+    INTERRUPTED=true
+    echo -e "\n${RED}Interrupted! Cleaning up...${NC}"
+    
+    # Kill any running dzen2 processes started by this script
+    if [ -n "${program_coproc_PID}" ]; then
+        kill "${program_coproc_PID}" 2>/dev/null || true
+    fi
+    
+    # Clean up virtual display
+    cleanup_virtual_display
+    
+    echo -e "${RED}Tests interrupted by user.${NC}"
+    exit 130  # Standard exit code for SIGINT
+}
+
 # Set up signal handlers for cleanup
-trap cleanup_virtual_display EXIT INT TERM
+trap handle_interrupt INT TERM
+trap cleanup_virtual_display EXIT
 
 # Setup display
 if [ "$USE_VIRTUAL_DISPLAY" = true ]; then
@@ -221,6 +242,11 @@ run_test() {
   shift 2
   local steps=("$@")
 
+  # Check if we've been interrupted
+  if [ "$INTERRUPTED" = true ]; then
+    return
+  fi
+
   echo -n "Running test: $test_name ... "
 
   # Run the app using coproc and capture the PID
@@ -237,9 +263,14 @@ run_test() {
     echo -e "${RED}Error: Could not find window for PID $app_pid.${NC}"
     all_tests_passed=false
     # Close the coprocess
-    kill "$app_pid"
-    exec {program_coproc[1]}>&-
-    exec {program_coproc[0]}>&-
+    kill "$app_pid" 2>/dev/null || true
+    # Check if file descriptors are valid before closing
+    if [ -n "${program_coproc[1]}" ] && [ "${program_coproc[1]}" -gt 0 ] 2>/dev/null; then
+      exec {program_coproc[1]}>&- 2>/dev/null || true
+    fi
+    if [ -n "${program_coproc[0]}" ] && [ "${program_coproc[0]}" -gt 0 ] 2>/dev/null; then
+      exec {program_coproc[0]}>&- 2>/dev/null || true
+    fi
     return
   fi
 
@@ -375,9 +406,14 @@ run_test() {
 
   if kill -0 "$app_pid" 2>/dev/null; then
     # Close the coprocess
-    kill "$app_pid"
-    exec {program_coproc[1]}>&-
-    exec {program_coproc[0]}>&-
+    kill "$app_pid" 2>/dev/null || true
+    # Check if file descriptors are valid before closing
+    if [ -n "${program_coproc[1]}" ] && [ "${program_coproc[1]}" -gt 0 ] 2>/dev/null; then
+      exec {program_coproc[1]}>&- 2>/dev/null || true
+    fi
+    if [ -n "${program_coproc[0]}" ] && [ "${program_coproc[0]}" -gt 0 ] 2>/dev/null; then
+      exec {program_coproc[0]}>&- 2>/dev/null || true
+    fi
   fi
 }
 
@@ -429,6 +465,11 @@ run_tests() {
   # Second pass: parse and run tests
   line_number=0
   while IFS= read -r line || [[ -n "$line" ]]; do
+    # Check if we've been interrupted
+    if [ "$INTERRUPTED" = true ]; then
+      return
+    fi
+    
     ((line_number++))
     case $line in
       '## Test: '*)

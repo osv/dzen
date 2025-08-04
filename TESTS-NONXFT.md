@@ -1,3 +1,7 @@
+# Test scenarios of dzen compiled without XFT
+
+Compile dzen without XFT to run this test: `./configure --disable-xft && make`!
+
 ## Test: 1 Color
 
 ### Args: -fn "6x13" -h 30 -w 300 -bg '#000' -fg '#fff'

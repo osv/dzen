@@ -58,8 +58,8 @@ jobs:
         run: |
           make
 
-      # Start the Xvfb (Virtual Framebuffer)
-      - name: Start Xvfb (Virtual Framebuffer)
+      # Run E2E tests using native mode (Xvfb already set up by GitHub Actions)
+      - name: Run E2E tests
         run: |
           # Start Xvfb on display :99
           Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
@@ -68,8 +68,8 @@ jobs:
           # waiting for framebuffer
           sleep 4
           fc-list
-          # run tests
-          make test
+          # run tests using --native since we manage Xvfb externally
+          ./test_e2e --native TESTS.md
 
       # Run Xinerama-specific tests
       - name: Run Xinerama tests
@@ -95,7 +95,7 @@ jobs:
       - name: Run non-XFT tests
         run: |
           export DISPLAY=:99
-          make test-nonxft
+          ./test_e2e --native TESTS-NONXFT.md
 
       # TODO: fix build without xft too
       - name: Compile without xinerama, xcursor, xpm

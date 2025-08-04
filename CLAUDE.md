@@ -92,12 +92,35 @@ echo -e "Menu\nItem 1\nItem 2" | ./src/dzen2 -l 2 -e "onstart=uncollapse" -p
 The project uses a screenshot-based integration test system:
 
 ```bash
-# Run all integration tests in a test file
+# Show help and available options
+./test_e2e --help
+
+# Run all integration tests in virtual display (default)
 ./test_e2e TESTS.md
 
-# Run a specific test by line number
+# Run all integration tests on native X11 display
+./test_e2e --native TESTS.md
+
+# Run a specific test by line number in virtual display
 ./test_e2e TESTS.md:286  # Runs "Test: 9 Block area"
+
+# Run a specific test by line number on native X11 display
+./test_e2e --native TESTS.md:286
 ```
+
+### Display Modes
+
+**Virtual Display (Default)**: `./test_e2e TESTS.md`
+- Runs tests in isolated Xvfb virtual display
+- Automatically starts and manages virtual X server
+- Recommended for CI/CD and automated testing
+- No interference with your desktop environment
+
+**Native Display**: `./test_e2e --native TESTS.md`  
+- Runs tests on your current X11 display
+- Useful for debugging and visual inspection
+- Tests appear on your actual screen
+- Use when you need to see tests running interactively
 
 ### Running Specific Tests
 
@@ -120,11 +143,12 @@ For example, when running `./test_e2e TESTS.md`:
 ### Testing E2E Architecture
 
 Integration tests simulate user interactions and verify visual output:
-1. `test_e2e` launches Xvfb virtual display
+1. `test_e2e` launches Xvfb virtual display (unless `--native` is used)
 2. Runs dzen2 with test input
 3. Captures screenshots with `xwd`
 4. Compares against reference images using ImageMagick
 5. Simulates mouse/keyboard with `xdotool`
+6. Automatically cleans up virtual display on exit
 
 ### Testing Xinerama Functionality
 

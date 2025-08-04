@@ -1,10 +1,65 @@
 #!/usr/bin/env bash
 
+# Global variables
+USE_VIRTUAL_DISPLAY=true
+XVFB_PID=""
+DISPLAY_NUM=99
+
+# Function to show help
+show_help() {
+    cat << EOF
+Usage: $0 [OPTIONS] <test_file>[:<line_number>]
+
+OPTIONS:
+    --help      Show this help message
+    --native    Run tests on native X11 display (current DISPLAY)
+    --virtual   Run tests in virtual Xvfb display (default)
+
+EXAMPLES:
+    $0 TESTS.md                    # Run all tests in virtual display
+    $0 --native TESTS.md           # Run all tests on native X11 display
+    $0 TESTS.md:286                # Run specific test at line 286 in virtual display
+    $0 --native TESTS.md:286       # Run specific test at line 286 on native display
+
+NOTE: By default, tests run in a virtual Xvfb display for isolation.
+      Use --native to run tests on your current X11 display.
+EOF
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --help)
+            show_help
+            exit 0
+            ;;
+        --native)
+            USE_VIRTUAL_DISPLAY=false
+            shift
+            ;;
+        --virtual)
+            USE_VIRTUAL_DISPLAY=true
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            echo "Use --help for usage information." >&2
+            exit 1
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 # Check for test file argument
 if [ $# -ne 1 ]; then
-    echo "Usage: $0 <test_file>[:<line_number>]"
-    echo "Example: $0 TESTS.md"
-    echo "Example: $0 TESTS.md:286  # Run specific test at line 286"
+    echo "Error: Missing test file argument" >&2
+    echo "Use --help for usage information." >&2
     exit 1
 fi
 
@@ -55,7 +110,45 @@ check_dependencies() {
     fi
 }
 
-check_dependencies xwd convert compare xdotool base64
+# Function to start virtual display
+start_virtual_display() {
+    # Find an available display number
+    while [ -e "/tmp/.X${DISPLAY_NUM}-lock" ]; do
+        DISPLAY_NUM=$((DISPLAY_NUM + 1))
+    done
+    
+    echo "Starting virtual display :${DISPLAY_NUM}..."
+    Xvfb ":${DISPLAY_NUM}" -screen 0 1920x1080x24 > /dev/null 2>&1 &
+    XVFB_PID=$!
+    
+    # Wait for Xvfb to start
+    sleep 2
+    
+    export DISPLAY=":${DISPLAY_NUM}"
+    echo "Virtual display started on DISPLAY=${DISPLAY}"
+}
+
+# Function to cleanup virtual display
+cleanup_virtual_display() {
+    if [ -n "$XVFB_PID" ]; then
+        echo "Stopping virtual display (PID: $XVFB_PID)..."
+        kill "$XVFB_PID" 2>/dev/null || true
+        wait "$XVFB_PID" 2>/dev/null || true
+        XVFB_PID=""
+    fi
+}
+
+# Set up signal handlers for cleanup
+trap cleanup_virtual_display EXIT INT TERM
+
+# Setup display
+if [ "$USE_VIRTUAL_DISPLAY" = true ]; then
+    check_dependencies xwd convert compare xdotool base64 Xvfb
+    start_virtual_display
+else
+    check_dependencies xwd convert compare xdotool base64
+    echo "Running tests on native X11 display: $DISPLAY"
+fi
 
 # Define ANSI color codes for green (pass) and red (fail)
 GREEN='\033[0;32m'

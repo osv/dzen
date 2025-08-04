@@ -1,4 +1,3 @@
-
 /*
 * (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
 * See LICENSE file for license details.
@@ -326,22 +325,13 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
     char *tval = NULL;
 
     /* X stuff */
-    long lastfg = dzen.norm[ColFG], lastbg = dzen.norm[ColBG];
-    Fnt *cur_fnt = NULL;
-#ifndef HAVE_XFT
-    XGCValues gcv;
-#endif
-    Drawable pm = 0, bm;
-
-#ifdef HAVE_XFT
-    char    *xftcs;
-    int      xftcs_f = 0;
-    char    *xftcs_bg;
-    int      xftcs_bgf = 0;
-
-    xftcs    = (char *)dzen.fg;
-    xftcs_bg = (char *)dzen.bg;
-#endif
+    long        lastfg = dzen.norm[ColFG], lastbg = dzen.norm[ColBG];
+    const char *cur_fgcolor       = dzen.fg;
+    const char *cur_bgcolor       = dzen.bg;
+    char       *allocated_fgcolor = NULL;
+    char       *allocated_bgcolor = NULL;
+    Fnt        *cur_fnt           = NULL;
+    Drawable    pm                = 0, bm;
 
     /* icon cache */
     int ip;
@@ -377,13 +367,8 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                                dzen.line_height, DefaultDepth(dzen.dpy, dzen.screen));
         }
 
-
         if (!reverse) {
             XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
-#ifdef HAVE_XFT
-            xftcs_bg  = (char *)dzen.bg;
-            xftcs_bgf = 0;
-#endif
         } else {
             XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColFG]);
         }
@@ -554,7 +539,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                         } else {
                             set_posy = 0;
                             font_get_dimensions(NULL, NULL, &h);
-                            py       = (dzen.line_height - h) / 2;
+                            py = (dzen.line_height - h) / 2;
                         }
                         max_x = MAX(max_x, px);
                         break;
@@ -575,7 +560,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                         } else {
                             set_posy = 0;
                             font_get_dimensions(NULL, NULL, &h);
-                            py       = (dzen.line_height - h) / 2;
+                            py = (dzen.line_height - h) / 2;
                         }
                         max_x = MAX(max_x, px);
                         break;
@@ -586,32 +571,27 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
 
                     case bg:
                         lastbg = tval[0] ? (unsigned)get_color(tval) : dzen.norm[ColBG];
-#ifdef HAVE_XFT
-                        if (xftcs_bgf)
-                            free(xftcs_bg);
                         if (tval[0]) {
-                            xftcs_bg  = estrdup(tval);
-                            xftcs_bgf = 1;
+                            if (allocated_bgcolor)
+                                free(allocated_bgcolor);
+                            allocated_bgcolor = estrdup(tval);
+                            cur_bgcolor       = allocated_bgcolor;
                         } else {
-                            xftcs_bg  = (char *)dzen.bg;
-                            xftcs_bgf = 0;
+                            cur_bgcolor = dzen.bg;
                         }
-#endif
-
                         break;
 
                     case fg:
                         lastfg = tval[0] ? (unsigned)get_color(tval) : dzen.norm[ColFG];
-                        XSetForeground(dzen.dpy, dzen.tgc, lastfg);
-#ifdef HAVE_XFT
                         if (tval[0]) {
-                            xftcs   = estrdup(tval);
-                            xftcs_f = 1;
+                            if (allocated_fgcolor)
+                                free(allocated_fgcolor);
+                            allocated_fgcolor = estrdup(tval);
+                            cur_fgcolor       = allocated_fgcolor;
                         } else {
-                            xftcs   = (char *)dzen.fg;
-                            xftcs_f = 0;
+                            cur_fgcolor = dzen.fg;
                         }
-#endif
+                        XSetForeground(dzen.dpy, dzen.tgc, lastfg);
                         break;
 
                     case fn:
@@ -690,17 +670,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                 if (!nobg)
                     setcolor(&pm, px, tw, lastfg, lastbg, reverse, nobg);
 
-#ifndef HAVE_XFT
-                font_draw_text(pm, dzen.tgc, px, py, lbuf, strlen(lbuf));
-#else
-                if (cur_fnt && cur_fnt->xftfont) {
-                    const char *color_to_use = reverse ? xftcs_bg : xftcs;
-                    font_draw_text_xft(pm, px, py, lbuf, strlen(lbuf), color_to_use, dzen.screen);
-                } else {
-                    /* Fallback to X11 core fonts */
-                    font_draw_text(pm, dzen.tgc, px, py, lbuf, strlen(lbuf));
-                }
-#endif
+                font_draw_text(pm, dzen.tgc, px, py, lbuf, strlen(lbuf), reverse, cur_fgcolor, cur_bgcolor);
 
                 if (cur_fnt) {
                     max_y = MAX(max_y, py + cur_fnt->height);
@@ -782,16 +752,6 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
         /* reset font to default */
         if (font_was_set)
             font_reset_to_default();
-
-#ifdef HAVE_XFT
-        /* Free allocated color strings at function exit */
-        if (xftcs_f) {
-            free(xftcs);
-        }
-        if (xftcs_bgf) {
-            free(xftcs_bg);
-        }
-#endif
     }
 
     sens_w *w = &window_sens[LNR2WINDOW(lnr)];
@@ -802,9 +762,18 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
 
     if (!nodraw && next_align != -1) {
         /* linep */
-        return parse_line(linep + 1, lnr, next_align, reverse, 0);
+        char *result = parse_line(linep + 1, lnr, next_align, reverse, 0);
+        if (allocated_fgcolor)
+            free(allocated_fgcolor);
+        if (allocated_bgcolor)
+            free(allocated_bgcolor);
+        return result;
     }
 
+    if (allocated_fgcolor)
+        free(allocated_fgcolor);
+    if (allocated_bgcolor)
+        free(allocated_bgcolor);
     return nodraw ? rbuf : NULL;
 }
 

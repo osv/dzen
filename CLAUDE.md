@@ -130,16 +130,6 @@ You can run a specific test by appending `:<line_number>` to the test file. The 
 - `./test_e2e TESTS.md:286` - Runs "Test: 9 Block area" (line 286)
 - `./test_e2e TESTS.md:290` - Also runs "Test: 9 Block area" (line 290 is within the test)
 
-The test_e2e script requires a test file parameter. Screenshots are organized by test file:
-- Expected screenshots: `integration-tests/<test_basename>/expected/`
-- Actual screenshots: `integration-tests/<test_basename>/actual/`
-- Diff images: `integration-tests/<test_basename>/diffs/`
-
-For example, when running `./test_e2e TESTS.md`:
-- Expected: `integration-tests/TESTS/expected/05-position-padding.png`
-- Actual: `integration-tests/TESTS/actual/05-position-padding.png`
-- Diff: `integration-tests/TESTS/diffs/diff_05-position-padding.png`
-
 ### Testing E2E Architecture
 
 Integration tests simulate user interactions and verify visual output:
@@ -149,6 +139,16 @@ Integration tests simulate user interactions and verify visual output:
 4. Compares against reference images using ImageMagick
 5. Simulates mouse/keyboard with `xdotool`
 6. Automatically cleans up virtual display on exit
+
+The test_e2e script requires a test file parameter. Screenshots are organized by test file:
+- Expected screenshots: `integration-tests/<test_basename>/expected/`
+- Actual screenshots: `integration-tests/<test_basename>/actual/`
+- Diff images: `integration-tests/<test_basename>/diffs/`
+
+For example, when running `./test_e2e TESTS.md`:
+- Expected: `integration-tests/TESTS/expected/05-position-padding.png`
+- Actual: `integration-tests/TESTS/actual/05-position-padding.png`
+- Diff: `integration-tests/TESTS/diffs/05-position-padding.png`
 
 ### Testing Xinerama Functionality
 

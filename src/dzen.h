@@ -145,10 +145,10 @@ struct DZEN {
     /* sensitive areas */
     Window sa_win;
 
-    const char *fnt;
-    const char *bg;
-    const char *fg;
-    int         line_height;
+    char *fnt;
+    char *bg;
+    char *fg;
+    int   line_height;
 
     Display     *dpy;
     int          screen;
@@ -189,7 +189,6 @@ extern char *estrdup(const char *str); /* duplicates str, exits on allocation er
 extern void  spawn(const char *arg); /* execute arg */
 
 /* caches.c */
-Fnt  *find_or_create_font(const char *str);
 long  get_color(const char *str); /* returns color of colstr */
 Icon *get_icon(const char *str);
 

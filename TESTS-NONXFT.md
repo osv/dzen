@@ -535,7 +535,7 @@ Line 2
 `^normfn` is used for changing default font. You should use `^tw()` and `^cs()` to clear all
 
 ```
-^normfn(8x16)
+^normfn(9x15)
 ^tw()Head
 ^cs()
 Line 1
@@ -550,7 +550,7 @@ Line 2
 
 This test run in persist 2 second mode. App must exit after 1 second
 
-### Args: -h 30 -w 300 -p 2
+### Args: -h 30 -w 300 -p 2 -fn fixed
 
 ### Mouse: 400,10
 
@@ -571,7 +571,7 @@ Sleep for 1 second, and check if still running
 This test runs in persist mode for 1 second. The app must exit after 1 second,
 but only if the mouse is not over the window.
 
-### Args: -h 30 -w 300 -p 1
+### Args: -h 30 -w 300 -p 1 -fn fixed
 
 Use `-p 1`, delay for 1 seconds
 
@@ -604,7 +604,7 @@ This test demonstrates different X11 core fonts available in non-XFT builds.
 Test various X11 core fonts:
 
 ```
-Default: ^fn()Text^fn() ^fg(red)^fn(fixed)Fixed^fn()^fg() ^fg(green)^fn(8x16)Large^fn()^fg() ^fg(blue)^fn(9x15)9x15^fn()^fg()
+Default: ^fn()Text^fn() ^fg(red)^fn(fixed)Fixed^fn()^fg() ^fg(green)^fn()^fg() ^fg(blue)^fn(9x15)9x15^fn()^fg()
 ```
 
 ![reference](./integration-tests/TESTS-NONXFT/expected/19-font-switching.png)
@@ -613,14 +613,14 @@ Default: ^fn()Text^fn() ^fg(red)^fn(fixed)Fixed^fn()^fg() ^fg(green)^fn(8x16)Lar
 
 This test uses font preloading feature (non-XFT only).
 
-### Args: -fn-preload "6x13,8x16,9x15,fixed" -fn "6x13" -h 30 -w 400 -bg '#000' -fg '#fff'
+### Args: -fn-preload "6x13,fixed" -fn "6x13" -h 30 -w 400 -bg '#000' -fg '#fff'
 
 ### Pipe data
 
 Using preloaded fonts with dfnt0, dfnt1, etc:
 
 ```
-^fn(dfnt0)Font0(6x13)^fn() ^fg(red)^fn(dfnt1)Font1(8x16)^fn()^fg() ^fg(green)^fn(dfnt2)Font2(9x15)^fn()^fg() ^fg(blue)^fn(dfnt3)Font3(fixed)^fn()^fg()
+^fn(dfnt0)Font0 ^^(dfnt0) ^fn()^fg()| ^fg(red)^fn(dfnt1)Font1 ^^fn(dfnt1) ^fn()^fg()| ^fn(1)^fg(red)Font1 ^^fn(1)
 ```
 
 ![reference](./integration-tests/TESTS-NONXFT/expected/20-font-preloading.png)

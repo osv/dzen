@@ -52,6 +52,9 @@ static void clean_up(void) {
     XFreeCursor(dzen.dpy, dzen.cursor_hand);
     XDestroyWindow(dzen.dpy, dzen.title_win.win);
     XCloseDisplay(dzen.dpy);
+    free(dzen.fnt);
+    free(dzen.bg);
+    free(dzen.fg);
 }
 
 static void catch_sigusr1(int s) {
@@ -1018,8 +1021,10 @@ int main(int argc, char *argv[]) {
             XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
     }
 
-    if (fnpre != NULL)
+    if (fnpre != NULL) {
         font_preload(fnpre);
+        free(fnpre);
+    }
 
     do_action(onstart);
 

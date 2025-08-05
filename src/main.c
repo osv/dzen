@@ -120,11 +120,11 @@ static int extract_line(const char *inbuf, char *outbuf, int start, int len) {
 
     /* Handle line truncation if needed */
     if (line_len >= MAX_LINE_LEN - 1) {
-        /* Copy truncated line - leave room for null terminator */
+        /* Line too long: draw first MAX_LINE_LEN-1 chars, ignore the rest */
         memcpy(outbuf, line_start, MAX_LINE_LEN - 1);
         outbuf[MAX_LINE_LEN - 1] = '\0';
-        /* Return position after newline */
-        return start + (newline - line_start) + 1;
+        /* Skip to position after newline, ignoring the truncated portion */
+        return start + line_len + 1;
     }
 
     /* Copy complete line using memcpy - much faster than char-by-char */

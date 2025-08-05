@@ -29,7 +29,7 @@ Dzen         dzen     = { 0 };
 static int   last_cnt = 0;
 typedef void sigfunc(int);
 
-static void clean_up(void) {
+static void  clean_up(void) {
     int i;
 
     free_event_list();
@@ -601,7 +601,7 @@ static void x_redraw(Window w) {
 static int              timeout_active = 0;
 static struct itimerval timer          = { 0 };
 
-static void reset_timer(void) {
+static void             reset_timer(void) {
     memset(&timer, 0, sizeof(timer));
     fprintf(stderr, "reset\n");
     setitimer(ITIMER_REAL, &timer, NULL);

@@ -16,7 +16,7 @@
 #define FONT "-*-fixed-*-*-*-*-*-*-*-*-*-*-*-*"
 
 /* External references */
-extern void eprint(const char *errstr, ...);
+extern void           eprint(const char *errstr, ...);
 
 /* Global font state */
 static Display       *g_display       = NULL;
@@ -32,8 +32,8 @@ static KeyValueStore *g_xftcolor_cache = NULL;
 static Visual        *g_visual         = NULL;
 static Colormap       g_colormap;
 /* Last-used XftDraw cache for performance */
-static XftDraw *g_last_xftdraw  = NULL;
-static Drawable g_last_drawable = None;
+static XftDraw       *g_last_xftdraw  = NULL;
+static Drawable       g_last_drawable = None;
 #endif
 
 /* Forward declarations */

@@ -1,4 +1,4 @@
-/*  
+/*
  * (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
  * See LICENSE file for license details.
  *
@@ -33,9 +33,9 @@ enum ev_id {
     /* external signals */
     sigusr1,
     sigusr2,
-    /* key event marker 
-	 * must always be the last entry
-	 */
+    /* key event marker
+     * must always be the last entry
+     */
     keymarker
 };
 
@@ -69,28 +69,28 @@ void      free_event_list(void);
 int       find_event(long);
 
 /* action handlers */
-int a_print(char **);
-int a_exit(char **);
-int a_exec(char **);
-int a_collapse(char **);
-int a_uncollapse(char **);
-int a_togglecollapse(char **);
-int a_stick(char **);
-int a_unstick(char **);
-int a_togglestick(char **);
-int a_scrollup(char **);
-int a_scrolldown(char **);
-int a_hide(char **);
-int a_unhide(char **);
-int a_togglehide(char **);
-int a_menuprint(char **);
-int a_menuprint_noparse(char **);
-int a_menuexec(char **);
-int a_raise(char **);
-int a_lower(char **);
-int a_scrollhome(char **);
-int a_scrollend(char **);
-int a_grabkeys(char **);
-int a_ungrabkeys(char **);
-int a_grabmouse(char **);
-int a_ungrabmouse(char **);
+int       a_print(char **);
+int       a_exit(char **);
+int       a_exec(char **);
+int       a_collapse(char **);
+int       a_uncollapse(char **);
+int       a_togglecollapse(char **);
+int       a_stick(char **);
+int       a_unstick(char **);
+int       a_togglestick(char **);
+int       a_scrollup(char **);
+int       a_scrolldown(char **);
+int       a_hide(char **);
+int       a_unhide(char **);
+int       a_togglehide(char **);
+int       a_menuprint(char **);
+int       a_menuprint_noparse(char **);
+int       a_menuexec(char **);
+int       a_raise(char **);
+int       a_lower(char **);
+int       a_scrollhome(char **);
+int       a_scrollend(char **);
+int       a_grabkeys(char **);
+int       a_ungrabkeys(char **);
+int       a_grabmouse(char **);
+int       a_ungrabmouse(char **);

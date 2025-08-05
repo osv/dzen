@@ -31,34 +31,34 @@ typedef struct Fnt {
 } Fnt;
 
 /* Initialize font subsystem */
-void font_init(Display *dpy, int screen);
+void         font_init(Display *dpy, int screen);
 
 /* Clean up all font resources */
-void font_cleanup(void);
+void         font_cleanup(void);
 
 /* Set the current font */
-Fnt *font_set(const char *fontstr);
+Fnt         *font_set(const char *fontstr);
 
 /* Set the default font */
-void font_set_default(const char *fontstr);
+void         font_set_default(const char *fontstr);
 
 /* Get the current font */
-Fnt *font_get_current(void);
+Fnt         *font_get_current(void);
 
 /* Reset to default font */
-void font_reset_to_default(void);
+void         font_reset_to_default(void);
 
 /* Calculate text width */
 unsigned int font_get_text_width(const char *text, unsigned int len);
 
 /* Draw text at specified position with current font and colors */
-void font_draw_text(Drawable drawable, GC gc, int x, int y, const char *text, unsigned int len, int reverse,
-                    const char *fg_color, const char *bg_color);
+void         font_draw_text(Drawable drawable, GC gc, int x, int y, const char *text, unsigned int len, int reverse,
+                            const char *fg_color, const char *bg_color);
 
 /* Preload fonts with aliases */
-void font_preload(const char *fonts);
+void         font_preload(const char *fonts);
 
 /* Get font height information */
-void font_get_dimensions(int *ascent, int *descent, int *height);
+void         font_get_dimensions(int *ascent, int *descent, int *height);
 
 #endif /* FONT_H */

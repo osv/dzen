@@ -1,8 +1,8 @@
 /*
-* (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
-* See LICENSE file for license details.
-*
-*/
+ * (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
+ * See LICENSE file for license details.
+ *
+ */
 
 #include "dzen.h"
 #include "action.h"
@@ -46,9 +46,9 @@ struct action_lookup ac_lookup_table[] = { { "print", a_print },
                                            { "ungrabmouse", a_ungrabmouse },
                                            { 0, 0 } };
 
-ev_list *head = NULL;
+ev_list             *head = NULL;
 
-static int new_event(long evid) {
+static int           new_event(long evid) {
     ev_list *item, *newitem;
 
     if (!head) {

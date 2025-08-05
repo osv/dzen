@@ -25,7 +25,7 @@ typedef struct ICON_C {
     char   name[ARGLEN];
     Pixmap p;
 
-    int w, h;
+    int    w, h;
 } icon_c;
 
 sens_w window_sens[2];
@@ -80,8 +80,8 @@ struct command_lookup cmd_lookup_table[] = {
 };
 // clang-format on
 
-int get_tokval(const char *line, char *buf, char **retdata);
-int get_token(const char *line, char *valbuf, int *t, char **tval);
+int  get_tokval(const char *line, char *buf, char **retdata);
+int  get_token(const char *line, char *valbuf, int *t, char **tval);
 
 void drawtext(const char *text, int reverse, int line, int align) {
     if (!reverse) {
@@ -153,16 +153,16 @@ static void setcolor(Drawable *pm, int x, int width, long tfg, long tbg, int rev
 /* Parser context structure to hold parsing state */
 typedef struct {
     /* Position and dimensions */
-    int current_x, current_y, block_start_x;
-    int max_x, max_y;
-    int alignment_offset_x;
+    int         current_x, current_y, block_start_x;
+    int         max_x, max_y;
+    int         alignment_offset_x;
 
     /* Drawing state */
-    int nobg;
-    int pos_is_fixed;
-    int set_posy;
-    int reverse;
-    int nodraw;
+    int         nobg;
+    int         pos_is_fixed;
+    int         set_posy;
+    int         reverse;
+    int         nodraw;
 
     /* Colors */
     long        lastfg, lastbg;
@@ -170,25 +170,25 @@ typedef struct {
     char       *allocated_fgcolor, *allocated_bgcolor;
 
     /* Font */
-    Fnt *current_font;
-    int  font_was_set;
+    Fnt        *current_font;
+    int         font_was_set;
 
     /* Block alignment */
-    int block_align, block_width;
+    int         block_align, block_width;
 
     /* Line buffer */
-    char *text_buffer;
-    int   buffer_pos; /* buffer position */
+    char       *text_buffer;
+    int         buffer_pos; /* buffer position */
 
     /* Drawing surfaces */
-    Drawable pm;
+    Drawable    pm;
 
     /* Line info */
-    int line_number;
-    int align;
+    int         line_number;
+    int         align;
 
     /* Clickable areas tracking */
-    int sens_areas_start;
+    int         sens_areas_start;
 
     /* Text parsing */
     const char *input_ptr;
@@ -197,7 +197,7 @@ typedef struct {
     char       *token_value;
 
     /* For nodraw mode */
-    char *markup_free_text;
+    char       *markup_free_text;
 } ParseContext;
 
 /* Process rectangle command */

@@ -1,4 +1,4 @@
-/* 
+/*
  * (C)opyright MMVI-MMVII Anselm R. Garbe <garbeam at gmail dot com>
  * (C)opyright MMVII Robert Manea <rob dot manea  at gmail dot com>
  * See LICENSE file for license details.
@@ -48,7 +48,7 @@ void spawn(const char *arg) {
     if (!arg)
         return;
     /* The double-fork construct avoids zombie processes and keeps the code
-	* clean from stupid signal handlers. */
+     * clean from stupid signal handlers. */
     if (fork() == 0) {
         if (fork() == 0) {
             setsid();

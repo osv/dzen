@@ -1,8 +1,8 @@
 /*
-* (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
-* See LICENSE file for license details.
-*
-*/
+ * (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
+ * See LICENSE file for license details.
+ *
+ */
 
 #include "dzen.h"
 #include "action.h"
@@ -36,6 +36,7 @@ enum ctype {
     fg,
     icon,
     rect,
+    titlewin,
     recto,
     circle,
     circleo,
@@ -74,6 +75,7 @@ struct command_lookup cmd_lookup_table[] = {
     { "left(",      leftalign,  5},
     { "right(",     rightalign, 6},
     { "center(",    centeralign,7},
+    { "tw(",        titlewin,   3},
     { 0,            0,          0}
 };
 // clang-format on
@@ -151,9 +153,9 @@ static void setcolor(Drawable *pm, int x, int width, long tfg, long tbg, int rev
 /* Parser context structure to hold parsing state */
 typedef struct {
     /* Position and dimensions */
-    int px, py, opx;
+    int current_x, current_y, block_start_x;
     int max_x, max_y;
-    int xorig;
+    int alignment_offset_x;
 
     /* Drawing state */
     int nobg;
@@ -164,38 +166,38 @@ typedef struct {
 
     /* Colors */
     long        lastfg, lastbg;
-    const char *cur_fgcolor, *cur_bgcolor;
+    const char *current_fgcolor, *current_bgcolor;
     char       *allocated_fgcolor, *allocated_bgcolor;
 
     /* Font */
-    Fnt *cur_fnt;
+    Fnt *current_font;
     int  font_was_set;
 
     /* Block alignment */
     int block_align, block_width;
 
     /* Line buffer */
-    char *lbuf;
-    int   j; /* buffer position */
+    char *text_buffer;
+    int   buffer_pos; /* buffer position */
 
     /* Drawing surfaces */
     Drawable pm;
 
     /* Line info */
-    int lnr;
+    int line_number;
     int align;
 
     /* Clickable areas tracking */
     int sens_areas_start;
 
     /* Text parsing */
-    const char *linep;
+    const char *input_ptr;
     int         token;
     char        token_value_buf[ARGLEN]; /* Static buffer for token value */
     char       *token_value;
 
     /* For nodraw mode */
-    char *rbuf;
+    char *markup_free_text;
 } ParseContext;
 
 /* Process rectangle command */
@@ -204,27 +206,28 @@ static void process_rect_command(ParseContext *ctx) {
     get_rect_vals(ctx->token_value, &rectw, &recth, &rectx, &recty);
     recth = recth > dzen.line_height ? dzen.line_height : recth;
     if (ctx->set_posy)
-        ctx->py += recty;
+        ctx->current_y += recty;
     recty      = recty == 0 ? (dzen.line_height - recth) / 2 : (dzen.line_height - recth) / 2 + recty;
-    ctx->max_x = MAX(ctx->max_x, ctx->px + rectx + rectw);
-    ctx->px += !ctx->pos_is_fixed ? rectx : 0;
-    setcolor(&ctx->pm, ctx->px, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
+    ctx->max_x = MAX(ctx->max_x, ctx->current_x + rectx + rectw);
+    ctx->current_x += !ctx->pos_is_fixed ? rectx : 0;
+    setcolor(&ctx->pm, ctx->current_x, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
 
-    XFillRectangle(dzen.dpy, ctx->pm, dzen.tgc, ctx->px,
-                   ctx->set_posy ? ctx->py : ((int)recty < 0 ? dzen.line_height + recty : recty), rectw, recth);
+    XFillRectangle(dzen.dpy, ctx->pm, dzen.tgc, ctx->current_x,
+                   ctx->set_posy ? ctx->current_y : ((int)recty < 0 ? dzen.line_height + recty : recty), rectw, recth);
 
-    ctx->px += !ctx->pos_is_fixed ? rectw : 0;
+    ctx->current_x += !ctx->pos_is_fixed ? rectw : 0;
 }
 
 /* Process circle command */
 static void process_circle_command(ParseContext *ctx) {
     int rectw, recth, rectx;
     rectx = get_circle_vals(ctx->token_value, &rectw, &recth);
-    setcolor(&ctx->pm, ctx->px, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
-    XFillArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->px, ctx->set_posy ? ctx->py : (dzen.line_height - rectw) / 2, rectw,
-             rectw, 90 * 64, rectx > 1 ? recth * 64 : 64 * 360);
-    ctx->max_x = MAX(ctx->max_x, ctx->px + rectw);
-    ctx->px += !ctx->pos_is_fixed ? rectw : 0;
+    setcolor(&ctx->pm, ctx->current_x, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
+    XFillArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->current_x,
+             ctx->set_posy ? ctx->current_y : (dzen.line_height - rectw) / 2, rectw, rectw, 90 * 64,
+             rectx > 1 ? recth * 64 : 64 * 360);
+    ctx->max_x = MAX(ctx->max_x, ctx->current_x + rectw);
+    ctx->current_x += !ctx->pos_is_fixed ? rectw : 0;
 }
 
 /* Process position command */
@@ -244,37 +247,37 @@ static void process_pos_command(ParseContext *ctx) {
                 ctx->pos_is_fixed = 0;
                 break;
             case LEFT:
-                ctx->px = 0;
+                ctx->current_x = 0;
                 break;
             case RIGHT:
-                ctx->px = dzen.w;
+                ctx->current_x = dzen.w;
                 break;
             case CENTER:
-                ctx->px = dzen.w / 2;
+                ctx->current_x = dzen.w / 2;
                 break;
             case BOTTOM:
-                ctx->set_posy = 1;
-                ctx->py       = dzen.line_height;
+                ctx->set_posy  = 1;
+                ctx->current_y = dzen.line_height;
                 break;
             case TOP:
-                ctx->set_posy = 1;
-                ctx->py       = 0;
+                ctx->set_posy  = 1;
+                ctx->current_y = 0;
                 break;
             }
         } else
             ctx->set_posy = 1;
 
         if (r != 2)
-            ctx->px = ctx->px + n_posx < 0 ? 0 : ctx->px + n_posx;
+            ctx->current_x = ctx->current_x + n_posx < 0 ? 0 : ctx->current_x + n_posx;
         if (r != 1)
-            ctx->py += n_posy;
+            ctx->current_y += n_posy;
     } else {
         ctx->set_posy = 0;
         int h;
         font_get_dimensions(NULL, NULL, &h);
-        ctx->py = (dzen.line_height - h) / 2;
+        ctx->current_y = (dzen.line_height - h) / 2;
     }
-    ctx->max_x = MAX(ctx->max_x, ctx->px);
+    ctx->max_x = MAX(ctx->max_x, ctx->current_x);
 }
 
 /* Process background color command */
@@ -284,9 +287,9 @@ static void process_bg_command(ParseContext *ctx) {
         if (ctx->allocated_bgcolor)
             free(ctx->allocated_bgcolor);
         ctx->allocated_bgcolor = estrdup(ctx->token_value);
-        ctx->cur_bgcolor       = ctx->allocated_bgcolor;
+        ctx->current_bgcolor   = ctx->allocated_bgcolor;
     } else {
-        ctx->cur_bgcolor = dzen.bg;
+        ctx->current_bgcolor = dzen.bg;
     }
 }
 
@@ -297,41 +300,41 @@ static void process_fg_command(ParseContext *ctx) {
         if (ctx->allocated_fgcolor)
             free(ctx->allocated_fgcolor);
         ctx->allocated_fgcolor = estrdup(ctx->token_value);
-        ctx->cur_fgcolor       = ctx->allocated_fgcolor;
+        ctx->current_fgcolor   = ctx->allocated_fgcolor;
     } else {
-        ctx->cur_fgcolor = dzen.fg;
+        ctx->current_fgcolor = dzen.fg;
     }
     XSetForeground(dzen.dpy, dzen.tgc, ctx->lastfg);
 }
 
 /* Process clickable area command */
 static void process_clickable_area(ParseContext *ctx) {
-    sens_w *w = &window_sens[LNR2WINDOW(ctx->lnr)];
+    sens_w *w = &window_sens[LNR2WINDOW(ctx->line_number)];
 
     if (ctx->token_value && ctx->token_value[0]) {
         click_a *area = &((*w).sens_areas[(*w).sens_areas_cnt]);
         if ((*w).sens_areas_cnt < MAX_CLICKABLE_AREAS) {
             get_sens_area(ctx->token_value, &(*area).button, (*area).cmd);
-            (*area).start_x = ctx->px;
-            (*area).start_y = ctx->py;
-            (*area).end_y   = ctx->py;
-            ctx->max_y      = ctx->py;
+            (*area).start_x = ctx->current_x;
+            (*area).start_y = ctx->current_y;
+            (*area).end_y   = ctx->current_y;
+            ctx->max_y      = ctx->current_y;
             (*area).active  = 0;
-            if (ctx->lnr == -1) {
+            if (ctx->line_number == -1) {
                 (*area).win = dzen.title_win.win;
             } else {
-                (*area).win = dzen.slave_win.line[ctx->lnr];
+                (*area).win = dzen.slave_win.line[ctx->line_number];
             }
             (*w).sens_areas_cnt++;
         }
     } else {
-        //find most recent unclosed area
+        // find most recent unclosed area
         int i;
         for (i = (*w).sens_areas_cnt - 1; i >= 0; i--)
             if (!(*w).sens_areas[i].active)
                 break;
         if (i >= 0 && i < MAX_CLICKABLE_AREAS) {
-            (*w).sens_areas[i].end_x  = ctx->px;
+            (*w).sens_areas[i].end_x  = ctx->current_x;
             (*w).sens_areas[i].end_y  = ctx->max_y;
             (*w).sens_areas[i].active = 1;
         }
@@ -349,13 +352,13 @@ static void process_block_align(ParseContext *ctx) {
 /* Process font command */
 static void process_font_command(ParseContext *ctx) {
     if (ctx->token_value && ctx->token_value[0]) {
-        ctx->cur_fnt = font_set(ctx->token_value);
+        ctx->current_font = font_set(ctx->token_value);
     } else {
         font_reset_to_default();
-        ctx->cur_fnt = font_get_current();
+        ctx->current_font = font_get_current();
     }
-    if (ctx->cur_fnt) {
-        ctx->py = ctx->set_posy ? ctx->py : (dzen.line_height - ctx->cur_fnt->height) / 2;
+    if (ctx->current_font) {
+        ctx->current_y = ctx->set_posy ? ctx->current_y : (dzen.line_height - ctx->current_font->height) / 2;
     }
     ctx->font_was_set = 1;
 }
@@ -372,27 +375,28 @@ static void process_abspos_command(ParseContext *ctx) {
 
         n_posx = n_posx < 0 ? n_posx * -1 : n_posx;
         if (r != 2)
-            ctx->px = n_posx;
+            ctx->current_x = n_posx;
         if (r != 1)
-            ctx->py = n_posy;
+            ctx->current_y = n_posy;
     } else {
         ctx->set_posy = 0;
         int h;
         font_get_dimensions(NULL, NULL, &h);
-        ctx->py = (dzen.line_height - h) / 2;
+        ctx->current_y = (dzen.line_height - h) / 2;
     }
-    ctx->max_x = MAX(ctx->max_x, ctx->px);
+    ctx->max_x = MAX(ctx->max_x, ctx->current_x);
 }
 
 /* Process outlined circle command */
 static void process_circleo_command(ParseContext *ctx) {
     int rectw, recth, rectx;
     rectx = get_circle_vals(ctx->token_value, &rectw, &recth);
-    setcolor(&ctx->pm, ctx->px, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
-    XDrawArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->px, ctx->set_posy ? ctx->py : (dzen.line_height - rectw) / 2, rectw,
-             rectw, 90 * 64, rectx > 1 ? recth * 64 : 64 * 360);
-    ctx->max_x = MAX(ctx->max_x, ctx->px + rectw);
-    ctx->px += !ctx->pos_is_fixed ? rectw : 0;
+    setcolor(&ctx->pm, ctx->current_x, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
+    XDrawArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->current_x,
+             ctx->set_posy ? ctx->current_y : (dzen.line_height - rectw) / 2, rectw, rectw, 90 * 64,
+             rectx > 1 ? recth * 64 : 64 * 360);
+    ctx->max_x = MAX(ctx->max_x, ctx->current_x + rectw);
+    ctx->current_x += !ctx->pos_is_fixed ? rectw : 0;
 }
 
 /* Process outlined rectangle command */
@@ -404,17 +408,18 @@ static void process_recto_command(ParseContext *ctx) {
 
     recth = recth > dzen.line_height ? dzen.line_height - 2 : recth - 1;
     if (ctx->set_posy)
-        ctx->py += recty;
-    recty      = recty == 0 ? (dzen.line_height - recth) / 2 : (dzen.line_height - recth) / 2 + recty;
-    ctx->max_x = MAX(ctx->max_x, ctx->px + rectx + rectw);
-    ctx->px    = (rectx == 0) ? ctx->px : rectx + ctx->px;
+        ctx->current_y += recty;
+    recty          = recty == 0 ? (dzen.line_height - recth) / 2 : (dzen.line_height - recth) / 2 + recty;
+    ctx->max_x     = MAX(ctx->max_x, ctx->current_x + rectx + rectw);
+    ctx->current_x = (rectx == 0) ? ctx->current_x : rectx + ctx->current_x;
     /* prevent from stairs effect when rounding recty */
     if (!((dzen.line_height - recth) % 2))
         recty--;
-    setcolor(&ctx->pm, ctx->px, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
-    XDrawRectangle(dzen.dpy, ctx->pm, dzen.tgc, ctx->px,
-                   ctx->set_posy ? ctx->py : ((int)recty < 0 ? dzen.line_height + recty : recty), rectw - 1, recth);
-    ctx->px += !ctx->pos_is_fixed ? rectw : 0;
+    setcolor(&ctx->pm, ctx->current_x, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
+    XDrawRectangle(dzen.dpy, ctx->pm, dzen.tgc, ctx->current_x,
+                   ctx->set_posy ? ctx->current_y : ((int)recty < 0 ? dzen.line_height + recty : recty), rectw - 1,
+                   recth);
+    ctx->current_x += !ctx->pos_is_fixed ? rectw : 0;
 }
 
 /* Process icon command */
@@ -422,32 +427,32 @@ static void process_icon_command(ParseContext *ctx) {
     Icon *icon_obj = get_icon(ctx->token_value);
     if (icon_obj && icon_obj->pm != None) {
         int y = (ctx->set_posy
-                     ? ctx->py
+                     ? ctx->current_y
                      : (dzen.line_height >= (int)icon_obj->h ? (dzen.line_height - (int)icon_obj->h) / 2 : 0));
 
-        setcolor(&ctx->pm, ctx->px, icon_obj->w, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
+        setcolor(&ctx->pm, ctx->current_x, icon_obj->w, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
 
         if (icon_obj->is_xbm) {
             /* 1-bit XBM => plane copy. */
-            XCopyPlane(dzen.dpy, icon_obj->pm, ctx->pm, dzen.tgc, 0, 0, icon_obj->w, icon_obj->h, ctx->px, y, 1);
+            XCopyPlane(dzen.dpy, icon_obj->pm, ctx->pm, dzen.tgc, 0, 0, icon_obj->w, icon_obj->h, ctx->current_x, y, 1);
         } else {
             /* If XPM => do XCopyArea. */
             /* But now we also check if there's a mask. */
             if (icon_obj->mask_pm != None) {
                 /* Setup clip mask so we only draw opaque bits. */
                 XSetClipMask(dzen.dpy, dzen.tgc, icon_obj->mask_pm);
-                XSetClipOrigin(dzen.dpy, dzen.tgc, ctx->px, y);
+                XSetClipOrigin(dzen.dpy, dzen.tgc, ctx->current_x, y);
             }
-            XCopyArea(dzen.dpy, icon_obj->pm, ctx->pm, dzen.tgc, 0, 0, icon_obj->w, icon_obj->h, ctx->px, y);
+            XCopyArea(dzen.dpy, icon_obj->pm, ctx->pm, dzen.tgc, 0, 0, icon_obj->w, icon_obj->h, ctx->current_x, y);
             /* Restore normal clipping if we set a mask. */
             if (icon_obj->mask_pm != None) {
                 XSetClipMask(dzen.dpy, dzen.tgc, None);
             }
         }
 
-        ctx->max_x = MAX(ctx->max_x, ctx->px + icon_obj->w);
+        ctx->max_x = MAX(ctx->max_x, ctx->current_x + icon_obj->w);
         if (!ctx->pos_is_fixed) {
-            ctx->px += icon_obj->w;
+            ctx->current_x += icon_obj->w;
         }
         ctx->max_y = MAX(ctx->max_y, y + icon_obj->h);
     }
@@ -457,12 +462,12 @@ static void process_icon_command(ParseContext *ctx) {
 /* Initialize parser context with default values */
 static void parse_context_init(ParseContext *ctx, int lnr, int align, int reverse, int nodraw) {
     /* Position and dimensions */
-    ctx->px    = 0;
-    ctx->py    = 0;
-    ctx->opx   = 0;
-    ctx->max_x = 0;
-    ctx->max_y = -1;
-    ctx->xorig = 0;
+    ctx->current_x          = 0;
+    ctx->current_y          = 0;
+    ctx->block_start_x      = 0;
+    ctx->max_x              = 0;
+    ctx->max_y              = -1;
+    ctx->alignment_offset_x = 0;
 
     /* Drawing state */
     ctx->nobg         = 0;
@@ -474,13 +479,13 @@ static void parse_context_init(ParseContext *ctx, int lnr, int align, int revers
     /* Colors */
     ctx->lastfg            = dzen.norm[ColFG];
     ctx->lastbg            = dzen.norm[ColBG];
-    ctx->cur_fgcolor       = dzen.fg;
-    ctx->cur_bgcolor       = dzen.bg;
+    ctx->current_fgcolor   = dzen.fg;
+    ctx->current_bgcolor   = dzen.bg;
     ctx->allocated_fgcolor = NULL;
     ctx->allocated_bgcolor = NULL;
 
     /* Font */
-    ctx->cur_fnt      = NULL;
+    ctx->current_font = NULL;
     ctx->font_was_set = 0;
 
     /* Block alignment */
@@ -493,27 +498,27 @@ static void parse_context_init(ParseContext *ctx, int lnr, int align, int revers
         static_lbuf    = emalloc(MAX_LINE_LEN);
         static_lbuf[0] = '\0';
     }
-    ctx->lbuf = static_lbuf;
-    ctx->j    = 0;
+    ctx->text_buffer = static_lbuf;
+    ctx->buffer_pos  = 0;
 
     /* Drawing surfaces */
     ctx->pm = 0;
 
     /* Line info */
-    ctx->lnr   = lnr;
-    ctx->align = align;
+    ctx->line_number = lnr;
+    ctx->align       = align;
 
     /* Clickable areas tracking */
     ctx->sens_areas_start = window_sens[LNR2WINDOW(lnr)].sens_areas_cnt;
 
     /* Text parsing */
-    ctx->linep              = NULL;
+    ctx->input_ptr          = NULL;
     ctx->token              = -1;
     ctx->token_value_buf[0] = '\0';
     ctx->token_value        = NULL;
 
     /* For nodraw mode */
-    ctx->rbuf = NULL;
+    ctx->markup_free_text = NULL;
 }
 
 char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
@@ -528,22 +533,22 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
 
     /* parse line and return the text without control commands */
     if (ctx.nodraw) {
-        ctx.rbuf    = emalloc(MAX_LINE_LEN);
-        ctx.rbuf[0] = '\0';
-        if ((ctx.lnr + dzen.slave_win.first_line_vis) >= dzen.slave_win.tcnt)
+        ctx.markup_free_text    = emalloc(MAX_LINE_LEN);
+        ctx.markup_free_text[0] = '\0';
+        if ((ctx.line_number + dzen.slave_win.first_line_vis) >= dzen.slave_win.tcnt)
             line = NULL;
         else
-            line = dzen.slave_win.tbuf[dzen.slave_win.first_line_vis + ctx.lnr];
+            line = dzen.slave_win.tbuf[dzen.slave_win.first_line_vis + ctx.line_number];
 
         /* No need to copy - we're not modifying the string anymore */
     }
     /* parse line and render text */
     else {
         font_get_dimensions(NULL, NULL, &h);
-        ctx.py    = (dzen.line_height - h) / 2;
-        ctx.xorig = 0;
+        ctx.current_y          = (dzen.line_height - h) / 2;
+        ctx.alignment_offset_x = 0;
 
-        if (ctx.lnr != -1) {
+        if (ctx.line_number != -1) {
             ctx.pm = XCreatePixmap(dzen.dpy, RootWindow(dzen.dpy, DefaultScreen(dzen.dpy)), dzen.slave_win.width,
                                    dzen.line_height, DefaultDepth(dzen.dpy, dzen.screen));
         } else {
@@ -564,27 +569,27 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             XSetForeground(dzen.dpy, dzen.tgc, dzen.norm[ColBG]);
         }
 
-        ctx.cur_fnt = font_get_current();
+        ctx.current_font = font_get_current();
 
-        if (ctx.lnr != -1 && (ctx.lnr + dzen.slave_win.first_line_vis >= dzen.slave_win.tcnt)) {
-            XCopyArea(dzen.dpy, ctx.pm, dzen.slave_win.drawable[ctx.lnr], dzen.gc, 0, 0, ctx.px, dzen.line_height,
-                      ctx.xorig, 0);
+        if (ctx.line_number != -1 && (ctx.line_number + dzen.slave_win.first_line_vis >= dzen.slave_win.tcnt)) {
+            XCopyArea(dzen.dpy, ctx.pm, dzen.slave_win.drawable[ctx.line_number], dzen.gc, 0, 0, ctx.current_x,
+                      dzen.line_height, ctx.alignment_offset_x, 0);
             XFreePixmap(dzen.dpy, ctx.pm);
             return NULL;
         }
     }
 
-    ctx.linep = line;
+    ctx.input_ptr = line;
     while (1) {
-        if (*ctx.linep == ESC_CHAR || *ctx.linep == '\0') {
-            ctx.lbuf[ctx.j] = '\0';
+        if (*ctx.input_ptr == ESC_CHAR || *ctx.input_ptr == '\0') {
+            ctx.text_buffer[ctx.buffer_pos] = '\0';
 
             /* clear _lock_x at EOL so final width is correct */
-            if (*ctx.linep == '\0')
+            if (*ctx.input_ptr == '\0')
                 ctx.pos_is_fixed = 0;
 
             if (ctx.nodraw) {
-                strcat(ctx.rbuf, ctx.lbuf);
+                strcat(ctx.markup_free_text, ctx.text_buffer);
             } else {
                 if (ctx.token != -1 && ctx.token_value) {
                     switch (ctx.token) {
@@ -642,58 +647,59 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                 }
 
                 /* check if text is longer than window's width */
-                tw = font_get_text_width(ctx.lbuf, strlen(ctx.lbuf));
-                while ((((tw + ctx.px) > (dzen.w)) || (ctx.block_align != -1 && tw > ctx.block_width)) && ctx.j >= 0) {
-                    ctx.lbuf[--ctx.j] = '\0';
-                    tw                = font_get_text_width(ctx.lbuf, strlen(ctx.lbuf));
+                tw = font_get_text_width(ctx.text_buffer, strlen(ctx.text_buffer));
+                while ((((tw + ctx.current_x) > (dzen.w)) || (ctx.block_align != -1 && tw > ctx.block_width)) &&
+                       ctx.buffer_pos >= 0) {
+                    ctx.text_buffer[--ctx.buffer_pos] = '\0';
+                    tw                                = font_get_text_width(ctx.text_buffer, strlen(ctx.text_buffer));
                 }
 
-                ctx.opx = ctx.px;
+                ctx.block_start_x = ctx.current_x;
 
                 /* draw background for block */
                 if (ctx.block_align != -1 && !ctx.nobg) {
-                    setcolor(&ctx.pm, ctx.px, ctx.block_width, ctx.lastbg, ctx.lastbg, 0, ctx.nobg);
-                    XFillRectangle(dzen.dpy, ctx.pm, dzen.tgc, ctx.px, 0, ctx.block_width, dzen.line_height);
+                    setcolor(&ctx.pm, ctx.current_x, ctx.block_width, ctx.lastbg, ctx.lastbg, 0, ctx.nobg);
+                    XFillRectangle(dzen.dpy, ctx.pm, dzen.tgc, ctx.current_x, 0, ctx.block_width, dzen.line_height);
                 }
 
                 if (ctx.block_align == ALIGNRIGHT)
-                    ctx.px += (ctx.block_width - tw);
+                    ctx.current_x += (ctx.block_width - tw);
                 else if (ctx.block_align == ALIGNCENTER)
-                    ctx.px += (ctx.block_width / 2) - (tw / 2);
-                ctx.max_x = MAX(ctx.max_x, ctx.px);
+                    ctx.current_x += (ctx.block_width / 2) - (tw / 2);
+                ctx.max_x = MAX(ctx.max_x, ctx.current_x);
                 if (!ctx.nobg)
-                    setcolor(&ctx.pm, ctx.px, tw, ctx.lastfg, ctx.lastbg, ctx.reverse, ctx.nobg);
+                    setcolor(&ctx.pm, ctx.current_x, tw, ctx.lastfg, ctx.lastbg, ctx.reverse, ctx.nobg);
 
-                font_draw_text(ctx.pm, dzen.tgc, ctx.px, ctx.py, ctx.lbuf, strlen(ctx.lbuf), ctx.reverse,
-                               ctx.cur_fgcolor, ctx.cur_bgcolor);
+                font_draw_text(ctx.pm, dzen.tgc, ctx.current_x, ctx.current_y, ctx.text_buffer, strlen(ctx.text_buffer),
+                               ctx.reverse, ctx.current_fgcolor, ctx.current_bgcolor);
 
-                if (ctx.cur_fnt) {
-                    ctx.max_y = MAX(ctx.max_y, ctx.py + ctx.cur_fnt->height);
+                if (ctx.current_font) {
+                    ctx.max_y = MAX(ctx.max_y, ctx.current_y + ctx.current_font->height);
                 }
 
                 if (ctx.block_align == -1) {
-                    if (!ctx.pos_is_fixed || *ctx.linep == '\0') {
-                        ctx.px += tw;
-                        ctx.max_x = MAX(ctx.max_x, ctx.px);
+                    if (!ctx.pos_is_fixed || *ctx.input_ptr == '\0') {
+                        ctx.current_x += tw;
+                        ctx.max_x = MAX(ctx.max_x, ctx.current_x);
                     }
                 } else {
                     if (ctx.pos_is_fixed)
-                        ctx.px = ctx.opx;
+                        ctx.current_x = ctx.block_start_x;
                     else
-                        ctx.px = ctx.opx + ctx.block_width;
-                    ctx.max_x = MAX(ctx.max_x, ctx.px);
+                        ctx.current_x = ctx.block_start_x + ctx.block_width;
+                    ctx.max_x = MAX(ctx.max_x, ctx.current_x);
                 }
                 ctx.block_align = ctx.block_width = -1;
             }
 
-            if (*ctx.linep == '\0')
+            if (*ctx.input_ptr == '\0')
                 break;
 
-            ctx.j           = 0;
+            ctx.buffer_pos  = 0;
             ctx.token       = -1;
             ctx.token_value = NULL;
-            next_pos        = get_token(ctx.linep, ctx.token_value_buf, &ctx.token, &ctx.token_value);
-            ctx.linep += next_pos;
+            next_pos        = get_token(ctx.input_ptr, ctx.token_value_buf, &ctx.token, &ctx.token_value);
+            ctx.input_ptr += next_pos;
             if (ctx.token == leftalign) {
                 next_align = ALIGNLEFT;
                 /* No need to free - token_value points into line_buffer */
@@ -711,44 +717,48 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             /* ^^ escapes */
             if (next_pos == 0 && ctx.token == -1) {
                 /* Double escape - print the second ^ */
-                ctx.lbuf[ctx.j++] = *ctx.linep++;
+                ctx.text_buffer[ctx.buffer_pos++] = *ctx.input_ptr++;
             }
             /* Continue loop - we've already advanced past the token */
             continue;
         } else {
-            ctx.lbuf[ctx.j++] = *ctx.linep;
-            ctx.linep++;
+            ctx.text_buffer[ctx.buffer_pos++] = *ctx.input_ptr;
+            ctx.input_ptr++;
         }
     }
 
     if (!ctx.nodraw) {
         /* expand/shrink dynamically */
-        if (dzen.title_win.expand && ctx.lnr == -1) {
-            i = ctx.px;
+        if (dzen.title_win.expand && ctx.line_number == -1) {
+            i = ctx.current_x;
             switch (dzen.title_win.expand) {
             case left:
                 /* grow left end */
                 int new_x = dzen.title_win.x_right_corner - i > dzen.title_win.x ? dzen.title_win.x_right_corner - i
                                                                                  : dzen.title_win.x;
-                XMoveResizeWindow(dzen.dpy, dzen.title_win.win, new_x, dzen.title_win.y, ctx.px, dzen.line_height);
+                XMoveResizeWindow(dzen.dpy, dzen.title_win.win, new_x, dzen.title_win.y, ctx.current_x,
+                                  dzen.line_height);
                 break;
             case right:
-                XResizeWindow(dzen.dpy, dzen.title_win.win, ctx.px, dzen.line_height);
+                XResizeWindow(dzen.dpy, dzen.title_win.win, ctx.current_x, dzen.line_height);
                 break;
             }
 
         } else {
             if (ctx.align == ALIGNLEFT)
-                ctx.xorig = 0;
+                ctx.alignment_offset_x = 0;
             if (ctx.align == ALIGNCENTER) {
-                ctx.xorig = (ctx.lnr != -1) ? (dzen.slave_win.width - ctx.px) / 2 : (dzen.title_win.width - ctx.px) / 2;
+                ctx.alignment_offset_x = (ctx.line_number != -1) ? (dzen.slave_win.width - ctx.current_x) / 2
+                                                                 : (dzen.title_win.width - ctx.current_x) / 2;
             } else if (ctx.align == ALIGNRIGHT) {
-                ctx.xorig = (ctx.lnr != -1) ? (dzen.slave_win.width - ctx.px) : (dzen.title_win.width - ctx.px);
+                ctx.alignment_offset_x = (ctx.line_number != -1) ? (dzen.slave_win.width - ctx.current_x)
+                                                                 : (dzen.title_win.width - ctx.current_x);
             }
         }
 
-        XCopyArea(dzen.dpy, ctx.pm, (ctx.lnr != -1 ? dzen.slave_win.drawable[ctx.lnr] : dzen.title_win.drawable),
-                  dzen.gc, 0, 0, ctx.max_x, dzen.line_height, ctx.xorig, 0);
+        XCopyArea(dzen.dpy, ctx.pm,
+                  (ctx.line_number != -1 ? dzen.slave_win.drawable[ctx.line_number] : dzen.title_win.drawable), dzen.gc,
+                  0, 0, ctx.max_x, dzen.line_height, ctx.alignment_offset_x, 0);
         XFreePixmap(dzen.dpy, ctx.pm);
 
         /* reset font to default */
@@ -756,15 +766,15 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             font_reset_to_default();
     }
 
-    sens_w *w = &window_sens[LNR2WINDOW(ctx.lnr)];
+    sens_w *w = &window_sens[LNR2WINDOW(ctx.line_number)];
     for (i = ctx.sens_areas_start; i < (*w).sens_areas_cnt; i++) {
-        (*w).sens_areas[i].start_x += ctx.xorig;
-        (*w).sens_areas[i].end_x += ctx.xorig;
+        (*w).sens_areas[i].start_x += ctx.alignment_offset_x;
+        (*w).sens_areas[i].end_x += ctx.alignment_offset_x;
     }
 
     if (!ctx.nodraw && next_align != -1) {
-        /* linep now points to the character after the align token */
-        char *result = parse_line(ctx.linep, ctx.lnr, next_align, ctx.reverse, 0);
+        /* input_ptr now points to the character after the align token */
+        char *result = parse_line(ctx.input_ptr, ctx.line_number, next_align, ctx.reverse, 0);
         if (ctx.allocated_fgcolor)
             free(ctx.allocated_fgcolor);
         if (ctx.allocated_bgcolor)
@@ -776,7 +786,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
         free(ctx.allocated_fgcolor);
     if (ctx.allocated_bgcolor)
         free(ctx.allocated_bgcolor);
-    return ctx.nodraw ? ctx.rbuf : NULL;
+    return ctx.nodraw ? ctx.markup_free_text : NULL;
 }
 
 char *extract_between_parentheses(const char *str) {
@@ -926,7 +936,7 @@ void drawheader(const char *text) {
         }
     } else {
         dzen.slave_win.tcnt = -1;
-        dzen.cur_line       = 0;
+        dzen.current_line   = 0;
     }
 
     XCopyArea(dzen.dpy, dzen.title_win.drawable, dzen.title_win.win, dzen.gc, 0, 0, dzen.title_win.width,

@@ -166,13 +166,14 @@ static int read_stdin(void) {
             n_off = next_off;
 
             if (!dzen.slave_win.ishmenu && dzen.tsupdate && dzen.slave_win.max_lines &&
-                ((dzen.cur_line == 0) || !(dzen.cur_line % (dzen.slave_win.max_lines + 1))))
+                ((dzen.current_line == 0) || !(dzen.current_line % (dzen.slave_win.max_lines + 1))))
                 drawheader(retbuf);
-            else if (!dzen.slave_win.ishmenu && !dzen.tsupdate && ((dzen.cur_line == 0) || !dzen.slave_win.max_lines))
+            else if (!dzen.slave_win.ishmenu && !dzen.tsupdate &&
+                     ((dzen.current_line == 0) || !dzen.slave_win.max_lines))
                 drawheader(retbuf);
             else
                 drawbody(retbuf);
-            dzen.cur_line++;
+            dzen.current_line++;
         }
     }
     return 0;
@@ -299,7 +300,7 @@ static void set_docking_ewmh_info(Display *dpy, Window w, int dock) {
     XWindowAttributes wa;
     Atom              type;
     unsigned int      desktop;
-    pid_t             cur_pid;
+    pid_t             current_pid;
     char             *host_name;
     XTextProperty     txt_prop;
     XRectangle        si;
@@ -309,13 +310,13 @@ static void set_docking_ewmh_info(Display *dpy, Window w, int dock) {
 #endif
 
     host_name = emalloc(HOST_NAME_MAX);
-    if ((gethostname(host_name, HOST_NAME_MAX) > -1) && (cur_pid = getpid())) {
+    if ((gethostname(host_name, HOST_NAME_MAX) > -1) && (current_pid = getpid())) {
         XStringListToTextProperty(&host_name, 1, &txt_prop);
         XSetWMClientMachine(dpy, w, &txt_prop);
         XFree(txt_prop.value);
 
         XChangeProperty(dpy, w, XInternAtom(dpy, "_NET_WM_PID", False), XInternAtom(dpy, "CARDINAL", False), 32,
-                        PropModeReplace, (unsigned char *)&cur_pid, 1);
+                        PropModeReplace, (unsigned char *)&current_pid, 1);
     }
     free(host_name);
 
@@ -494,8 +495,8 @@ static void x_create_windows(int use_ewmh_dock) {
     set_docking_ewmh_info(dzen.dpy, dzen.title_win.win, use_ewmh_dock);
 
     /* TODO: Smarter approach to window creation so we can reduce the
-	 *       size of this function.
-	 */
+     *       size of this function.
+     */
 
     if (dzen.slave_win.max_lines) {
         dzen.slave_win.first_line_vis = 0;
@@ -506,8 +507,8 @@ static void x_create_windows(int use_ewmh_dock) {
         /* horizontal menu mode */
         if (dzen.slave_win.ishmenu) {
             /* calculate width of menuentries - this is a very simple
-			 * approach but works well for general cases.
-			 */
+             * approach but works well for general cases.
+             */
             int ew                  = dzen.slave_win.width / dzen.slave_win.max_lines;
             int r                   = dzen.slave_win.width - ew * dzen.slave_win.max_lines;
             dzen.slave_win.issticky = True;
@@ -534,8 +535,8 @@ static void x_create_windows(int use_ewmh_dock) {
                                                        CWOverrideRedirect | CWBackPixmap | CWEventMask, &wa);
 
             /* As we don't use the title window in this mode,
-			 * we reuse its width value
-			 */
+             * we reuse its width value
+             */
             dzen.title_win.width = dzen.slave_win.width;
             dzen.slave_win.width = ew + r;
         }
@@ -743,8 +744,8 @@ static void handle_newl(void) {
 
         if (XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &wa), wa.map_state != IsUnmapped
                                                                          /* autoscroll and redraw only if  we're
-				 * currently viewing the last line of input
-				 */
+                                                                          * currently viewing the last line of input
+                                                                          */
                                                                          &&
                                                                          (dzen.slave_win.last_line_vis == last_cnt)) {
             dzen.slave_win.first_line_vis = 0;
@@ -823,7 +824,7 @@ int main(int argc, char *argv[]) {
     /* default values */
     dzen.title_win.name = estrdup("dzen title");
     dzen.slave_win.name = estrdup("dzen slave");
-    dzen.cur_line       = 0;
+    dzen.current_line   = 0;
     dzen.ret_val        = 0;
     dzen.title_win.x = dzen.slave_win.x = 0;
     dzen.title_win.y                    = 0;

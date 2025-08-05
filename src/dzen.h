@@ -1,4 +1,4 @@
-/* 
+/*
  * (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
  * See LICENSE file for license details.
  *
@@ -92,7 +92,7 @@ typedef struct _SENS_PER_WINDOW {
     int     sens_areas_cnt;
 } sens_w;
 
-//0: top window, 1: slave window
+// 0: top window, 1: slave window
 extern sens_w window_sens[2];
 
 /* title window */
@@ -137,40 +137,52 @@ struct SW {
 };
 
 struct DZEN {
-    int           x, y, w, h;
-    Bool          running;
-    unsigned long norm[ColLast];
+    /* Window position and dimensions */
+    int  x, y; /* X and Y position of the dzen window */
+    int  w, h; /* Width and height of the dzen window */
+    Bool running; /* Main event loop running flag */
 
-    TWIN title_win;
-    SWIN slave_win;
+    /* Default colors for foreground and background */
+    unsigned long norm[ColLast]; /* Array holding normal fg/bg colors */
 
-    /* sensitive areas */
-    Window sa_win;
+    /* Window structures */
+    TWIN title_win; /* Title window (always visible, single line) */
+    SWIN slave_win; /* Slave window (optional multi-line menu) */
 
-    char *fnt;
-    char *bg;
-    char *fg;
-    int   line_height;
+    /* Sensitive areas window for click handling */
+    Window sa_win; /* Window for managing clickable areas */
 
-    Display     *dpy;
-    int          screen;
-    unsigned int depth;
+    /* Font and color configuration */
+    char *fnt; /* Default font name/specification */
+    char *bg; /* Default background color string */
+    char *fg; /* Default foreground color string */
+    int   line_height; /* Height of each text line in pixels */
 
-    Visual *visual;
-    GC      gc, rgc, tgc;
+    /* X11 display and screen information */
+    Display     *dpy; /* X11 display connection */
+    int          screen; /* X11 screen number */
+    unsigned int depth; /* Color depth of the display */
 
-    Bool          ispersistent;
-    Bool          tsupdate;
-    Bool          colorize;
-    unsigned long timeout;
-    long          cur_line;
-    int           ret_val;
+    /* X11 graphics contexts and visual */
+    Visual *visual; /* X11 visual for rendering */
+    GC      gc; /* Graphics context for normal drawing */
+    GC      rgc; /* Graphics context for reverse drawing */
+    GC      tgc; /* Graphics context for text drawing */
 
-    /* should always be 0 if HAVE_XINERAMA not defined */
-    int xinescreen;
+    /* Display behavior flags */
+    Bool          ispersistent; /* Whether window stays visible */
+    Bool          tsupdate; /* Title/slave update mode flag */
+    Bool          colorize; /* Enable color processing */
+    unsigned long timeout; /* Display timeout in seconds */
+    long          current_line; /* Current line number for input processing */
+    int           ret_val; /* Return value for exit status */
 
-    Cursor cursor_arrow;
-    Cursor cursor_hand;
+    /* Multi-monitor support (Xinerama) */
+    int xinescreen; /* Xinerama screen number (0 if no Xinerama) */
+
+    /* Mouse cursors for different UI states */
+    Cursor cursor_arrow; /* Default arrow cursor */
+    Cursor cursor_hand; /* Hand cursor for clickable areas */
 };
 
 extern Dzen dzen;

@@ -6,6 +6,7 @@
 
 #include "../config.h"
 #include "font.h"
+#include "util.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -41,6 +42,7 @@
 #define MAX_LINE_LEN 262144
 #endif
 #define MAX_CLICKABLE_AREAS 256
+#define MAX_CLICKABLE_CMD_LEN 1024
 
 #ifndef Button6
 #define Button6 6
@@ -82,7 +84,7 @@ typedef struct _CLICK_A {
     int    start_y;
     int    end_y;
     Window win; //(line)window to which the action is attached
-    char   cmd[1024];
+    char   cmd[MAX_CLICKABLE_CMD_LEN];
 } click_a;
 
 typedef struct _SENS_PER_WINDOW {
@@ -181,12 +183,6 @@ extern void  drawtext(const char *text, int reverse, int line, int align);
 extern char *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
 extern void  drawheader(const char *text);
 extern void  drawbody(char *text);
-
-/* util.c */
-extern void *emalloc(unsigned int size); /* allocates memory, exits on error */
-extern void  eprint(const char *errstr, ...); /* prints errstr and exits with 1 */
-extern char *estrdup(const char *str); /* duplicates str, exits on allocation error */
-extern void  spawn(const char *arg); /* execute arg */
 
 /* caches.c */
 long  get_color(const char *str); /* returns color of colstr */

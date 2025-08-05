@@ -74,3 +74,6 @@ gadgets
 
 .direnv
 .claude
+
+# binary
+src/dzen2

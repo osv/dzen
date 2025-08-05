@@ -15,7 +15,8 @@ dzen2_SOURCES = \
   kvstore.c \
   kvstore.h \
   main.c \
-  util.c
+  util.c \
+  util.h
 
 # We can add extra CFLAGS or LIBS if needed, e.g.
 

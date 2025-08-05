@@ -7,6 +7,7 @@
 #include "dzen.h"
 #include "action.h"
 #include "font.h"
+#include "util.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,9 +83,6 @@ struct command_lookup cmd_lookup_table[] = {
     { 0,            0,          0}
 };
 // clang-format on
-
-/* positioning helpers */
-enum sctype { LOCK_X, UNLOCK_X, TOP, BOTTOM, CENTER, LEFT, RIGHT };
 
 int get_tokval(const char *line, char *buf, char **retdata);
 int get_token(const char *line, char *valbuf, int *t, char **tval);
@@ -194,109 +192,6 @@ static void setcolor(Drawable *pm, int x, int width, long tfg, long tbg, int rev
 
     XSetForeground(dzen.dpy, dzen.tgc, reverse ? tbg : tfg);
     XSetBackground(dzen.dpy, dzen.tgc, reverse ? tfg : tbg);
-}
-
-int get_sens_area(char *s, int *b, char *cmd) {
-    memset(cmd, 0, 1024);
-    sscanf(s, "%5d", b);
-    char *comma = strchr(s, ',');
-    if (comma != NULL)
-        strncpy(cmd, comma + 1, 1024);
-
-    return 0;
-}
-
-static int get_rect_vals(char *s, int *w, int *h, int *x, int *y) {
-    *w = *h = *x = *y = 0;
-
-    return sscanf(s, "%5dx%5d%5d%5d", w, h, x, y);
-}
-
-static int get_circle_vals(char *s, int *d, int *a) {
-    int ret;
-    *d = *a = ret = 0;
-
-    return sscanf(s, "%5d%5d", d, a);
-}
-
-static int get_pos_vals(char *s, int *d, int *a) {
-    int  i = 0, ret = 3, onlyx = 1;
-    char buf[128];
-    *d = *a = 0;
-
-    if (s[0] == '_') {
-        if (!strncmp(s, "_LOCK_X", 7)) {
-            *d = LOCK_X;
-        }
-        if (!strncmp(s, "_UNLOCK_X", 8)) {
-            *d = UNLOCK_X;
-        }
-        if (!strncmp(s, "_LEFT", 5)) {
-            *d = LEFT;
-        }
-        if (!strncmp(s, "_RIGHT", 6)) {
-            *d = RIGHT;
-        }
-        if (!strncmp(s, "_CENTER", 7)) {
-            *d = CENTER;
-        }
-        if (!strncmp(s, "_BOTTOM", 7)) {
-            *d = BOTTOM;
-        }
-        if (!strncmp(s, "_TOP", 4)) {
-            *d = TOP;
-        }
-
-        return 5;
-    } else {
-        for (i = 0; s[i] && i < 128; i++) {
-            if (s[i] == ';') {
-                onlyx = 0;
-                break;
-            } else
-                buf[i] = s[i];
-        }
-
-        if (i) {
-            buf[i] = '\0';
-            *d     = atoi(buf);
-        } else
-            ret = 2;
-
-        // Check if we found a semicolon (onlyx==0 means semicolon was found)
-        if (!onlyx && i < 127) { // Ensure we have room to increment
-            i++; // Move past the semicolon
-            if (s[i]) {
-                *a = atoi(s + i);
-            } else {
-                ret = 1; // Empty after semicolon
-            }
-        } else {
-            ret = 1; // No semicolon found or at buffer limit
-        }
-
-        if (onlyx)
-            ret = 1;
-
-        return ret;
-    }
-}
-
-static int get_block_align_vals(char *s, int *a, int *w) {
-    char buf[32];
-    int  r;
-    *w = -1;
-    r  = sscanf(s, "%d,%31s", w, buf);
-    if (!strcmp(buf, "_LEFT"))
-        *a = ALIGNLEFT;
-    else if (!strcmp(buf, "_RIGHT"))
-        *a = ALIGNRIGHT;
-    else if (!strcmp(buf, "_CENTER"))
-        *a = ALIGNCENTER;
-    else
-        *a = -1;
-
-    return r;
 }
 
 /* Parser context structure to hold parsing state */

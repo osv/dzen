@@ -184,17 +184,17 @@ The `test_perfomance` script provides a comprehensive test environment that simu
 
 ```bash
 # Basic functionality test - displays complex status bar
-./test_perfomance
+timeout 10s ./test_perfomance
 
 # Memory analysis - comprehensive Valgrind check and save report to ./valgrind-out.txt
 # This script runs `valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt`
 timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?"
 
 # Performance profiling - generates perf.data for analysis
-./test_perfomance --perf
+timeout 10s ./test_perfomance --perf
 
 # Generates continuous stream of complex dzen2 markup (pipe to dzen2 if you need to run it manually)
-./test_perfomance --printer
+timeout 10s ./test_perfomance --printer
 ```
 
 **What test_perfomance does:**

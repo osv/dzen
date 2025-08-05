@@ -41,7 +41,7 @@
 #ifndef MAX_LINE_LEN
 #define MAX_LINE_LEN 262144
 #endif
-#define MAX_CLICKABLE_AREAS 256
+#define MAX_CLICKABLE_AREAS   256
 #define MAX_CLICKABLE_CMD_LEN 1024
 
 #ifndef Button6

@@ -28,9 +28,6 @@ typedef struct ICON_C {
     int w, h;
 } icon_c;
 
-int icon_cnt;
-int otx;
-
 sens_w window_sens[2];
 
 /* command types for the in-text parser */
@@ -44,10 +41,8 @@ enum ctype {
     circleo,
     pos,
     abspos,
-    titlewin,
     ibg,
     fn,
-    fixpos,
     ca,
     ba,
     leftalign,
@@ -72,7 +67,6 @@ struct command_lookup cmd_lookup_table[] = {
     { "co(",        circleo,    3},
     { "p(",         pos,        2},
     { "pa(",        abspos,     3},
-    { "tw(",        titlewin,   3},
     { "ib(",        ibg,        3},
     { "fn(",        fn,         3},
     { "ca(",        ca,         3},
@@ -99,46 +93,6 @@ void drawtext(const char *text, int reverse, int line, int align) {
     }
 
     parse_line(text, line, align, reverse, 0);
-}
-
-/* Shared cache structure for color cache */
-typedef struct Cache {
-    char         *key;
-    void         *value;
-    struct Cache *next;
-} Cache;
-
-Cache *color_cache = NULL;
-
-void *get_cached_value(Cache **cache, const char *key) {
-    Cache *current = *cache;
-    while (current) {
-        if (strcmp(current->key, key) == 0) {
-            return current->value;
-        }
-        current = current->next;
-    }
-    return NULL;
-}
-
-void add_to_cache(Cache **cache, const char *key, void *value) {
-    Cache *new_entry = malloc(sizeof(Cache));
-    new_entry->key   = strdup(key);
-    new_entry->value = value;
-    new_entry->next  = *cache;
-    *cache           = new_entry;
-}
-
-void free_cache(Cache **cache) {
-    Cache *current = *cache;
-    while (current) {
-        Cache *next = current->next;
-        free(current->key);
-        free(current->value);
-        free(current);
-        current = next;
-    }
-    *cache = NULL;
 }
 
 int get_tokval(const char *line, char *buf, char **retdata) {
@@ -774,9 +728,9 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             switch (dzen.title_win.expand) {
             case left:
                 /* grow left end */
-                otx = dzen.title_win.x_right_corner - i > dzen.title_win.x ? dzen.title_win.x_right_corner - i
-                                                                           : dzen.title_win.x;
-                XMoveResizeWindow(dzen.dpy, dzen.title_win.win, otx, dzen.title_win.y, ctx.px, dzen.line_height);
+                int new_x = dzen.title_win.x_right_corner - i > dzen.title_win.x ? dzen.title_win.x_right_corner - i
+                                                                                 : dzen.title_win.x;
+                XMoveResizeWindow(dzen.dpy, dzen.title_win.win, new_x, dzen.title_win.y, ctx.px, dzen.line_height);
                 break;
             case right:
                 XResizeWindow(dzen.dpy, dzen.title_win.win, ctx.px, dzen.line_height);

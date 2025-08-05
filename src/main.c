@@ -100,33 +100,39 @@ static sigfunc *setup_signal(int signr, sigfunc *shandler) {
     return NULL;
 }
 
-char      *rem = NULL;
-static int chomp(char *inbuf, char *outbuf, int start, int len) {
-    int i   = 0;
-    int off = start;
+/* Extract complete lines from buffer, ignoring partial lines at the end
+ * Returns offset to next unprocessed character, or 0 if no complete lines found
+ */
+static int extract_line(const char *inbuf, char *outbuf, int start, int len) {
+    const char *line_start = inbuf + start;
+    int         remaining  = len - start;
 
-    if (rem) {
-        strncpy(outbuf, rem, strlen(rem));
-        i += strlen(rem);
-        free(rem);
-        rem = NULL;
-    }
-    while (off < len) {
-        if (i >= MAX_LINE_LEN) {
-            outbuf[MAX_LINE_LEN - 1] = '\0';
-            return ++off;
-        }
-        if (inbuf[off] != '\n') {
-            outbuf[i++] = inbuf[off++];
-        } else if (inbuf[off] == '\n') {
-            outbuf[i] = '\0';
-            return ++off;
-        }
+    /* Find newline using memchr - much faster than character-by-character scan */
+    const char *newline = memchr(line_start, '\n', remaining);
+
+    if (!newline) {
+        /* No complete line found - ignore partial line */
+        return 0;
     }
 
-    outbuf[i] = '\0';
-    rem       = estrdup(outbuf);
-    return 0;
+    /* Calculate line length */
+    int line_len = newline - line_start;
+
+    /* Handle line truncation if needed */
+    if (line_len >= MAX_LINE_LEN - 1) {
+        /* Copy truncated line - leave room for null terminator */
+        memcpy(outbuf, line_start, MAX_LINE_LEN - 1);
+        outbuf[MAX_LINE_LEN - 1] = '\0';
+        /* Return position after newline */
+        return start + (newline - line_start) + 1;
+    }
+
+    /* Copy complete line using memcpy - much faster than char-by-char */
+    memcpy(outbuf, line_start, line_len);
+    outbuf[line_len] = '\0';
+
+    /* Return position after newline */
+    return start + line_len + 1;
 }
 
 void free_buffer(void) {
@@ -140,7 +146,8 @@ void free_buffer(void) {
 
 static int read_stdin(void) {
     char    buf[MAX_LINE_LEN], retbuf[MAX_LINE_LEN];
-    ssize_t n, n_off = 0;
+    ssize_t n;
+    int     n_off = 0;
 
     if (!(n = read(STDIN_FILENO, buf, sizeof buf))) {
         if (!dzen.ispersistent) {
@@ -149,7 +156,15 @@ static int read_stdin(void) {
         } else
             return -2;
     } else {
-        while ((n_off = chomp(buf, retbuf, n_off, n))) {
+        /* Process only complete lines, ignore partial lines at buffer end */
+        while (n_off < n) {
+            int next_off = extract_line(buf, retbuf, n_off, n);
+            if (next_off == 0) {
+                /* No more complete lines in buffer */
+                break;
+            }
+            n_off = next_off;
+
             if (!dzen.slave_win.ishmenu && dzen.tsupdate && dzen.slave_win.max_lines &&
                 ((dzen.cur_line == 0) || !(dzen.cur_line % (dzen.slave_win.max_lines + 1))))
                 drawheader(retbuf);

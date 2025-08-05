@@ -52,11 +52,16 @@ static void clean_up(void) {
     XFreeCursor(dzen.dpy, dzen.cursor_hand);
     XDestroyWindow(dzen.dpy, dzen.title_win.win);
     XCloseDisplay(dzen.dpy);
-    free(dzen.fnt);
-    free(dzen.bg);
-    free(dzen.fg);
-    free(dzen.title_win.name);
-    free(dzen.slave_win.name);
+    if (dzen.fnt)
+        free(dzen.fnt);
+    if (dzen.bg)
+        free(dzen.bg);
+    if (dzen.fg)
+        free(dzen.fg);
+    if (dzen.title_win.name)
+        free(dzen.title_win.name);
+    if (dzen.slave_win.name)
+        free(dzen.slave_win.name);
 }
 
 static void catch_sigusr1(int s) {
@@ -393,23 +398,28 @@ static void x_read_resources(void) {
     if (xrm != NULL) {
         xdb = XrmGetStringDatabase(xrm);
         if (XrmGetResource(xdb, "dzen2.font", "*", datatype, &xvalue) == True) {
-            free(dzen.fnt);
+            if (dzen.fnt)
+                free(dzen.fnt);
             dzen.fnt = estrdup(xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.foreground", "*", datatype, &xvalue) == True) {
-            free(dzen.fg);
+            if (dzen.fg)
+                free(dzen.fg);
             dzen.fg = estrdup(xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.background", "*", datatype, &xvalue) == True) {
-            free(dzen.bg);
+            if (dzen.bg)
+                free(dzen.bg);
             dzen.bg = estrdup(xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.titlename", "*", datatype, &xvalue) == True) {
-            free(dzen.title_win.name);
+            if (dzen.title_win.name)
+                free(dzen.title_win.name);
             dzen.title_win.name = estrdup(xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.slavename", "*", datatype, &xvalue) == True) {
-            free(dzen.slave_win.name);
+            if (dzen.slave_win.name)
+                free(dzen.slave_win.name);
             dzen.slave_win.name = estrdup(xvalue.addr);
         }
         XrmDestroyDatabase(xdb);

@@ -27,12 +27,13 @@ static KeyValueStore *g_font_cache    = NULL;
 static KeyValueStore *g_preload_cache = NULL;
 
 #ifdef HAVE_XFT
-/* XftDraw cache - maps drawable to XftDraw */
-static KeyValueStore *g_xftdraw_cache = NULL;
 /* XftColor cache - maps color string to XftColor */
 static KeyValueStore *g_xftcolor_cache = NULL;
 static Visual        *g_visual         = NULL;
 static Colormap       g_colormap;
+/* Last-used XftDraw cache for performance */
+static XftDraw *g_last_xftdraw  = NULL;
+static Drawable g_last_drawable = None;
 #endif
 
 /* Forward declarations */
@@ -40,7 +41,6 @@ static void font_destroy_item(void *value);
 static Fnt *font_load(const char *fontstr);
 static void font_free(Fnt *font);
 #ifdef HAVE_XFT
-static void xftdraw_destroy_item(void *value);
 static void xftcolor_destroy_item(void *value);
 #endif
 
@@ -64,12 +64,6 @@ void font_init(Display *dpy, int screen) {
 #ifdef HAVE_XFT
     g_visual   = DefaultVisual(dpy, screen);
     g_colormap = DefaultColormap(dpy, screen);
-
-    /* Initialize XftDraw cache with destructor */
-    g_xftdraw_cache = kvstore_create(xftdraw_destroy_item, NULL);
-    if (!g_xftdraw_cache) {
-        eprint("font: failed to create XftDraw cache\n");
-    }
 
     /* Initialize XftColor cache with destructor */
     g_xftcolor_cache = kvstore_create(xftcolor_destroy_item, NULL);
@@ -97,14 +91,16 @@ void font_cleanup(void) {
     g_default_font = NULL;
 
 #ifdef HAVE_XFT
-    if (g_xftdraw_cache) {
-        kvstore_destroy(g_xftdraw_cache);
-        g_xftdraw_cache = NULL;
-    }
-
     if (g_xftcolor_cache) {
         kvstore_destroy(g_xftcolor_cache);
         g_xftcolor_cache = NULL;
+    }
+
+    /* Clean up cached XftDraw */
+    if (g_last_xftdraw) {
+        XftDrawDestroy(g_last_xftdraw);
+        g_last_xftdraw  = NULL;
+        g_last_drawable = None;
     }
 #endif
 }
@@ -328,13 +324,6 @@ unsigned int font_get_text_width(const char *text, unsigned int len) {
 }
 
 #ifdef HAVE_XFT
-/* XftDraw destructor */
-static void xftdraw_destroy_item(void *value) {
-    if (!value)
-        return;
-    XftDrawDestroy((XftDraw *)value);
-}
-
 /* XftColor destructor */
 static void xftcolor_destroy_item(void *value) {
     if (!value)
@@ -342,21 +331,6 @@ static void xftcolor_destroy_item(void *value) {
     XftColor *color = (XftColor *)value;
     XftColorFree(g_display, g_visual, g_colormap, color);
     free(color);
-}
-
-/* Get or create XftDraw for drawable */
-static XftDraw *get_xftdraw(Drawable drawable) {
-    char key[32];
-    snprintf(key, sizeof(key), "%lu", drawable);
-
-    XftDraw *xftdraw = kvstore_get(g_xftdraw_cache, key);
-    if (!xftdraw) {
-        xftdraw = XftDrawCreate(g_display, drawable, g_visual, g_colormap);
-        if (xftdraw) {
-            kvstore_set(g_xftdraw_cache, key, xftdraw);
-        }
-    }
-    return xftdraw;
 }
 
 /* Get or create XftColor */
@@ -389,10 +363,23 @@ void font_draw_text(Drawable drawable, GC gc, int x, int y, const char *text, un
 
 #ifdef HAVE_XFT
     if (font->xftfont) {
-        /* Use XFT rendering */
-        XftDraw *xftdraw = get_xftdraw(drawable);
-        if (!xftdraw)
-            return;
+        /* Use XFT rendering with cached XftDraw for performance */
+        XftDraw *xftdraw;
+
+        /* Check if we can reuse the last XftDraw */
+        if (drawable == g_last_drawable && g_last_xftdraw) {
+            xftdraw = g_last_xftdraw;
+        } else {
+            /* Drawable changed - destroy old and create new */
+            if (g_last_xftdraw) {
+                XftDrawDestroy(g_last_xftdraw);
+            }
+            xftdraw = XftDrawCreate(g_display, drawable, g_visual, g_colormap);
+            if (!xftdraw)
+                return;
+            g_last_xftdraw  = xftdraw;
+            g_last_drawable = drawable;
+        }
 
         /* Determine which color to use */
         const char *color_str = reverse ? bg_color : fg_color;
@@ -401,11 +388,12 @@ void font_draw_text(Drawable drawable, GC gc, int x, int y, const char *text, un
         }
 
         XftColor *xftcolor = get_xftcolor(color_str);
-        if (!xftcolor)
-            return;
+        if (xftcolor) {
+            /* Draw text */
+            XftDrawStringUtf8(xftdraw, xftcolor, font->xftfont, x, y + font->ascent, (const FcChar8 *)text, len);
+        }
 
-        /* Draw text */
-        XftDrawStringUtf8(xftdraw, xftcolor, font->xftfont, x, y + font->ascent, (const FcChar8 *)text, len);
+        /* Note: Don't destroy xftdraw here - keep it cached for reuse */
         return;
     }
 #endif

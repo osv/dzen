@@ -701,12 +701,18 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             linep += next_pos;
             if (t == leftalign) {
                 next_align = ALIGNLEFT;
+                if (tval)
+                    free(tval);
                 break;
             } else if (t == centeralign) {
                 next_align = ALIGNCENTER;
+                if (tval)
+                    free(tval);
                 break;
             } else if (t == rightalign) {
                 next_align = ALIGNRIGHT;
+                if (tval)
+                    free(tval);
                 break;
             }
 

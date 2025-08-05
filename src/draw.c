@@ -86,8 +86,8 @@ struct command_lookup cmd_lookup_table[] = {
 /* positioning helpers */
 enum sctype { LOCK_X, UNLOCK_X, TOP, BOTTOM, CENTER, LEFT, RIGHT };
 
-int get_tokval(const char *line, char **retdata);
-int get_token(const char *line, int *t, char **tval);
+int get_tokval(const char *line, char *buf, char **retdata);
+int get_token(const char *line, char *valbuf, int *t, char **tval);
 
 void drawtext(const char *text, int reverse, int line, int align) {
     if (!reverse) {
@@ -143,20 +143,25 @@ void free_cache(Cache **cache) {
     *cache = NULL;
 }
 
-int get_tokval(const char *line, char **retdata) {
-    int  i;
-    char tokval[ARGLEN];
+int get_tokval(const char *line, char *buf, char **retdata) {
+    int i;
 
-    for (i = 0; i < ARGLEN && (*(line + i) != ')'); i++)
-        tokval[i] = *(line + i);
+    /* Copy value into buffer until closing parenthesis */
+    for (i = 0; i < ARGLEN - 1 && line[i] && line[i] != ')'; i++)
+        buf[i] = line[i];
 
-    tokval[i] = '\0';
-    *retdata  = strdup(tokval);
+    buf[i] = '\0';
 
-    return i + 1;
+    if (i < ARGLEN && line[i] == ')') {
+        *retdata = buf;
+        return i + 1; /* Return position after ')' */
+    }
+
+    *retdata = NULL;
+    return i;
 }
 
-int get_token(const char *line, int *t, char **tval) {
+int get_token(const char *line, char *valbuf, int *t, char **tval) {
     int   off = 0, next_pos = 0, i;
     char *tokval = NULL;
 
@@ -164,16 +169,20 @@ int get_token(const char *line, int *t, char **tval) {
         return 0;
     line++;
 
+    *t = -1; /* Initialize to invalid token */
     for (i = 0; cmd_lookup_table[i].name; ++i) {
-        if (off = cmd_lookup_table[i].off, !strncmp(line, cmd_lookup_table[i].name, off)) {
-            next_pos = get_tokval(line + off, &tokval);
+        off = cmd_lookup_table[i].off;
+        if (!strncmp(line, cmd_lookup_table[i].name, off)) {
+            /* Get the token value (text between parentheses) */
+            next_pos = get_tokval(line + off, valbuf, &tokval);
             *t       = cmd_lookup_table[i].id;
             break;
         }
     }
 
     *tval = tokval;
-    return next_pos + off;
+    /* Return total offset including the ^ character */
+    return (*t != -1) ? next_pos + off + 1 : 0;
 }
 
 static void setcolor(Drawable *pm, int x, int width, long tfg, long tbg, int reverse, int nobg) {
@@ -332,17 +341,18 @@ typedef struct {
 
     /* Text parsing */
     const char *linep;
-    int         t;
-    char       *tval;
+    int         token;
+    char        token_value_buf[ARGLEN]; /* Static buffer for token value */
+    char       *token_value;
 
     /* For nodraw mode */
     char *rbuf;
 } ParseContext;
 
 /* Process rectangle command */
-static void process_rect_command(ParseContext *ctx, const char *tval) {
+static void process_rect_command(ParseContext *ctx) {
     int rectw, recth, rectx, recty;
-    get_rect_vals(tval, &rectw, &recth, &rectx, &recty);
+    get_rect_vals(ctx->token_value, &rectw, &recth, &rectx, &recty);
     recth = recth > dzen.line_height ? dzen.line_height : recth;
     if (ctx->set_posy)
         ctx->py += recty;
@@ -358,9 +368,9 @@ static void process_rect_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process circle command */
-static void process_circle_command(ParseContext *ctx, const char *tval) {
+static void process_circle_command(ParseContext *ctx) {
     int rectw, recth, rectx;
-    rectx = get_circle_vals(tval, &rectw, &recth);
+    rectx = get_circle_vals(ctx->token_value, &rectw, &recth);
     setcolor(&ctx->pm, ctx->px, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
     XFillArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->px, ctx->set_posy ? ctx->py : (dzen.line_height - rectw) / 2, rectw,
              rectw, 90 * 64, rectx > 1 ? recth * 64 : 64 * 360);
@@ -369,11 +379,11 @@ static void process_circle_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process position command */
-static void process_pos_command(ParseContext *ctx, const char *tval) {
-    if (tval[0]) {
+static void process_pos_command(ParseContext *ctx) {
+    if (ctx->token_value && ctx->token_value[0]) {
         int r = 0;
         int n_posx, n_posy;
-        r = get_pos_vals(tval, &n_posx, &n_posy);
+        r = get_pos_vals(ctx->token_value, &n_posx, &n_posy);
         if ((r == 1 && !ctx->set_posy))
             ctx->set_posy = 0;
         else if (r == 5) {
@@ -419,12 +429,12 @@ static void process_pos_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process background color command */
-static void process_bg_command(ParseContext *ctx, const char *tval) {
-    ctx->lastbg = tval[0] ? (unsigned)get_color(tval) : dzen.norm[ColBG];
-    if (tval[0]) {
+static void process_bg_command(ParseContext *ctx) {
+    ctx->lastbg = (ctx->token_value && ctx->token_value[0]) ? (unsigned)get_color(ctx->token_value) : dzen.norm[ColBG];
+    if (ctx->token_value && ctx->token_value[0]) {
         if (ctx->allocated_bgcolor)
             free(ctx->allocated_bgcolor);
-        ctx->allocated_bgcolor = estrdup(tval);
+        ctx->allocated_bgcolor = estrdup(ctx->token_value);
         ctx->cur_bgcolor       = ctx->allocated_bgcolor;
     } else {
         ctx->cur_bgcolor = dzen.bg;
@@ -432,12 +442,12 @@ static void process_bg_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process foreground color command */
-static void process_fg_command(ParseContext *ctx, const char *tval) {
-    ctx->lastfg = tval[0] ? (unsigned)get_color(tval) : dzen.norm[ColFG];
-    if (tval[0]) {
+static void process_fg_command(ParseContext *ctx) {
+    ctx->lastfg = (ctx->token_value && ctx->token_value[0]) ? (unsigned)get_color(ctx->token_value) : dzen.norm[ColFG];
+    if (ctx->token_value && ctx->token_value[0]) {
         if (ctx->allocated_fgcolor)
             free(ctx->allocated_fgcolor);
-        ctx->allocated_fgcolor = estrdup(tval);
+        ctx->allocated_fgcolor = estrdup(ctx->token_value);
         ctx->cur_fgcolor       = ctx->allocated_fgcolor;
     } else {
         ctx->cur_fgcolor = dzen.fg;
@@ -446,13 +456,13 @@ static void process_fg_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process clickable area command */
-static void process_clickable_area(ParseContext *ctx, const char *tval) {
+static void process_clickable_area(ParseContext *ctx) {
     sens_w *w = &window_sens[LNR2WINDOW(ctx->lnr)];
 
-    if (tval[0]) {
+    if (ctx->token_value && ctx->token_value[0]) {
         click_a *area = &((*w).sens_areas[(*w).sens_areas_cnt]);
         if ((*w).sens_areas_cnt < MAX_CLICKABLE_AREAS) {
-            get_sens_area(tval, &(*area).button, (*area).cmd);
+            get_sens_area(ctx->token_value, &(*area).button, (*area).cmd);
             (*area).start_x = ctx->px;
             (*area).start_y = ctx->py;
             (*area).end_y   = ctx->py;
@@ -480,17 +490,17 @@ static void process_clickable_area(ParseContext *ctx, const char *tval) {
 }
 
 /* Process block alignment command */
-static void process_block_align(ParseContext *ctx, const char *tval) {
-    if (tval[0])
-        get_block_align_vals(tval, &ctx->block_align, &ctx->block_width);
+static void process_block_align(ParseContext *ctx) {
+    if (ctx->token_value && ctx->token_value[0])
+        get_block_align_vals(ctx->token_value, &ctx->block_align, &ctx->block_width);
     else
         ctx->block_align = ctx->block_width = -1;
 }
 
 /* Process font command */
-static void process_font_command(ParseContext *ctx, const char *tval) {
-    if (tval[0]) {
-        ctx->cur_fnt = font_set(tval);
+static void process_font_command(ParseContext *ctx) {
+    if (ctx->token_value && ctx->token_value[0]) {
+        ctx->cur_fnt = font_set(ctx->token_value);
     } else {
         font_reset_to_default();
         ctx->cur_fnt = font_get_current();
@@ -502,11 +512,11 @@ static void process_font_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process absolute position command */
-static void process_abspos_command(ParseContext *ctx, const char *tval) {
-    if (tval[0]) {
+static void process_abspos_command(ParseContext *ctx) {
+    if (ctx->token_value && ctx->token_value[0]) {
         int r = 0;
         int n_posx, n_posy;
-        if ((r = get_pos_vals(tval, &n_posx, &n_posy)) == 1 && !ctx->set_posy)
+        if ((r = get_pos_vals(ctx->token_value, &n_posx, &n_posy)) == 1 && !ctx->set_posy)
             ctx->set_posy = 0;
         else
             ctx->set_posy = 1;
@@ -526,9 +536,9 @@ static void process_abspos_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process outlined circle command */
-static void process_circleo_command(ParseContext *ctx, const char *tval) {
+static void process_circleo_command(ParseContext *ctx) {
     int rectw, recth, rectx;
-    rectx = get_circle_vals(tval, &rectw, &recth);
+    rectx = get_circle_vals(ctx->token_value, &rectw, &recth);
     setcolor(&ctx->pm, ctx->px, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
     XDrawArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->px, ctx->set_posy ? ctx->py : (dzen.line_height - rectw) / 2, rectw,
              rectw, 90 * 64, rectx > 1 ? recth * 64 : 64 * 360);
@@ -537,9 +547,9 @@ static void process_circleo_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process outlined rectangle command */
-static void process_recto_command(ParseContext *ctx, const char *tval) {
+static void process_recto_command(ParseContext *ctx) {
     int rectw, recth, rectx, recty;
-    get_rect_vals(tval, &rectw, &recth, &rectx, &recty);
+    get_rect_vals(ctx->token_value, &rectw, &recth, &rectx, &recty);
     if (!rectw)
         return;
 
@@ -559,8 +569,8 @@ static void process_recto_command(ParseContext *ctx, const char *tval) {
 }
 
 /* Process icon command */
-static void process_icon_command(ParseContext *ctx, const char *tval) {
-    Icon *icon_obj = get_icon(tval);
+static void process_icon_command(ParseContext *ctx) {
+    Icon *icon_obj = get_icon(ctx->token_value);
     if (icon_obj && icon_obj->pm != None) {
         int y = (ctx->set_posy
                      ? ctx->py
@@ -648,9 +658,10 @@ static void parse_context_init(ParseContext *ctx, int lnr, int align, int revers
     ctx->sens_areas_start = window_sens[LNR2WINDOW(lnr)].sens_areas_cnt;
 
     /* Text parsing */
-    ctx->linep = NULL;
-    ctx->t     = -1;
-    ctx->tval  = NULL;
+    ctx->linep              = NULL;
+    ctx->token              = -1;
+    ctx->token_value_buf[0] = '\0';
+    ctx->token_value        = NULL;
 
     /* For nodraw mode */
     ctx->rbuf = NULL;
@@ -675,6 +686,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
         else
             line = dzen.slave_win.tbuf[dzen.slave_win.first_line_vis + ctx.lnr];
 
+        /* No need to copy - we're not modifying the string anymore */
     }
     /* parse line and render text */
     else {
@@ -725,59 +737,59 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             if (ctx.nodraw) {
                 strcat(ctx.rbuf, ctx.lbuf);
             } else {
-                if (ctx.t != -1 && ctx.tval) {
-                    switch (ctx.t) {
+                if (ctx.token != -1 && ctx.token_value) {
+                    switch (ctx.token) {
                     case icon:
-                        process_icon_command(&ctx, ctx.tval);
+                        process_icon_command(&ctx);
                         break;
 
                     case rect:
-                        process_rect_command(&ctx, ctx.tval);
+                        process_rect_command(&ctx);
                         break;
 
                     case recto:
-                        process_recto_command(&ctx, ctx.tval);
+                        process_recto_command(&ctx);
                         break;
 
                     case circle:
-                        process_circle_command(&ctx, ctx.tval);
+                        process_circle_command(&ctx);
                         break;
 
                     case circleo:
-                        process_circleo_command(&ctx, ctx.tval);
+                        process_circleo_command(&ctx);
                         break;
 
                     case pos:
-                        process_pos_command(&ctx, ctx.tval);
+                        process_pos_command(&ctx);
                         break;
 
                     case abspos:
-                        process_abspos_command(&ctx, ctx.tval);
+                        process_abspos_command(&ctx);
                         break;
 
                     case ibg:
-                        ctx.nobg = atoi(ctx.tval);
+                        ctx.nobg = atoi(ctx.token_value);
                         break;
 
                     case bg:
-                        process_bg_command(&ctx, ctx.tval);
+                        process_bg_command(&ctx);
                         break;
 
                     case fg:
-                        process_fg_command(&ctx, ctx.tval);
+                        process_fg_command(&ctx);
                         break;
 
                     case fn:
-                        process_font_command(&ctx, ctx.tval);
+                        process_font_command(&ctx);
                         break;
                     case ca:
-                        process_clickable_area(&ctx, ctx.tval);
+                        process_clickable_area(&ctx);
                         break;
                     case ba:
-                        process_block_align(&ctx, ctx.tval);
+                        process_block_align(&ctx);
                         break;
                     }
-                    free(ctx.tval);
+                    /* No need to free - token_value points into line_buffer */
                 }
 
                 /* check if text is longer than window's width */
@@ -828,35 +840,36 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             if (*ctx.linep == '\0')
                 break;
 
-            ctx.j    = 0;
-            ctx.t    = -1;
-            ctx.tval = NULL;
-            next_pos = get_token(ctx.linep, &ctx.t, &ctx.tval);
+            ctx.j           = 0;
+            ctx.token       = -1;
+            ctx.token_value = NULL;
+            next_pos        = get_token(ctx.linep, ctx.token_value_buf, &ctx.token, &ctx.token_value);
             ctx.linep += next_pos;
-            if (ctx.t == leftalign) {
+            if (ctx.token == leftalign) {
                 next_align = ALIGNLEFT;
-                if (ctx.tval)
-                    free(ctx.tval);
+                /* No need to free - token_value points into line_buffer */
                 break;
-            } else if (ctx.t == centeralign) {
+            } else if (ctx.token == centeralign) {
                 next_align = ALIGNCENTER;
-                if (ctx.tval)
-                    free(ctx.tval);
+                /* No need to free - token_value points into line_buffer */
                 break;
-            } else if (ctx.t == rightalign) {
+            } else if (ctx.token == rightalign) {
                 next_align = ALIGNRIGHT;
-                if (ctx.tval)
-                    free(ctx.tval);
+                /* No need to free - token_value points into line_buffer */
                 break;
             }
 
             /* ^^ escapes */
-            if (next_pos == 0)
+            if (next_pos == 0 && ctx.token == -1) {
+                /* Double escape - print the second ^ */
                 ctx.lbuf[ctx.j++] = *ctx.linep++;
-        } else
+            }
+            /* Continue loop - we've already advanced past the token */
+            continue;
+        } else {
             ctx.lbuf[ctx.j++] = *ctx.linep;
-
-        ctx.linep++;
+            ctx.linep++;
+        }
     }
 
     if (!ctx.nodraw) {
@@ -901,8 +914,8 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
     }
 
     if (!ctx.nodraw && next_align != -1) {
-        /* linep */
-        char *result = parse_line(ctx.linep + 1, ctx.lnr, next_align, ctx.reverse, 0);
+        /* linep now points to the character after the align token */
+        char *result = parse_line(ctx.linep, ctx.lnr, next_align, ctx.reverse, 0);
         if (ctx.allocated_fgcolor)
             free(ctx.allocated_fgcolor);
         if (ctx.allocated_bgcolor)

@@ -183,9 +183,6 @@ make test-xinerama
 The `test_perfomance` script provides a comprehensive test environment that simulates real-world dzen2 usage:
 
 ```bash
-# Basic functionality test - displays just counter of update
-./test_perfomance --simple
-
 # Basic functionality test - displays complex status bar
 ./test_perfomance
 

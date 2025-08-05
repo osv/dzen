@@ -13,6 +13,39 @@ GREEN='\033[0;32m'
 BRIGHT_WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
+# ImageMagick command variables (set by detect_imagemagick)
+COMPARE_CMD=""
+
+# Detect ImageMagick version and set appropriate commands
+detect_imagemagick() {
+    # Check if magick command is available (ImageMagick 7)
+    if command -v magick >/dev/null 2>&1; then
+        # Check if it's actually ImageMagick 7 by looking at version
+        local version_output=$(magick -version 2>/dev/null | head -1)
+        if echo "$version_output" | grep -q "ImageMagick 7"; then
+            COMPARE_CMD="magick compare"
+            return 0
+        fi
+    fi
+    
+    # Fall back to ImageMagick 6 commands
+    if command -v compare >/dev/null 2>&1; then
+        COMPARE_CMD="compare"
+        return 0
+    fi
+    
+    echo "Error: Neither ImageMagick 6 (compare) nor ImageMagick 7 (magick) found"
+    exit 1
+}
+
+# Parse normalized compare output (handles both ImageMagick 6 and 7 formats)
+parse_compare_output() {
+    local output="$1"
+    # Extract first number before any parentheses or spaces
+    # Handles: "0", "123", "0 (0)", "123 (456)"
+    echo "$output" | sed 's/[[:space:]]*(.*//' | grep -o '^[0-9]*' | head -1
+}
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 TEST_DIR="$SCRIPT_DIR/integration-tests/test_xinerama"
 ACTUAL_DIR="$TEST_DIR/actual"
@@ -21,6 +54,9 @@ DIFFS_DIR="$TEST_DIR/diffs"
 
 # Create directories
 mkdir -p "$ACTUAL_DIR" "$EXPECTED_DIR" "$DIFFS_DIR"
+
+# Detect ImageMagick and set command variables
+detect_imagemagick
 
 # Display configuration
 DISPLAY_NUM=":100"
@@ -94,7 +130,8 @@ else
     echo -e "${BRIGHT_WHITE}Comparing screenshots...${NC}"
     
     # Compare images with 5% fuzz tolerance
-    DIFF_PIXELS=$(DISPLAY="$DISPLAY_NUM" compare -metric AE -fuzz 5% "$EXPECTED_FILE" "$ACTUAL_FILE" "$DIFF_FILE" 2>&1 || true)
+    raw_diff=$(DISPLAY="$DISPLAY_NUM" $COMPARE_CMD -metric AE -fuzz 5% "$EXPECTED_FILE" "$ACTUAL_FILE" "$DIFF_FILE" 2>&1 || true)
+    DIFF_PIXELS=$(parse_compare_output "$raw_diff")
     
     if [ "$DIFF_PIXELS" = "0" ]; then
         echo -e "${GREEN}✓ Test PASSED: Screenshots match perfectly${NC}"

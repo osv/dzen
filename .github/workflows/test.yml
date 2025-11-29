@@ -38,7 +38,7 @@ jobs:
             x11-xkb-utils
             xkb-data
             clang-format
-          version: 2.4
+          version: 2.5
 
       # Check code formatting
       - name: Check code formatting

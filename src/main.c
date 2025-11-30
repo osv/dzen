@@ -108,7 +108,7 @@ static int  partial_overflow = 0; /* Set when line exceeds MAX_LINE_LEN */
 /* Extract complete lines from buffer, preserving partial lines for next call
  * Returns offset to next unprocessed character, or 0 if no complete lines found
  */
-static int extract_line(const char *inbuf, char *outbuf, int start, int len) {
+static int  extract_line(const char *inbuf, char *outbuf, int start, int len) {
     const char *line_start = inbuf + start;
     int         remaining  = len - start;
 

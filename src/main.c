@@ -100,7 +100,12 @@ static sigfunc *setup_signal(int signr, sigfunc *shandler) {
     return NULL;
 }
 
-/* Extract complete lines from buffer, ignoring partial lines at the end
+/* Static buffer to preserve partial lines between read() calls */
+static char partial_buf[MAX_LINE_LEN];
+static int  partial_len      = 0;
+static int  partial_overflow = 0; /* Set when line exceeds MAX_LINE_LEN */
+
+/* Extract complete lines from buffer, preserving partial lines for next call
  * Returns offset to next unprocessed character, or 0 if no complete lines found
  */
 static int extract_line(const char *inbuf, char *outbuf, int start, int len) {
@@ -111,12 +116,63 @@ static int extract_line(const char *inbuf, char *outbuf, int start, int len) {
     const char *newline = memchr(line_start, '\n', remaining);
 
     if (!newline) {
-        /* No complete line found - ignore partial line */
+        /* No complete line found - save partial line for next read() call */
+        if (partial_overflow) {
+            /* Already overflowed, skip until newline */
+            return 0;
+        }
+        if (remaining > 0) {
+            int space_left = MAX_LINE_LEN - 1 - partial_len;
+            if (remaining <= space_left) {
+                /* Fits in buffer */
+                memcpy(partial_buf + partial_len, line_start, remaining);
+                partial_len += remaining;
+            } else {
+                /* Overflow: save what we can, mark as overflowed */
+                if (space_left > 0) {
+                    memcpy(partial_buf + partial_len, line_start, space_left);
+                    partial_len += space_left;
+                }
+                partial_overflow = 1;
+            }
+        }
         return 0;
     }
 
     /* Calculate line length */
     int line_len = newline - line_start;
+
+    /* Check if we have a partial line from previous read */
+    if (partial_len > 0 || partial_overflow) {
+        /* Output the truncated line (partial_buf already has MAX_LINE_LEN-1 chars if overflowed) */
+        if (partial_len > 0) {
+            memcpy(outbuf, partial_buf, partial_len);
+        }
+
+        if (!partial_overflow) {
+            /* No overflow - try to append current chunk */
+            int total_len = partial_len + line_len;
+            if (total_len >= MAX_LINE_LEN - 1) {
+                /* Combined line too long */
+                int copy_len = MAX_LINE_LEN - 1 - partial_len;
+                if (copy_len > 0) {
+                    memcpy(outbuf + partial_len, line_start, copy_len);
+                }
+                outbuf[MAX_LINE_LEN - 1] = '\0';
+            } else {
+                /* Combine partial + current line */
+                memcpy(outbuf + partial_len, line_start, line_len);
+                outbuf[total_len] = '\0';
+            }
+        } else {
+            /* Was overflowed - just null-terminate what we have */
+            outbuf[partial_len] = '\0';
+        }
+
+        partial_len      = 0;
+        partial_overflow = 0;
+        return start + line_len + 1;
+    }
 
     /* Handle line truncation if needed */
     if (line_len >= MAX_LINE_LEN - 1) {

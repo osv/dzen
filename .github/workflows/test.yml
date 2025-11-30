@@ -31,6 +31,7 @@ jobs:
             libxcursor-dev
             libxinerama-dev
             fonts-dejavu-core
+            xfonts-base
             xdotool
             x11-apps
             xvfb
@@ -38,7 +39,7 @@ jobs:
             x11-xkb-utils
             xkb-data
             clang-format
-          version: 3
+          version: 4
 
       # Check code formatting
       - name: Check code formatting

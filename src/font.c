@@ -221,6 +221,26 @@ static Fnt *font_load(const char *fontstr) {
     return NULL;
 }
 
+/* Check if fontstr is a numeric alias (e.g., "0", "1") not an X11 font like "6x13" */
+static int is_numeric_alias(const char *s) {
+    /* Must start with digit */
+    if (!isdigit(s[0]))
+        return 0;
+
+    /* Single digit followed by end-of-string is an alias */
+    if (s[1] == '\0')
+        return 1;
+
+    /* Multiple digits with no other chars is an alias (e.g., "10", "99") */
+    int i = 1;
+    while (isdigit(s[i]))
+        i++;
+
+    /* If we hit end-of-string, it's a pure number = alias */
+    /* If next char is 'x' (like "6x13"), it's an X11 font name */
+    return s[i] == '\0';
+}
+
 /* Set the current font */
 Fnt *font_set(const char *fontstr) {
     if (!fontstr || !*fontstr) {
@@ -229,8 +249,8 @@ Fnt *font_set(const char *fontstr) {
         return g_current_font;
     }
 
-    /* Check if it's a numeric alias or dfnt alias */
-    if (isdigit(fontstr[0]) || strncmp(fontstr, "dfnt", 4) == 0) {
+    /* Check if it's a numeric alias (e.g., "0", "1") or dfnt alias (e.g., "dfnt0") */
+    if (is_numeric_alias(fontstr) || strncmp(fontstr, "dfnt", 4) == 0) {
         int index = -1;
 
         if (isdigit(fontstr[0])) {

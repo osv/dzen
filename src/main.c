@@ -659,7 +659,6 @@ static struct itimerval timer          = { 0 };
 
 static void             reset_timer(void) {
     memset(&timer, 0, sizeof(timer));
-    fprintf(stderr, "reset\n");
     setitimer(ITIMER_REAL, &timer, NULL);
     timeout_active = 0;
 }
@@ -669,7 +668,6 @@ static void start_timer(int seconds) {
         return;
     timer.it_value.tv_sec  = seconds;
     timer.it_value.tv_usec = 0;
-    fprintf(stderr, "start\n");
     setitimer(ITIMER_REAL, &timer, NULL);
     timeout_active = 1;
 }

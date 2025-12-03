@@ -588,7 +588,7 @@ This test demonstrates different X11 core fonts available in non-XFT builds.
 Test various X11 core fonts:
 
 ```
-Default: ^fn()Text^fn() ^fg(red)^fn(fixed)Fixed^fn()^fg() ^fg(green)^fn()^fg() ^fg(blue)^fn(9x15)9x15^fn()^fg()
+Default: ^fn()Text^fn() ^fg(red)^fn(fixed)Fixed^fn()^fg() ^fg(green)^fn()^fg() ^fg(blue)^fn(6x13)6x13^fn()^fg()
 ```
 
 ![reference](./integration-tests/TESTS-NONXFT/expected/19-font-switching.png)

@@ -105,6 +105,7 @@
             pandoc              # Update man pages: `make update-man`
             linuxKernel.packages.linux_xanmod_stable.perf
             clang-tools         # clang-tidy
+            bc
           ];
 
           shellHook = ''

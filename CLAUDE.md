@@ -196,8 +196,14 @@ timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?"
 # Performance profiling - generates perf.data for analysis
 timeout 10s ./test_perfomance --perf
 
+# Benchmark mode - generates exactly 10,000 frames and measures FPS
+./test_perfomance --bench
+
 # Generates continuous stream of complex dzen2 markup (pipe to dzen2 if you need to run it manually)
 timeout 10s ./test_perfomance --printer
+
+# Generate specific number of frames then exit
+./test_perfomance --printer 1000  # Generates exactly 1000 frames
 ```
 
 **What test_perfomance does:**
@@ -206,6 +212,8 @@ timeout 10s ./test_perfomance --printer
 - Includes clickable areas, colors, fonts, positioning, and graphics
 - Updates every 10ms to stress-test the drawing system
 - Exposes memory management issues quickly
+- **Benchmark mode**: Generates exactly 10,000 frames and measures performance (FPS)
+- **Frame counting**: `--printer` mode accepts optional frame count argument
 
 **Analyzing test results:**
 ```bash

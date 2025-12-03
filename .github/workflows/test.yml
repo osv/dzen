@@ -77,7 +77,7 @@ jobs:
           sleep 4
           fc-list
           # run tests using --native since we manage Xvfb externally
-          ./test_e2e --native TESTS.md
+          make test
 
       # Run Xinerama-specific tests
       - name: Run Xinerama tests
@@ -95,7 +95,7 @@ jobs:
       - name: Run non-XFT tests
         run: |
           export DISPLAY=:99
-          ./test_e2e --native TESTS-NONXFT.md
+          make test-nonxft
 
       # TODO: fix build without xft too
       - name: Compile without xinerama, xcursor, xpm

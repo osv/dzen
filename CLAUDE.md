@@ -23,6 +23,9 @@ sudo make install
 # Clean build
 make clean
 make distclean  # also removes configure-generated files
+
+# format (clang) all C files. Run after .h .c changes
+make format
 ```
 
 ## Project Structure

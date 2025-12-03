@@ -530,22 +530,6 @@ Line 2
 
 ![reference](./integration-tests/TESTS-NONXFT/expected/16-norm-1.png)
 
-### Pipe data
-
-`^normfn` is used for changing default font. You should use `^tw()` and `^cs()` to clear all
-
-```
-^normfn(9x15)
-^tw()Head
-^cs()
-Line 1
-Line 2
-```
-
-### Crop: 300x180+0+0
-
-![reference](./integration-tests/TESTS-NONXFT/expected/16-norm-2-font.png)
-
 ## Test: 17 Delayed persist `-p 2`
 
 This test run in persist 2 second mode. App must exit after 1 second

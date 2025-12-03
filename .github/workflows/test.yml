@@ -41,6 +41,13 @@ jobs:
             clang-format
           version: 4
 
+      # Fix ImageMagick symlinks (cache-apt-pkgs-action doesn't preserve alternatives)
+      - name: Fix ImageMagick alternatives
+        run: |
+          sudo update-alternatives --install /usr/bin/compare compare /usr/bin/compare-im6.q16 100
+          sudo update-alternatives --install /usr/bin/convert convert /usr/bin/convert-im6.q16 100
+          sudo update-alternatives --install /usr/bin/import import /usr/bin/import-im6.q16 100
+
       # Check code formatting
       - name: Check code formatting
         run: |

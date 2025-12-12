@@ -35,8 +35,8 @@ typedef struct _Fnt {
     int          height;
 } Fnt;
 
-Fnt      font;
-Display *dpy;
+Fnt          font;
+Display     *dpy;
 
 unsigned int textw(const char *text, unsigned int len) {
     XRectangle r;

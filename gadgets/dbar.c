@@ -88,7 +88,7 @@ void fdbar(Dbar *dbar, FILE *stream) {
             segsa = rp * segs / 100;
             fprintf(stream, "%s^ib(1)", dbar->label ? dbar->label : "");
             if (dbar->segb == 0) {
-                //fprintf(stream, "^fg(%s)^r(%dx%d+%d-%d)^fg(%s)^p(-%d)^r(%dx%d+%d-%d)",
+                // fprintf(stream, "^fg(%s)^r(%dx%d+%d-%d)^fg(%s)^p(-%d)^r(%dx%d+%d-%d)",
                 //		dbar->bg, dbar->segw, dbar->height, 0, dbar->height+1,
                 //		dbar->fg, dbar->segw, dbar->segw, (int)l, 0, (int)l+1);
                 fprintf(stream, "^fg(%s)^r(%dx%d)^fg(%s)^r(%dx%d-%d+%d)", dbar->bg, dbar->segw, dbar->height, dbar->fg,
@@ -96,17 +96,17 @@ void fdbar(Dbar *dbar, FILE *stream) {
             } else {
                 for (i = 0; i < segs; i++) {
                     t = dbar->height / 2 - (dbar->segh + dbar->segb) * i;
-                    //if(i<segsa)
+                    // if(i<segsa)
                     fprintf(stream, "^fg(%s)^r(%dx%d-%d%c%d)", i < segsa ? dbar->fg : dbar->bg, dbar->segw, dbar->segh,
                             i ? dbar->segw : 0, t > 0 ? '+' : '-', abs(t));
-                    //fprintf(stream, "^fg(%s)^p(-%d)^r(%dx%d+%d-%d)",
+                    // fprintf(stream, "^fg(%s)^p(-%d)^r(%dx%d+%d-%d)",
                     //		dbar->fg, i?dbar->segw:0, dbar->segw,
                     //		dbar->segh, 0, (dbar->segh+dbar->segb)*(i+1));
-                    //else
-                    //fprintf(stream, "^fg(%s)^r(%dx%d-%d-%d)",
+                    // else
+                    // fprintf(stream, "^fg(%s)^r(%dx%d-%d-%d)",
                     //		dbar->bg, dbar->segw,
                     //		dbar->segh,i?dbar->segw:0, (dbar->segh+dbar->segb)*i);
-                    //fprintf(stream, "^fg(%s)^p(-%d)^r(%dx%d+%d-%d)",
+                    // fprintf(stream, "^fg(%s)^p(-%d)^r(%dx%d+%d-%d)",
                     //		dbar->bg, i?dbar->segw:0, dbar->segw,
                     //		dbar->segh, 0, (dbar->segh+dbar->segb)*(i+1));
                 }
@@ -145,14 +145,14 @@ void fdbar(Dbar *dbar, FILE *stream) {
 
         default:
             if (dbar->segb == 0)
-                //printf("%s%3d%% ^fg(%s)^r(%dx%d)^fg(%s)^r(%dx%d)^fg()%s",
+                // printf("%s%3d%% ^fg(%s)^r(%dx%d)^fg(%s)^r(%dx%d)^fg()%s",
                 printf("%s^fg(%s)^r(%dx%d)^fg(%s)^r(%dx%d)^fg()%s", dbar->label ? dbar->label : "", dbar->fg, (int)l,
                        dbar->height, dbar->bg, dbar->width - (int)l, dbar->height, dbar->pnl ? "\n" : "");
             else {
                 segs  = dbar->width / (dbar->segw + dbar->segb);
                 segsa = rp * segs / 100;
 
-                //printf("%s%3d%% ", dbar->label ? dbar->label : "", rp);
+                // printf("%s%3d%% ", dbar->label ? dbar->label : "", rp);
                 printf("%s", dbar->label ? dbar->label : "");
                 for (i = 0; i < segs; i++) {
                     if (i < segsa)

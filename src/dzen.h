@@ -1,10 +1,12 @@
-/* 
+/*
  * (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
  * See LICENSE file for license details.
  *
  */
 
 #include "../config.h"
+#include "font.h"
+#include "util.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -39,7 +41,8 @@
 #ifndef MAX_LINE_LEN
 #define MAX_LINE_LEN 262144
 #endif
-#define MAX_CLICKABLE_AREAS 256
+#define MAX_CLICKABLE_AREAS   256
+#define MAX_CLICKABLE_CMD_LEN 1024
 
 #ifndef Button6
 #define Button6 6
@@ -55,23 +58,9 @@ enum { ColFG, ColBG, ColLast };
 enum { noexpand, left, right, both };
 
 typedef struct DZEN   Dzen;
-typedef struct Fnt    Fnt;
 typedef struct TW     TWIN;
 typedef struct SW     SWIN;
 typedef struct _Sline Sline;
-
-struct Fnt {
-    XFontStruct *xfont;
-    XFontSet     set;
-    int          ascent;
-    int          descent;
-    int          height;
-#ifdef HAVE_XFT
-    XftFont   *xftfont;
-    XGlyphInfo extents;
-    int        width;
-#endif
-};
 
 typedef struct {
     Pixmap       pm;
@@ -95,7 +84,7 @@ typedef struct _CLICK_A {
     int    start_y;
     int    end_y;
     Window win; //(line)window to which the action is attached
-    char   cmd[1024];
+    char   cmd[MAX_CLICKABLE_CMD_LEN];
 } click_a;
 
 typedef struct _SENS_PER_WINDOW {
@@ -103,12 +92,12 @@ typedef struct _SENS_PER_WINDOW {
     int     sens_areas_cnt;
 } sens_w;
 
-//0: top window, 1: slave window
+// 0: top window, 1: slave window
 extern sens_w window_sens[2];
 
 /* title window */
 struct TW {
-    int x, y, width, height;
+    int      x, y, width, height;
 
     char    *name;
     Window   win;
@@ -121,94 +110,95 @@ struct TW {
 
 /* slave window */
 struct SW {
-    int x, y, width, height;
+    int            x, y, width, height;
 
-    char     *name;
-    Window    win;
-    Window   *line;
-    Drawable *drawable;
+    char          *name;
+    Window         win;
+    Window        *line;
+    Drawable      *drawable;
 
     /* input buffer */
-    char **tbuf;
-    int    tsize;
-    int    tcnt;
+    char         **tbuf;
+    int            tsize;
+    int            tcnt;
     /* line fg colors */
     unsigned long *tcol;
 
-    int max_lines;
-    int first_line_vis;
-    int last_line_vis;
-    int sel_line;
+    int            max_lines;
+    int            first_line_vis;
+    int            last_line_vis;
+    int            sel_line;
 
-    char alignment;
-    Bool ismenu;
-    Bool ishmenu;
-    Bool issticky;
-    Bool ismapped;
+    char           alignment;
+    Bool           ismenu;
+    Bool           ishmenu;
+    Bool           issticky;
+    Bool           ismapped;
 };
 
 struct DZEN {
-    int           x, y, w, h;
-    Bool          running;
-    unsigned long norm[ColLast];
+    /* Window position and dimensions */
+    int           x, y; /* X and Y position of the dzen window */
+    int           w, h; /* Width and height of the dzen window */
+    Bool          running; /* Main event loop running flag */
 
-    TWIN title_win;
-    SWIN slave_win;
+    /* Default colors for foreground and background */
+    unsigned long norm[ColLast]; /* Array holding normal fg/bg colors */
 
-    /* sensitive areas */
-    Window sa_win;
+    /* Window structures */
+    TWIN          title_win; /* Title window (always visible, single line) */
+    SWIN          slave_win; /* Slave window (optional multi-line menu) */
 
-    const char *fnt;
-    const char *bg;
-    const char *fg;
-    int         line_height;
+    /* Sensitive areas window for click handling */
+    Window        sa_win; /* Window for managing clickable areas */
 
-    Display     *dpy;
-    int          screen;
-    unsigned int depth;
+    /* Font and color configuration */
+    char         *fnt; /* Default font name/specification */
+    char         *bg; /* Default background color string */
+    char         *fg; /* Default foreground color string */
+    int           line_height; /* Height of each text line in pixels */
 
-    Visual *visual;
-    GC      gc, rgc, tgc;
-    Fnt     font;
-    Fnt     fnpl[64];
+    /* X11 display and screen information */
+    Display      *dpy; /* X11 display connection */
+    int           screen; /* X11 screen number */
+    unsigned int  depth; /* Color depth of the display */
 
-    Bool          ispersistent;
-    Bool          tsupdate;
-    Bool          colorize;
-    unsigned long timeout;
-    long          cur_line;
-    int           ret_val;
+    /* X11 graphics contexts and visual */
+    Visual       *visual; /* X11 visual for rendering */
+    GC            gc; /* Graphics context for normal drawing */
+    GC            rgc; /* Graphics context for reverse drawing */
+    GC            tgc; /* Graphics context for text drawing */
 
-    /* should always be 0 if HAVE_XINERAMA not defined */
-    int xinescreen;
+    /* Display behavior flags */
+    Bool          ispersistent; /* Whether window stays visible */
+    Bool          tsupdate; /* Title/slave update mode flag */
+    Bool          colorize; /* Enable color processing */
+    unsigned long timeout; /* Display timeout in seconds */
+    long          current_line; /* Current line number for input processing */
+    int           ret_val; /* Return value for exit status */
 
-    Cursor cursor_arrow;
-    Cursor cursor_hand;
+    /* Multi-monitor support (Xinerama) */
+    int           xinescreen; /* Xinerama screen number (0 if no Xinerama) */
+
+    /* Mouse cursors for different UI states */
+    Cursor        cursor_arrow; /* Default arrow cursor */
+    Cursor        cursor_hand; /* Hand cursor for clickable areas */
 };
 
-extern Dzen dzen;
+extern Dzen  dzen;
 
-void free_buffer(void);
-void x_draw_body(void);
+void         free_buffer(void);
+void         x_draw_body(void);
 
 /* draw.c */
-extern void         drawtext(const char *text, int reverse, int line, int align);
-extern char        *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
-extern void         setfont(const char *fontstr); /* sets global font */
-extern unsigned int textw(const char *text); /* returns width of text in px */
-extern void         drawheader(const char *text);
-extern void         drawbody(char *text);
-
-/* util.c */
-extern void *emalloc(unsigned int size); /* allocates memory, exits on error */
-extern void  eprint(const char *errstr, ...); /* prints errstr and exits with 1 */
-extern char *estrdup(const char *str); /* duplicates str, exits on allocation error */
-extern void  spawn(const char *arg); /* execute arg */
+extern void  drawtext(const char *text, int reverse, int line, int align);
+extern char *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
+extern void  drawheader(const char *text);
+extern void  drawbody(char *text);
 
 /* caches.c */
-Fnt  *find_or_create_font(const char *str);
-long  get_color(const char *str); /* returns color of colstr */
-Icon *get_icon(const char *str);
+long         get_color(const char *str); /* returns color of colstr */
+Icon        *get_icon(const char *str);
 
-void init_all_caches();
-void free_all_caches();
+void         init_all_caches();
+void         free_all_caches();

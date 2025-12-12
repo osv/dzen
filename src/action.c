@@ -1,8 +1,8 @@
 /*
-* (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
-* See LICENSE file for license details.
-*
-*/
+ * (C)opyright 2007-2009 Robert Manea <rob dot manea at gmail dot com>
+ * See LICENSE file for license details.
+ *
+ */
 
 #include "dzen.h"
 #include "action.h"
@@ -46,9 +46,9 @@ struct action_lookup ac_lookup_table[] = { { "print", a_print },
                                            { "ungrabmouse", a_ungrabmouse },
                                            { 0, 0 } };
 
-ev_list *head = NULL;
+ev_list             *head = NULL;
 
-static int new_event(long evid) {
+static int           new_event(long evid) {
     ev_list *item, *newitem;
 
     if (!head) {
@@ -84,6 +84,10 @@ static void add_handler(long evid, int hpos, handlerf *hcb) {
             if (hpos < MAXACTIONS) {
                 item->action[hpos]          = emalloc(sizeof(As));
                 item->action[hpos]->handler = hcb;
+                /* Initialize all options to NULL */
+                for (int k = 0; k < MAXOPTIONS; k++) {
+                    item->action[hpos]->options[k] = NULL;
+                }
             }
             break;
         }
@@ -167,14 +171,23 @@ handlerf *get_action_handler(const char *acname) {
 
 void free_event_list(void) {
     int      i;
-    ev_list *item;
+    ev_list *item, *next;
 
     item = head;
     while (item) {
-        for (i = 0; item->action[i]->handler; i++)
+        for (i = 0; i < MAXACTIONS && item->action[i] != NULL; i++) {
+            /* Free all allocated options for this action */
+            for (int j = 0; j < MAXOPTIONS && item->action[i]->options[j] != NULL; j++) {
+                free(item->action[i]->options[j]);
+            }
             free(item->action[i]);
-        item = item->next;
+        }
+
+        next = item->next;
+        free(item);
+        item = next;
     }
+    head = NULL;
 }
 
 void fill_ev_table(char *input) {

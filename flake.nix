@@ -2,7 +2,7 @@
   description = "Nix flake for dzen2 with devShell support";
 
   # inputs.nixpkgs.url = "github:NixOS/nixpkgs";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/b17375d3bb7c";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/abf9d678aa";
 
   outputs = { self, nixpkgs, ... }:
     let
@@ -105,6 +105,7 @@
             pandoc              # Update man pages: `make update-man`
             linuxKernel.packages.linux_xanmod_stable.perf
             clang-tools         # clang-tidy
+            bc
           ];
 
           shellHook = ''

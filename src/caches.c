@@ -16,7 +16,7 @@ static KeyValueStore *icon_store;
  * whenever a key is not found in the store.  We return a pointer to a long
  * initialized to -1, meaning "not yet allocated via XAllocNamedColor".
  */
-static void *color_create_item(void) {
+static void          *color_create_item(void) {
     long *pixel_ptr = malloc(sizeof(long));
     if (pixel_ptr)
         *pixel_ptr = -1;
@@ -73,7 +73,7 @@ static void icon_destroy_item(void *value) {
     free(icon);
 }
 
-static char cached_cwd[PATH_MAX] = { 0 };
+static char        cached_cwd[PATH_MAX] = { 0 };
 
 static const char *get_cached_cwd() {
     if (cached_cwd[0] == '\0') {

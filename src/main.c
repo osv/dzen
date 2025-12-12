@@ -6,6 +6,7 @@
 
 #include "dzen.h"
 #include "action.h"
+#include "font.h"
 
 #include <ctype.h>
 #include <locale.h>
@@ -28,18 +29,12 @@ Dzen         dzen     = { 0 };
 static int   last_cnt = 0;
 typedef void sigfunc(int);
 
-static void clean_up(void) {
+static void  clean_up(void) {
     int i;
 
     free_event_list();
     free_all_caches();
-#ifndef HAVE_XFT
-    if (dzen.font.set)
-        XFreeFontSet(dzen.dpy, dzen.font.set);
-    else
-        XFreeFont(dzen.dpy, dzen.font.xfont);
-    FcFini();
-#endif
+    font_cleanup();
 
     XFreePixmap(dzen.dpy, dzen.title_win.drawable);
     if (dzen.slave_win.max_lines) {
@@ -57,6 +52,16 @@ static void clean_up(void) {
     XFreeCursor(dzen.dpy, dzen.cursor_hand);
     XDestroyWindow(dzen.dpy, dzen.title_win.win);
     XCloseDisplay(dzen.dpy);
+    if (dzen.fnt)
+        free(dzen.fnt);
+    if (dzen.bg)
+        free(dzen.bg);
+    if (dzen.fg)
+        free(dzen.fg);
+    if (dzen.title_win.name)
+        free(dzen.title_win.name);
+    if (dzen.slave_win.name)
+        free(dzen.slave_win.name);
 }
 
 static void catch_sigusr1(int s) {
@@ -95,33 +100,95 @@ static sigfunc *setup_signal(int signr, sigfunc *shandler) {
     return NULL;
 }
 
-char      *rem = NULL;
-static int chomp(char *inbuf, char *outbuf, int start, int len) {
-    int i   = 0;
-    int off = start;
+/* Static buffer to preserve partial lines between read() calls */
+static char partial_buf[MAX_LINE_LEN];
+static int  partial_len      = 0;
+static int  partial_overflow = 0; /* Set when line exceeds MAX_LINE_LEN */
 
-    if (rem) {
-        strncpy(outbuf, rem, strlen(rem));
-        i += strlen(rem);
-        free(rem);
-        rem = NULL;
-    }
-    while (off < len) {
-        if (i >= MAX_LINE_LEN) {
-            outbuf[MAX_LINE_LEN - 1] = '\0';
-            return ++off;
+/* Extract complete lines from buffer, preserving partial lines for next call
+ * Returns offset to next unprocessed character, or 0 if no complete lines found
+ */
+static int  extract_line(const char *inbuf, char *outbuf, int start, int len) {
+    const char *line_start = inbuf + start;
+    int         remaining  = len - start;
+
+    /* Find newline using memchr - much faster than character-by-character scan */
+    const char *newline = memchr(line_start, '\n', remaining);
+
+    if (!newline) {
+        /* No complete line found - save partial line for next read() call */
+        if (partial_overflow) {
+            /* Already overflowed, skip until newline */
+            return 0;
         }
-        if (inbuf[off] != '\n') {
-            outbuf[i++] = inbuf[off++];
-        } else if (inbuf[off] == '\n') {
-            outbuf[i] = '\0';
-            return ++off;
+        if (remaining > 0) {
+            int space_left = MAX_LINE_LEN - 1 - partial_len;
+            if (remaining <= space_left) {
+                /* Fits in buffer */
+                memcpy(partial_buf + partial_len, line_start, remaining);
+                partial_len += remaining;
+            } else {
+                /* Overflow: save what we can, mark as overflowed */
+                if (space_left > 0) {
+                    memcpy(partial_buf + partial_len, line_start, space_left);
+                    partial_len += space_left;
+                }
+                partial_overflow = 1;
+            }
         }
+        return 0;
     }
 
-    outbuf[i] = '\0';
-    rem       = estrdup(outbuf);
-    return 0;
+    /* Calculate line length */
+    int line_len = newline - line_start;
+
+    /* Check if we have a partial line from previous read */
+    if (partial_len > 0 || partial_overflow) {
+        /* Output the truncated line (partial_buf already has MAX_LINE_LEN-1 chars if overflowed) */
+        if (partial_len > 0) {
+            memcpy(outbuf, partial_buf, partial_len);
+        }
+
+        if (!partial_overflow) {
+            /* No overflow - try to append current chunk */
+            int total_len = partial_len + line_len;
+            if (total_len >= MAX_LINE_LEN - 1) {
+                /* Combined line too long */
+                int copy_len = MAX_LINE_LEN - 1 - partial_len;
+                if (copy_len > 0) {
+                    memcpy(outbuf + partial_len, line_start, copy_len);
+                }
+                outbuf[MAX_LINE_LEN - 1] = '\0';
+            } else {
+                /* Combine partial + current line */
+                memcpy(outbuf + partial_len, line_start, line_len);
+                outbuf[total_len] = '\0';
+            }
+        } else {
+            /* Was overflowed - just null-terminate what we have */
+            outbuf[partial_len] = '\0';
+        }
+
+        partial_len      = 0;
+        partial_overflow = 0;
+        return start + line_len + 1;
+    }
+
+    /* Handle line truncation if needed */
+    if (line_len >= MAX_LINE_LEN - 1) {
+        /* Line too long: draw first MAX_LINE_LEN-1 chars, ignore the rest */
+        memcpy(outbuf, line_start, MAX_LINE_LEN - 1);
+        outbuf[MAX_LINE_LEN - 1] = '\0';
+        /* Skip to position after newline, ignoring the truncated portion */
+        return start + line_len + 1;
+    }
+
+    /* Copy complete line using memcpy - much faster than char-by-char */
+    memcpy(outbuf, line_start, line_len);
+    outbuf[line_len] = '\0';
+
+    /* Return position after newline */
+    return start + line_len + 1;
 }
 
 void free_buffer(void) {
@@ -135,7 +202,8 @@ void free_buffer(void) {
 
 static int read_stdin(void) {
     char    buf[MAX_LINE_LEN], retbuf[MAX_LINE_LEN];
-    ssize_t n, n_off = 0;
+    ssize_t n;
+    int     n_off = 0;
 
     if (!(n = read(STDIN_FILENO, buf, sizeof buf))) {
         if (!dzen.ispersistent) {
@@ -144,15 +212,24 @@ static int read_stdin(void) {
         } else
             return -2;
     } else {
-        while ((n_off = chomp(buf, retbuf, n_off, n))) {
+        /* Process only complete lines, ignore partial lines at buffer end */
+        while (n_off < n) {
+            int next_off = extract_line(buf, retbuf, n_off, n);
+            if (next_off == 0) {
+                /* No more complete lines in buffer */
+                break;
+            }
+            n_off = next_off;
+
             if (!dzen.slave_win.ishmenu && dzen.tsupdate && dzen.slave_win.max_lines &&
-                ((dzen.cur_line == 0) || !(dzen.cur_line % (dzen.slave_win.max_lines + 1))))
+                ((dzen.current_line == 0) || !(dzen.current_line % (dzen.slave_win.max_lines + 1))))
                 drawheader(retbuf);
-            else if (!dzen.slave_win.ishmenu && !dzen.tsupdate && ((dzen.cur_line == 0) || !dzen.slave_win.max_lines))
+            else if (!dzen.slave_win.ishmenu && !dzen.tsupdate &&
+                     ((dzen.current_line == 0) || !dzen.slave_win.max_lines))
                 drawheader(retbuf);
             else
                 drawbody(retbuf);
-            dzen.cur_line++;
+            dzen.current_line++;
         }
     }
     return 0;
@@ -234,14 +311,17 @@ static void x_check_geometry(XRectangle scr) {
             s->x = scr.x + (scr.width - s->width);
     }
 
-    if (!dzen.line_height)
-        dzen.line_height = dzen.font.height + 2;
+    if (!dzen.line_height) {
+        int font_height;
+        font_get_dimensions(NULL, NULL, &font_height);
+        dzen.line_height = font_height + 2;
+    }
 
     if (t->y + dzen.line_height > scr.y + scr.height)
         t->y = scr.y + scr.height - dzen.line_height;
 }
 
-static void qsi_no_xinerama(Display *dpy, XRectangle *rect) {
+static void queryscreeninfo_no_xinerama(Display *dpy, XRectangle *rect) {
     rect->x      = 0;
     rect->y      = 0;
     rect->width  = DisplayWidth(dpy, DefaultScreen(dpy));
@@ -257,13 +337,16 @@ static void queryscreeninfo(Display *dpy, XRectangle *rect, int screen) {
         xsi = XineramaQueryScreens(dpy, &nscreens);
 
     if (xsi == NULL || screen > nscreens || screen <= 0) {
-        qsi_no_xinerama(dpy, rect);
+        queryscreeninfo_no_xinerama(dpy, rect);
     } else {
         rect->x      = xsi[screen - 1].x_org;
         rect->y      = xsi[screen - 1].y_org;
         rect->width  = xsi[screen - 1].width;
         rect->height = xsi[screen - 1].height;
     }
+
+    if (xsi != NULL)
+        XFree(xsi);
 }
 #endif
 
@@ -273,7 +356,7 @@ static void set_docking_ewmh_info(Display *dpy, Window w, int dock) {
     XWindowAttributes wa;
     Atom              type;
     unsigned int      desktop;
-    pid_t             cur_pid;
+    pid_t             current_pid;
     char             *host_name;
     XTextProperty     txt_prop;
     XRectangle        si;
@@ -283,13 +366,13 @@ static void set_docking_ewmh_info(Display *dpy, Window w, int dock) {
 #endif
 
     host_name = emalloc(HOST_NAME_MAX);
-    if ((gethostname(host_name, HOST_NAME_MAX) > -1) && (cur_pid = getpid())) {
+    if ((gethostname(host_name, HOST_NAME_MAX) > -1) && (current_pid = getpid())) {
         XStringListToTextProperty(&host_name, 1, &txt_prop);
         XSetWMClientMachine(dpy, w, &txt_prop);
         XFree(txt_prop.value);
 
         XChangeProperty(dpy, w, XInternAtom(dpy, "_NET_WM_PID", False), XInternAtom(dpy, "CARDINAL", False), 32,
-                        PropModeReplace, (unsigned char *)&cur_pid, 1);
+                        PropModeReplace, (unsigned char *)&current_pid, 1);
     }
     free(host_name);
 
@@ -297,7 +380,7 @@ static void set_docking_ewmh_info(Display *dpy, Window w, int dock) {
 #ifdef HAVE_XINERAMA
     queryscreeninfo(dpy, &si, dzen.xinescreen);
 #else
-    qsi_no_xinerama(dpy, &si);
+    queryscreeninfo_no_xinerama(dpy, &si);
 #endif
     if (wa.y - si.y == 0) {
         strut[2] = si.y + wa.height;
@@ -386,16 +469,31 @@ static void x_read_resources(void) {
     xrm = XResourceManagerString(dzen.dpy);
     if (xrm != NULL) {
         xdb = XrmGetStringDatabase(xrm);
-        if (XrmGetResource(xdb, "dzen2.font", "*", datatype, &xvalue) == True)
+        if (XrmGetResource(xdb, "dzen2.font", "*", datatype, &xvalue) == True) {
+            if (dzen.fnt)
+                free(dzen.fnt);
             dzen.fnt = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.foreground", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.foreground", "*", datatype, &xvalue) == True) {
+            if (dzen.fg)
+                free(dzen.fg);
             dzen.fg = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.background", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.background", "*", datatype, &xvalue) == True) {
+            if (dzen.bg)
+                free(dzen.bg);
             dzen.bg = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.titlename", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.titlename", "*", datatype, &xvalue) == True) {
+            if (dzen.title_win.name)
+                free(dzen.title_win.name);
             dzen.title_win.name = estrdup(xvalue.addr);
-        if (XrmGetResource(xdb, "dzen2.slavename", "*", datatype, &xvalue) == True)
+        }
+        if (XrmGetResource(xdb, "dzen2.slavename", "*", datatype, &xvalue) == True) {
+            if (dzen.slave_win.name)
+                free(dzen.slave_win.name);
             dzen.slave_win.name = estrdup(xvalue.addr);
+        }
         XrmDestroyDatabase(xdb);
     }
 }
@@ -414,7 +512,6 @@ static void x_create_windows(int use_ewmh_dock) {
         eprint("dzen: error, cannot allocate color '%s'\n", dzen.bg);
     if ((dzen.norm[ColFG] = get_color(dzen.fg)) == ~0lu)
         eprint("dzen: error, cannot allocate color '%s'\n", dzen.fg);
-    setfont(dzen.fnt);
 
     x_create_gcs();
 
@@ -427,7 +524,7 @@ static void x_create_windows(int use_ewmh_dock) {
 #ifdef HAVE_XINERAMA
     queryscreeninfo(dzen.dpy, &si, dzen.xinescreen);
 #else
-    qsi_no_xinerama(dzen.dpy, &si);
+    queryscreeninfo_no_xinerama(dzen.dpy, &si);
 #endif
     x_check_geometry(si);
 
@@ -454,8 +551,8 @@ static void x_create_windows(int use_ewmh_dock) {
     set_docking_ewmh_info(dzen.dpy, dzen.title_win.win, use_ewmh_dock);
 
     /* TODO: Smarter approach to window creation so we can reduce the
-	 *       size of this function.
-	 */
+     *       size of this function.
+     */
 
     if (dzen.slave_win.max_lines) {
         dzen.slave_win.first_line_vis = 0;
@@ -466,8 +563,8 @@ static void x_create_windows(int use_ewmh_dock) {
         /* horizontal menu mode */
         if (dzen.slave_win.ishmenu) {
             /* calculate width of menuentries - this is a very simple
-			 * approach but works well for general cases.
-			 */
+             * approach but works well for general cases.
+             */
             int ew                  = dzen.slave_win.width / dzen.slave_win.max_lines;
             int r                   = dzen.slave_win.width - ew * dzen.slave_win.max_lines;
             dzen.slave_win.issticky = True;
@@ -494,8 +591,8 @@ static void x_create_windows(int use_ewmh_dock) {
                                                        CWOverrideRedirect | CWBackPixmap | CWEventMask, &wa);
 
             /* As we don't use the title window in this mode,
-			 * we reuse its width value
-			 */
+             * we reuse its width value
+             */
             dzen.title_win.width = dzen.slave_win.width;
             dzen.slave_win.width = ew + r;
         }
@@ -560,9 +657,8 @@ static void x_redraw(Window w) {
 static int              timeout_active = 0;
 static struct itimerval timer          = { 0 };
 
-static void reset_timer(void) {
+static void             reset_timer(void) {
     memset(&timer, 0, sizeof(timer));
-    fprintf(stderr, "reset\n");
     setitimer(ITIMER_REAL, &timer, NULL);
     timeout_active = 0;
 }
@@ -572,7 +668,6 @@ static void start_timer(int seconds) {
         return;
     timer.it_value.tv_sec  = seconds;
     timer.it_value.tv_usec = 0;
-    fprintf(stderr, "start\n");
     setitimer(ITIMER_REAL, &timer, NULL);
     timeout_active = 1;
 }
@@ -703,8 +798,8 @@ static void handle_newl(void) {
 
         if (XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &wa), wa.map_state != IsUnmapped
                                                                          /* autoscroll and redraw only if  we're
-				 * currently viewing the last line of input
-				 */
+                                                                          * currently viewing the last line of input
+                                                                          */
                                                                          &&
                                                                          (dzen.slave_win.last_line_vis == last_cnt)) {
             dzen.slave_win.first_line_vis = 0;
@@ -752,52 +847,6 @@ static void event_loop(void) {
     return;
 }
 
-static void x_preload(const char *fontstr, int p) {
-    char *def, **missing;
-    int   i, n;
-
-    missing = NULL;
-
-    dzen.fnpl[p].set = XCreateFontSet(dzen.dpy, fontstr, &missing, &n, &def);
-    if (missing)
-        XFreeStringList(missing);
-
-    if (dzen.fnpl[p].set) {
-        XFontSetExtents *font_extents;
-        XFontStruct    **xfonts;
-        char           **font_names;
-        dzen.fnpl[p].ascent = dzen.fnpl[p].descent = 0;
-        font_extents                               = XExtentsOfFontSet(dzen.fnpl[p].set);
-        n                                          = XFontsOfFontSet(dzen.fnpl[p].set, &xfonts, &font_names);
-        for (i = 0, dzen.fnpl[p].ascent = 0, dzen.fnpl[p].descent = 0; i < n; i++) {
-            if (dzen.fnpl[p].ascent < (*xfonts)->ascent)
-                dzen.fnpl[p].ascent = (*xfonts)->ascent;
-            if (dzen.fnpl[p].descent < (*xfonts)->descent)
-                dzen.fnpl[p].descent = (*xfonts)->descent;
-            xfonts++;
-        }
-    } else {
-        if (dzen.fnpl[p].xfont)
-            XFreeFont(dzen.dpy, dzen.fnpl[p].xfont);
-        dzen.fnpl[p].xfont = NULL;
-        if (!(dzen.fnpl[p].xfont = XLoadQueryFont(dzen.dpy, fontstr)))
-            eprint("dzen: error, cannot load font: '%s'\n", fontstr);
-        dzen.fnpl[p].ascent  = dzen.fnpl[p].xfont->ascent;
-        dzen.fnpl[p].descent = dzen.fnpl[p].xfont->descent;
-    }
-    dzen.fnpl[p].height = dzen.fnpl[p].ascent + dzen.fnpl[p].descent;
-}
-
-static void font_preload(char *s) {
-    int   k   = 0;
-    char *buf = strtok(s, ",");
-    while (buf != NULL) {
-        if (k < 64)
-            x_preload(buf, k++);
-        buf = strtok(NULL, ",");
-    }
-}
-
 /* Get alignment from character 'l'eft, 'r'ight and 'c'enter */
 static char alignment_from_char(char align) {
     switch (align) {
@@ -827,9 +876,9 @@ int main(int argc, char *argv[]) {
     char *endptr, *fnpre = NULL;
 
     /* default values */
-    dzen.title_win.name = "dzen title";
-    dzen.slave_win.name = "dzen slave";
-    dzen.cur_line       = 0;
+    dzen.title_win.name = estrdup("dzen title");
+    dzen.slave_win.name = estrdup("dzen slave");
+    dzen.current_line   = 0;
     dzen.ret_val        = 0;
     dzen.title_win.x = dzen.slave_win.x = 0;
     dzen.title_win.y                    = 0;
@@ -1055,6 +1104,8 @@ int main(int argc, char *argv[]) {
 #endif
 
     init_all_caches();
+    font_init(dzen.dpy, dzen.screen);
+    font_set_default(dzen.fnt);
     x_create_windows(use_ewmh_dock);
 
     if (!dzen.slave_win.ishmenu)
@@ -1065,8 +1116,10 @@ int main(int argc, char *argv[]) {
             XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
     }
 
-    if (fnpre != NULL)
+    if (fnpre != NULL) {
         font_preload(fnpre);
+        free(fnpre);
+    }
 
     do_action(onstart);
 

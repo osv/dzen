@@ -33,14 +33,14 @@ typedef struct KeyValueStore KeyValueStore;
  * Returns:
  *  - Pointer to a newly allocated KeyValueStore, or NULL if allocation fails.
  */
-KeyValueStore *kvstore_create(kv_destroy_item_func destructor, kv_create_item_func constructor);
+KeyValueStore               *kvstore_create(kv_destroy_item_func destructor, kv_create_item_func constructor);
 
 /*
  * Destroy an existing key-value store.
  * Frees all memory, and if a destructor was provided, calls it on every stored value.
  * If no destructor - just free value
  */
-void kvstore_destroy(KeyValueStore *store);
+void                         kvstore_destroy(KeyValueStore *store);
 
 /*
  * Insert or update a key-value pair.
@@ -54,14 +54,14 @@ void kvstore_destroy(KeyValueStore *store);
  *
  * Returns 0 on success, non-zero on error (e.g., memory allocation failure).
  */
-int kvstore_set(KeyValueStore *store, const char *key, void *value);
+int                          kvstore_set(KeyValueStore *store, const char *key, void *value);
 
 /*
  * Retrieve the value associated with a given key.
  *
  * Returns the value pointer if the key is found, or NULL otherwise.
  */
-void *kvstore_get(KeyValueStore *store, const char *key);
+void                        *kvstore_get(KeyValueStore *store, const char *key);
 
 /*
  * Find or create an item by key.
@@ -71,6 +71,6 @@ void *kvstore_get(KeyValueStore *store, const char *key);
  *
  * If no constructor is set and the key is not found, returns NULL.
  */
-void *kvstore_find_or_create(KeyValueStore *store, const char *key);
+void                        *kvstore_find_or_create(KeyValueStore *store, const char *key);
 
 #endif /* KVSTORE_H */

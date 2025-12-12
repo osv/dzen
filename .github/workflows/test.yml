@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Restore APT Cache
-        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.0
         with:
           packages: |
             imagemagick
@@ -31,13 +31,22 @@ jobs:
             libxcursor-dev
             libxinerama-dev
             fonts-dejavu-core
+            xfonts-base
             xdotool
             x11-apps
             xvfb
+            xserver-xephyr
             x11-xkb-utils
             xkb-data
             clang-format
-          version: 2.4
+          version: 4
+
+      # Fix ImageMagick symlinks (cache-apt-pkgs-action doesn't preserve alternatives)
+      - name: Fix ImageMagick alternatives
+        run: |
+          sudo update-alternatives --install /usr/bin/compare compare /usr/bin/compare-im6.q16 100
+          sudo update-alternatives --install /usr/bin/convert convert /usr/bin/convert-im6.q16 100
+          sudo update-alternatives --install /usr/bin/import import /usr/bin/import-im6.q16 100
 
       # Check code formatting
       - name: Check code formatting
@@ -57,8 +66,8 @@ jobs:
         run: |
           make
 
-      # Start the Xvfb (Virtual Framebuffer)
-      - name: Start Xvfb (Virtual Framebuffer)
+      # Run E2E tests using native mode (Xvfb already set up by GitHub Actions)
+      - name: Run E2E tests
         run: |
           # Start Xvfb on display :99
           Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
@@ -67,16 +76,26 @@ jobs:
           # waiting for framebuffer
           sleep 4
           fc-list
-          # run tests
+          # run tests using --native since we manage Xvfb externally
           make test
 
-      # Step 6: Upload screenshots and diffs as artifacts if tests fail
-      - name: Upload screenshots as artifacts (for debugging)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: integration-tests
+      # Run Xinerama-specific tests
+      - name: Run Xinerama tests
+        run: |
+          export DISPLAY=:99
+          make test-xinerama
+
+      # Test without XFT support
+      - name: Configure and build without XFT
+        run: |
+          make distclean
+          ./configure --disable-xft --enable-xpm --enable-xinerama --enable-xcursor
+          make
+
+      - name: Run non-XFT tests
+        run: |
+          export DISPLAY=:99
+          make test-nonxft
 
       # TODO: fix build without xft too
       - name: Compile without xinerama, xcursor, xpm
@@ -84,3 +103,12 @@ jobs:
           make clean
           ./configure --disable-xinerama --disable-xcursor --disable-xpm
           make
+
+      # Upload screenshots and diffs as artifacts if ANY test fails
+      # This must be at the END of the workflow to catch all failures
+      - name: Upload screenshots as artifacts (for debugging)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: integration-tests

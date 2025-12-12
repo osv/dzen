@@ -108,8 +108,8 @@ int kvstore_set(KeyValueStore *store, const char *key, void *value) {
     unsigned long hash  = optimized_hash(key);
     size_t        index = hash % store->capacity;
 
-    KVNode *cur  = store->buckets[index];
-    KVNode *prev = NULL;
+    KVNode       *cur  = store->buckets[index];
+    KVNode       *prev = NULL;
 
     /* Search for existing key */
     while (cur) {
@@ -159,7 +159,7 @@ void *kvstore_get(KeyValueStore *store, const char *key) {
     unsigned long hash  = optimized_hash(key);
     size_t        index = hash % store->capacity;
 
-    KVNode *cur = store->buckets[index];
+    KVNode       *cur = store->buckets[index];
     while (cur) {
         if (cur->hash == hash && strcmp(cur->key, key) == 0) {
             return cur->value;

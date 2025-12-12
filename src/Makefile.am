@@ -10,10 +10,13 @@ dzen2_SOURCES = \
   caches.c \
   draw.c \
   dzen.h \
+  font.c \
+  font.h \
   kvstore.c \
   kvstore.h \
   main.c \
-  util.c
+  util.c \
+  util.h
 
 # We can add extra CFLAGS or LIBS if needed, e.g.
 

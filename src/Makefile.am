@@ -16,7 +16,11 @@ dzen2_SOURCES = \
   kvstore.h \
   layout.c \
   layout.h \
+  line_reader.c \
+  line_reader.h \
   main.c \
+  text_buffer.c \
+  text_buffer.h \
   util.c \
   util.h \
   xrandr.c \

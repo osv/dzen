@@ -6,6 +6,7 @@
 
 #include "../config.h"
 #include "font.h"
+#include "text_buffer.h"
 #include "util.h"
 
 #include <X11/Xlib.h>
@@ -37,10 +38,7 @@
 #define TOPWINDOW   0
 #define SLAVEWINDOW 1
 
-#define MIN_BUF_SIZE 1024
-#ifndef MAX_LINE_LEN
-#define MAX_LINE_LEN 262144
-#endif
+#define MIN_BUF_SIZE          1024
 #define MAX_CLICKABLE_AREAS   256
 #define MAX_CLICKABLE_CMD_LEN 1024
 
@@ -97,28 +95,28 @@ extern sens_w window_sens[2];
 
 /* title window */
 struct TW {
-    int      x, y, width, height;
+    int        x, y, width, height;
 
-    char    *name;
-    Window   win;
-    Drawable drawable;
-    char     alignment;
-    int      expand;
-    int      x_right_corner;
-    Bool     ishidden;
+    TextBuffer name;
+    Window     win;
+    Drawable   drawable;
+    char       alignment;
+    int        expand;
+    int        x_right_corner;
+    Bool       ishidden;
 };
 
 /* slave window */
 struct SW {
     int            x, y, width, height;
 
-    char          *name;
+    TextBuffer     name;
     Window         win;
     Window        *line;
     Drawable      *drawable;
 
     /* input buffer */
-    char         **tbuf;
+    TextBuffer    *tbuf;
     int            tsize;
     int            tcnt;
     /* line fg colors */
@@ -153,10 +151,10 @@ struct DZEN {
     Window        sa_win; /* Window for managing clickable areas */
 
     /* Font and color configuration */
-    char         *fnt; /* Default font name/specification */
-    char         *bg; /* Default background color string */
-    char         *fg; /* Default foreground color string */
-    char         *title_text; /* Last rendered title, used to redraw after a resize */
+    TextBuffer    fnt; /* Default font name/specification */
+    TextBuffer    bg; /* Default background color string */
+    TextBuffer    fg; /* Default foreground color string */
+    TextBuffer    title_text; /* Last rendered title, used to redraw after a resize */
     int           line_height; /* Height of each text line in pixels */
 
     /* X11 display and screen information */
@@ -186,21 +184,23 @@ struct DZEN {
     Cursor        cursor_hand; /* Hand cursor for clickable areas */
 };
 
-extern Dzen  dzen;
+extern Dzen dzen;
 
-void         free_buffer(void);
-void         x_draw_body(void);
+void        free_buffer(void);
+void        x_draw_body(void);
 
 /* draw.c */
-extern void  drawtext(const char *text, int reverse, int line, int align);
-extern char *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
-extern void  drawheader(const char *text);
-extern void  redrawheader(void);
-extern void  drawbody(char *text);
+extern void drawtext(const char *text, int reverse, int line, int align);
+extern void parse_line(const char *text, int linenr, int align, int reverse);
+extern void parse_line_text(const char *text, TextBuffer *output);
+extern void drawheader(const char *text);
+extern void redrawheader(void);
+extern void drawbody(char *text);
+extern void draw_cleanup(void);
 
 /* caches.c */
-long         get_color(const char *str); /* returns color of colstr */
-Icon        *get_icon(const char *str);
+long        get_color(const char *str); /* returns color of colstr */
+Icon       *get_icon(const char *str);
 
-void         init_all_caches();
-void         free_all_caches();
+void        init_all_caches();
+void        free_all_caches();

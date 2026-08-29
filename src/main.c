@@ -8,6 +8,7 @@
 #include "action.h"
 #include "font.h"
 #include "layout.h"
+#include "line_reader.h"
 #include "xrandr.h"
 
 #include <ctype.h>
@@ -35,7 +36,7 @@ static LayoutRequest  layout_request;
 static ResolvedLayout current_layout;
 static XRectangle     current_target;
 static XRandRContext  xrandr_context;
-static char          *output_name;
+static TextBuffer     output_name;
 static Bool           output_connected;
 static Bool           layout_initialized;
 static Bool           xinescreen_explicit;
@@ -43,11 +44,36 @@ static Bool           list_outputs;
 static int            use_ewmh_dock;
 static Bool           title_mapped_before_disconnect = True;
 static Bool           slave_mapped_before_disconnect;
+static LineReader     stdin_reader;
 
-static void           clean_up(void) {
+static Bool           has_output_name(void) {
+    return output_name.length != 0;
+}
+
+static void destroy_text_state(void) {
+    int i;
+
+    for (i = 0; i < dzen.slave_win.tsize; i++)
+        text_buffer_destroy(&dzen.slave_win.tbuf[i]);
+    free(dzen.slave_win.tbuf);
+    dzen.slave_win.tbuf  = NULL;
+    dzen.slave_win.tsize = 0;
+
+    text_buffer_destroy(&dzen.fnt);
+    text_buffer_destroy(&dzen.bg);
+    text_buffer_destroy(&dzen.fg);
+    text_buffer_destroy(&dzen.title_text);
+    text_buffer_destroy(&dzen.title_win.name);
+    text_buffer_destroy(&dzen.slave_win.name);
+    text_buffer_destroy(&output_name);
+    line_reader_destroy(&stdin_reader);
+}
+
+static void clean_up(void) {
     int i;
 
     free_event_list();
+    draw_cleanup();
     free_all_caches();
     font_cleanup();
 
@@ -58,6 +84,7 @@ static void           clean_up(void) {
             XDestroyWindow(dzen.dpy, dzen.slave_win.line[i]);
         }
         free(dzen.slave_win.line);
+        free(dzen.slave_win.drawable);
         XDestroyWindow(dzen.dpy, dzen.slave_win.win);
     }
     XFreeGC(dzen.dpy, dzen.gc);
@@ -67,18 +94,7 @@ static void           clean_up(void) {
     XFreeCursor(dzen.dpy, dzen.cursor_hand);
     XDestroyWindow(dzen.dpy, dzen.title_win.win);
     XCloseDisplay(dzen.dpy);
-    if (dzen.fnt)
-        free(dzen.fnt);
-    if (dzen.bg)
-        free(dzen.bg);
-    if (dzen.fg)
-        free(dzen.fg);
-    free(dzen.title_text);
-    if (dzen.title_win.name)
-        free(dzen.title_win.name);
-    if (dzen.slave_win.name)
-        free(dzen.slave_win.name);
-    free(output_name);
+    destroy_text_state();
 }
 
 static void catch_sigusr1(int s) {
@@ -117,149 +133,60 @@ static sigfunc *setup_signal(int signr, sigfunc *shandler) {
     return NULL;
 }
 
-/* Static buffer to preserve partial lines between read() calls */
-static char partial_buf[MAX_LINE_LEN];
-static int  partial_len      = 0;
-static int  partial_overflow = 0; /* Set when line exceeds MAX_LINE_LEN */
-
-/* Extract complete lines from buffer, preserving partial lines for next call
- * Returns offset to next unprocessed character, or 0 if no complete lines found
- */
-static int  extract_line(const char *inbuf, char *outbuf, int start, int len) {
-    const char *line_start = inbuf + start;
-    int         remaining  = len - start;
-
-    /* Find newline using memchr - much faster than character-by-character scan */
-    const char *newline = memchr(line_start, '\n', remaining);
-
-    if (!newline) {
-        /* No complete line found - save partial line for next read() call */
-        if (partial_overflow) {
-            /* Already overflowed, skip until newline */
-            return 0;
-        }
-        if (remaining > 0) {
-            int space_left = MAX_LINE_LEN - 1 - partial_len;
-            if (remaining <= space_left) {
-                /* Fits in buffer */
-                memcpy(partial_buf + partial_len, line_start, remaining);
-                partial_len += remaining;
-            } else {
-                /* Overflow: save what we can, mark as overflowed */
-                if (space_left > 0) {
-                    memcpy(partial_buf + partial_len, line_start, space_left);
-                    partial_len += space_left;
-                }
-                partial_overflow = 1;
-            }
-        }
-        return 0;
-    }
-
-    /* Calculate line length */
-    int line_len = newline - line_start;
-
-    /* Check if we have a partial line from previous read */
-    if (partial_len > 0 || partial_overflow) {
-        /* Output the truncated line (partial_buf already has MAX_LINE_LEN-1 chars if overflowed) */
-        if (partial_len > 0) {
-            memcpy(outbuf, partial_buf, partial_len);
-        }
-
-        if (!partial_overflow) {
-            /* No overflow - try to append current chunk */
-            int total_len = partial_len + line_len;
-            if (total_len >= MAX_LINE_LEN - 1) {
-                /* Combined line too long */
-                int copy_len = MAX_LINE_LEN - 1 - partial_len;
-                if (copy_len > 0) {
-                    memcpy(outbuf + partial_len, line_start, copy_len);
-                }
-                outbuf[MAX_LINE_LEN - 1] = '\0';
-            } else {
-                /* Combine partial + current line */
-                memcpy(outbuf + partial_len, line_start, line_len);
-                outbuf[total_len] = '\0';
-            }
-        } else {
-            /* Was overflowed - just null-terminate what we have */
-            outbuf[partial_len] = '\0';
-        }
-
-        partial_len      = 0;
-        partial_overflow = 0;
-        return start + line_len + 1;
-    }
-
-    /* Handle line truncation if needed */
-    if (line_len >= MAX_LINE_LEN - 1) {
-        /* Line too long: draw first MAX_LINE_LEN-1 chars, ignore the rest */
-        memcpy(outbuf, line_start, MAX_LINE_LEN - 1);
-        outbuf[MAX_LINE_LEN - 1] = '\0';
-        /* Skip to position after newline, ignoring the truncated portion */
-        return start + line_len + 1;
-    }
-
-    /* Copy complete line using memcpy - much faster than char-by-char */
-    memcpy(outbuf, line_start, line_len);
-    outbuf[line_len] = '\0';
-
-    /* Return position after newline */
-    return start + line_len + 1;
-}
-
 void free_buffer(void) {
     int i;
-    for (i = 0; i < dzen.slave_win.tcnt; i++) {
-        free(dzen.slave_win.tbuf[i]);
-        dzen.slave_win.tbuf[i] = NULL;
-    }
+    for (i = 0; i < dzen.slave_win.tcnt; i++)
+        text_buffer_clear(&dzen.slave_win.tbuf[i]);
     dzen.slave_win.tcnt = dzen.slave_win.last_line_vis = last_cnt = 0;
 }
 
-static int read_stdin(void) {
-    char    buf[MAX_LINE_LEN], retbuf[MAX_LINE_LEN];
-    ssize_t n;
-    int     n_off = 0;
+static void process_input_line(const char *line, size_t length, void *context) {
+    (void)length;
+    (void)context;
 
-    if (!(n = read(STDIN_FILENO, buf, sizeof buf))) {
+    if (!dzen.slave_win.ishmenu && dzen.tsupdate && dzen.slave_win.max_lines &&
+        ((dzen.current_line == 0) || !(dzen.current_line % (dzen.slave_win.max_lines + 1))))
+        drawheader(line);
+    else if (!dzen.slave_win.ishmenu && !dzen.tsupdate && ((dzen.current_line == 0) || !dzen.slave_win.max_lines))
+        drawheader(line);
+    else
+        drawbody((char *)line);
+    dzen.current_line++;
+}
+
+static int read_stdin(void) {
+    char    chunk[16384];
+    ssize_t length;
+
+    do {
+        length = read(STDIN_FILENO, chunk, sizeof(chunk));
+    } while (length < 0 && errno == EINTR);
+
+    if (length < 0)
+        eprint("dzen: cannot read stdin: %s\n", strerror(errno));
+
+    if (length == 0) {
         if (!dzen.ispersistent) {
             dzen.running = False;
             return -1;
         } else
             return -2;
-    } else {
-        /* Process only complete lines, ignore partial lines at buffer end */
-        while (n_off < n) {
-            int next_off = extract_line(buf, retbuf, n_off, n);
-            if (next_off == 0) {
-                /* No more complete lines in buffer */
-                break;
-            }
-            n_off = next_off;
-
-            if (!dzen.slave_win.ishmenu && dzen.tsupdate && dzen.slave_win.max_lines &&
-                ((dzen.current_line == 0) || !(dzen.current_line % (dzen.slave_win.max_lines + 1))))
-                drawheader(retbuf);
-            else if (!dzen.slave_win.ishmenu && !dzen.tsupdate &&
-                     ((dzen.current_line == 0) || !dzen.slave_win.max_lines))
-                drawheader(retbuf);
-            else
-                drawbody(retbuf);
-            dzen.current_line++;
-        }
     }
+
+    line_reader_feed(&stdin_reader, chunk, (size_t)length, process_input_line, NULL);
     return 0;
 }
 
 static void x_hilight_line(int line) {
-    drawtext(dzen.slave_win.tbuf[line + dzen.slave_win.first_line_vis], 1, line, dzen.slave_win.alignment);
+    drawtext(text_buffer_data(&dzen.slave_win.tbuf[line + dzen.slave_win.first_line_vis]), 1, line,
+             dzen.slave_win.alignment);
     XCopyArea(dzen.dpy, dzen.slave_win.drawable[line], dzen.slave_win.line[line], dzen.gc, 0, 0, dzen.slave_win.width,
               dzen.line_height, 0, 0);
 }
 
 static void x_unhilight_line(int line) {
-    drawtext(dzen.slave_win.tbuf[line + dzen.slave_win.first_line_vis], 0, line, dzen.slave_win.alignment);
+    drawtext(text_buffer_data(&dzen.slave_win.tbuf[line + dzen.slave_win.first_line_vis]), 0, line,
+             dzen.slave_win.alignment);
     XCopyArea(dzen.dpy, dzen.slave_win.drawable[line], dzen.slave_win.line[line], dzen.rgc, 0, 0, dzen.slave_win.width,
               dzen.line_height, 0, 0);
 }
@@ -285,7 +212,8 @@ void x_draw_body(void) {
 
     for (i = 0; i < dzen.slave_win.max_lines; i++) {
         if (i < dzen.slave_win.last_line_vis)
-            drawtext(dzen.slave_win.tbuf[i + dzen.slave_win.first_line_vis], 0, i, dzen.slave_win.alignment);
+            drawtext(text_buffer_data(&dzen.slave_win.tbuf[i + dzen.slave_win.first_line_vis]), 0, i,
+                     dzen.slave_win.alignment);
     }
     for (i = 0; i < dzen.slave_win.max_lines; i++)
         XCopyArea(dzen.dpy, dzen.slave_win.drawable[i], dzen.slave_win.line[i], dzen.gc, 0, 0, dzen.slave_win.width,
@@ -417,7 +345,7 @@ static void apply_layout(const ResolvedLayout *next) {
         }
     }
 
-    update_docking_struts(output_connected || !output_name);
+    update_docking_struts(output_connected || !has_output_name());
     redrawheader();
     if (dzen.slave_win.max_lines)
         x_draw_body();
@@ -465,8 +393,8 @@ static void handle_xrandr_event(XEvent *event) {
     if (xinescreen_explicit)
         return;
 
-    if (output_name) {
-        status = xrandr_query_output(dzen.dpy, dzen.screen, output_name, &target);
+    if (has_output_name()) {
+        status = xrandr_query_output(dzen.dpy, dzen.screen, text_buffer_data(&output_name), &target);
         if (status == XRANDR_OUTPUT_QUERY_ERROR)
             return;
         if (status != XRANDR_OUTPUT_CONNECTED) {
@@ -484,7 +412,7 @@ static void handle_xrandr_event(XEvent *event) {
     current_target = target;
     layout_resolve(&layout_request, &target, &next);
     apply_layout(&next);
-    if (output_name && !was_connected)
+    if (has_output_name() && !was_connected)
         restore_window_mapping();
 }
 
@@ -597,29 +525,19 @@ static void x_read_resources(void) {
     if (xrm != NULL) {
         xdb = XrmGetStringDatabase(xrm);
         if (XrmGetResource(xdb, "dzen2.font", "*", datatype, &xvalue) == True) {
-            if (dzen.fnt)
-                free(dzen.fnt);
-            dzen.fnt = estrdup(xvalue.addr);
+            text_buffer_assign(&dzen.fnt, xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.foreground", "*", datatype, &xvalue) == True) {
-            if (dzen.fg)
-                free(dzen.fg);
-            dzen.fg = estrdup(xvalue.addr);
+            text_buffer_assign(&dzen.fg, xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.background", "*", datatype, &xvalue) == True) {
-            if (dzen.bg)
-                free(dzen.bg);
-            dzen.bg = estrdup(xvalue.addr);
+            text_buffer_assign(&dzen.bg, xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.titlename", "*", datatype, &xvalue) == True) {
-            if (dzen.title_win.name)
-                free(dzen.title_win.name);
-            dzen.title_win.name = estrdup(xvalue.addr);
+            text_buffer_assign(&dzen.title_win.name, xvalue.addr);
         }
         if (XrmGetResource(xdb, "dzen2.slavename", "*", datatype, &xvalue) == True) {
-            if (dzen.slave_win.name)
-                free(dzen.slave_win.name);
-            dzen.slave_win.name = estrdup(xvalue.addr);
+            text_buffer_assign(&dzen.slave_win.name, xvalue.addr);
         }
         XrmDestroyDatabase(xdb);
     }
@@ -634,10 +552,10 @@ static void x_create_windows(int use_ewmh_dock) {
     root = RootWindow(dzen.dpy, dzen.screen);
 
     /* style */
-    if ((dzen.norm[ColBG] = get_color(dzen.bg)) == ~0lu)
-        eprint("dzen: error, cannot allocate color '%s'\n", dzen.bg);
-    if ((dzen.norm[ColFG] = get_color(dzen.fg)) == ~0lu)
-        eprint("dzen: error, cannot allocate color '%s'\n", dzen.fg);
+    if ((dzen.norm[ColBG] = get_color(text_buffer_data(&dzen.bg))) == ~0lu)
+        eprint("dzen: error, cannot allocate color '%s'\n", text_buffer_data(&dzen.bg));
+    if ((dzen.norm[ColFG] = get_color(text_buffer_data(&dzen.fg))) == ~0lu)
+        eprint("dzen: error, cannot allocate color '%s'\n", text_buffer_data(&dzen.fg));
 
     x_create_gcs();
 
@@ -660,7 +578,7 @@ static void x_create_windows(int use_ewmh_dock) {
     XFree(class_hint);
 
     /* title */
-    XStoreName(dzen.dpy, dzen.title_win.win, dzen.title_win.name);
+    XStoreName(dzen.dpy, dzen.title_win.win, text_buffer_data(&dzen.title_win.name));
 
     dzen.title_win.drawable =
         XCreatePixmap(dzen.dpy, root, dzen.title_win.width, dzen.line_height, DefaultDepth(dzen.dpy, dzen.screen));
@@ -690,7 +608,7 @@ static void x_create_windows(int use_ewmh_dock) {
                                                dzen.line_height, 0, DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent,
                                                DefaultVisual(dzen.dpy, dzen.screen),
                                                CWOverrideRedirect | CWBackPixmap | CWEventMask, &wa);
-            XStoreName(dzen.dpy, dzen.slave_win.win, dzen.slave_win.name);
+            XStoreName(dzen.dpy, dzen.slave_win.win, text_buffer_data(&dzen.slave_win.name));
 
             for (i = 0; i < dzen.slave_win.max_lines; i++) {
                 dzen.slave_win.drawable[i] =
@@ -721,7 +639,7 @@ static void x_create_windows(int use_ewmh_dock) {
                                                DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent,
                                                DefaultVisual(dzen.dpy, dzen.screen),
                                                CWOverrideRedirect | CWBackPixmap | CWEventMask, &wa);
-            XStoreName(dzen.dpy, dzen.slave_win.win, dzen.slave_win.name);
+            XStoreName(dzen.dpy, dzen.slave_win.win, text_buffer_data(&dzen.slave_win.name));
 
             for (i = 0; i < dzen.slave_win.max_lines; i++) {
                 dzen.slave_win.drawable[i] = XCreatePixmap(dzen.dpy, root, dzen.slave_win.width, dzen.line_height,
@@ -979,38 +897,47 @@ static char alignment_from_char(char align) {
 }
 
 static void init_input_buffer(void) {
+    int i;
+
+    for (i = 0; i < dzen.slave_win.tsize; i++)
+        text_buffer_destroy(&dzen.slave_win.tbuf[i]);
+    free(dzen.slave_win.tbuf);
+
     if (MIN_BUF_SIZE % dzen.slave_win.max_lines)
         dzen.slave_win.tsize = MIN_BUF_SIZE + (dzen.slave_win.max_lines - (MIN_BUF_SIZE % dzen.slave_win.max_lines));
     else
         dzen.slave_win.tsize = MIN_BUF_SIZE;
 
-    dzen.slave_win.tbuf = emalloc(dzen.slave_win.tsize * sizeof(char *));
+    dzen.slave_win.tbuf = calloc((size_t)dzen.slave_win.tsize, sizeof(TextBuffer));
+    if (!dzen.slave_win.tbuf)
+        eprint("fatal: could not allocate menu text buffers\n");
 }
 
 int main(int argc, char *argv[]) {
-    int   i;
-    char *action_string = NULL;
-    char *endptr, *fnpre = NULL;
+    int        i;
+    char      *action_string = NULL;
+    char      *endptr;
+    TextBuffer fnpre = { 0 };
 
     /* default values */
-    dzen.title_win.name = estrdup("dzen title");
-    dzen.slave_win.name = estrdup("dzen slave");
-    dzen.current_line   = 0;
-    dzen.ret_val        = 0;
+    text_buffer_assign(&dzen.title_win.name, "dzen title");
+    text_buffer_assign(&dzen.slave_win.name, "dzen slave");
+    dzen.current_line = 0;
+    dzen.ret_val      = 0;
     dzen.title_win.x = dzen.slave_win.x = 0;
     dzen.title_win.y                    = 0;
     dzen.title_win.width = dzen.slave_win.width = 0;
     dzen.title_win.alignment                    = ALIGNCENTER;
     dzen.slave_win.alignment                    = ALIGNLEFT;
-    dzen.fnt                                    = estrdup(FONT);
-    dzen.bg                                     = estrdup(BGCOLOR);
-    dzen.fg                                     = estrdup(FGCOLOR);
-    dzen.slave_win.max_lines                    = 0;
-    dzen.running                                = True;
-    dzen.xinescreen                             = 0;
-    dzen.tsupdate                               = 0;
-    dzen.line_height                            = 0;
-    dzen.title_win.expand                       = noexpand;
+    text_buffer_assign(&dzen.fnt, FONT);
+    text_buffer_assign(&dzen.bg, BGCOLOR);
+    text_buffer_assign(&dzen.fg, FGCOLOR);
+    dzen.slave_win.max_lines = 0;
+    dzen.running             = True;
+    dzen.xinescreen          = 0;
+    dzen.tsupdate            = 0;
+    dzen.line_height         = 0;
+    dzen.title_win.expand    = noexpand;
 
     /* Connect to X server */
     x_connect();
@@ -1093,22 +1020,22 @@ int main(int argc, char *argv[]) {
             }
         } else if (!strncmp(argv[i], "-fn", 4)) {
             if (++i < argc)
-                dzen.fnt = estrdup(argv[i]);
+                text_buffer_assign(&dzen.fnt, argv[i]);
         } else if (!strncmp(argv[i], "-e", 3)) {
             if (++i < argc)
                 action_string = argv[i];
         } else if (!strncmp(argv[i], "-title-name", 12)) {
             if (++i < argc)
-                dzen.title_win.name = argv[i];
+                text_buffer_assign(&dzen.title_win.name, argv[i]);
         } else if (!strncmp(argv[i], "-slave-name", 12)) {
             if (++i < argc)
-                dzen.slave_win.name = argv[i];
+                text_buffer_assign(&dzen.slave_win.name, argv[i]);
         } else if (!strncmp(argv[i], "-bg", 4)) {
             if (++i < argc)
-                dzen.bg = estrdup(argv[i]);
+                text_buffer_assign(&dzen.bg, argv[i]);
         } else if (!strncmp(argv[i], "-fg", 4)) {
             if (++i < argc)
-                dzen.fg = estrdup(argv[i]);
+                text_buffer_assign(&dzen.fg, argv[i]);
         } else if (!strncmp(argv[i], "-x", 3)) {
             if (++i < argc)
                 dzen.title_win.x = dzen.slave_win.x = atoi(argv[i]);
@@ -1129,9 +1056,8 @@ int main(int argc, char *argv[]) {
                 layout_request.title_width_explicit = True;
             }
         } else if (!strncmp(argv[i], "-fn-preload", 12)) {
-            if (++i < argc) {
-                fnpre = estrdup(argv[i]);
-            }
+            if (++i < argc)
+                text_buffer_assign(&fnpre, argv[i]);
         }
 #ifdef HAVE_XINERAMA
         else if (!strcmp(argv[i], "-xs")) {
@@ -1144,7 +1070,7 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_XRANDR
         else if (!strcmp(argv[i], "-output")) {
             if (++i < argc)
-                output_name = estrdup(argv[i]);
+                text_buffer_assign(&output_name, argv[i]);
         } else if (!strcmp(argv[i], "-lm")) {
             list_outputs = True;
         }
@@ -1171,6 +1097,9 @@ int main(int argc, char *argv[]) {
                    " XRANDR"
 #endif
                    "\n");
+            XCloseDisplay(dzen.dpy);
+            text_buffer_destroy(&fnpre);
+            destroy_text_state();
             return EXIT_SUCCESS;
         } else
             eprint("usage: dzen2 [-v] [-p [seconds]] [-m [v|h]] [-ta <l|c|r>] [-sa <l|c|r>]\n"
@@ -1186,7 +1115,7 @@ int main(int argc, char *argv[]) {
 #endif
             );
 
-    if (output_name && xinescreen_explicit)
+    if (has_output_name() && xinescreen_explicit)
         eprint("dzen: -output and -xs are mutually exclusive\n");
 
     if (dzen.tsupdate && !dzen.slave_win.max_lines)
@@ -1233,6 +1162,8 @@ int main(int argc, char *argv[]) {
 
     if (dzen.slave_win.ishmenu && !dzen.slave_win.max_lines)
         dzen.slave_win.max_lines = 1;
+    if (dzen.slave_win.max_lines && !dzen.slave_win.tbuf)
+        init_input_buffer();
 
 #ifdef HAVE_XCURSOR
     dzen.cursor_arrow = XcursorLibraryLoadCursor(dzen.dpy, "left_ptr");
@@ -1244,16 +1175,19 @@ int main(int argc, char *argv[]) {
 
     init_all_caches();
     font_init(dzen.dpy, dzen.screen);
-    font_set_default(dzen.fnt);
+    font_set_default(text_buffer_data(&dzen.fnt));
 
 #ifdef HAVE_XRANDR
-    if (!xrandr_initialize(dzen.dpy, dzen.screen, &xrandr_context) && (output_name || list_outputs))
+    if (!xrandr_initialize(dzen.dpy, dzen.screen, &xrandr_context) && (has_output_name() || list_outputs))
         eprint("dzen: XRandR 1.2 or later is required for -output and -lm\n");
     if (list_outputs) {
         if (!xrandr_list_active_outputs(dzen.dpy, dzen.screen))
             eprint("dzen: cannot query XRandR outputs\n");
+        font_cleanup();
+        free_all_caches();
         XCloseDisplay(dzen.dpy);
-        free(output_name);
+        text_buffer_destroy(&fnpre);
+        destroy_text_state();
         return EXIT_SUCCESS;
     }
 #endif
@@ -1271,15 +1205,16 @@ int main(int argc, char *argv[]) {
         query_root_geometry(&current_target);
 #endif
         output_connected = True;
-    } else if (output_name) {
-        XRandROutputStatus status = xrandr_query_output(dzen.dpy, dzen.screen, output_name, &current_target);
+    } else if (has_output_name()) {
+        const char        *name   = text_buffer_data(&output_name);
+        XRandROutputStatus status = xrandr_query_output(dzen.dpy, dzen.screen, name, &current_target);
         if (status == XRANDR_OUTPUT_NOT_FOUND)
-            eprint("dzen: output '%s' not found (use -lm to list active outputs)\n", output_name);
+            eprint("dzen: output '%s' not found (use -lm to list active outputs)\n", name);
         if (status == XRANDR_OUTPUT_QUERY_ERROR)
-            eprint("dzen: cannot query output '%s'\n", output_name);
+            eprint("dzen: cannot query output '%s'\n", name);
         output_connected = status == XRANDR_OUTPUT_CONNECTED;
         if (!output_connected) {
-            fprintf(stderr, "dzen: output '%s' is disconnected; windows will remain hidden\n", output_name);
+            fprintf(stderr, "dzen: output '%s' is disconnected; windows will remain hidden\n", name);
             query_root_geometry(&current_target);
         }
     } else {
@@ -1302,22 +1237,21 @@ int main(int argc, char *argv[]) {
     x_create_windows(use_ewmh_dock);
     update_docking_struts(output_connected);
 
-    if ((!output_name || output_connected) && !dzen.slave_win.ishmenu)
+    if ((!has_output_name() || output_connected) && !dzen.slave_win.ishmenu)
         x_map_window(dzen.title_win.win);
-    else if (!output_name || output_connected) {
+    else if (!has_output_name() || output_connected) {
         XMapRaised(dzen.dpy, dzen.slave_win.win);
         for (i = 0; i < dzen.slave_win.max_lines; i++)
             XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
     }
 
-    if (fnpre != NULL) {
-        font_preload(fnpre);
-        free(fnpre);
-    }
+    if (fnpre.length)
+        font_preload(text_buffer_data(&fnpre));
+    text_buffer_destroy(&fnpre);
 
     do_action(onstart);
 
-    if (output_name && !output_connected) {
+    if (has_output_name() && !output_connected) {
         XWindowAttributes attributes;
         if (dzen.slave_win.max_lines && XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &attributes))
             slave_mapped_before_disconnect = attributes.map_state != IsUnmapped;

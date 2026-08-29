@@ -28,7 +28,8 @@ typedef struct ICON_C {
     int    w, h;
 } icon_c;
 
-sens_w window_sens[2];
+sens_w            window_sens[2];
+static TextBuffer parse_scratch;
 
 /* command types for the in-text parser */
 enum ctype {
@@ -94,7 +95,7 @@ void drawtext(const char *text, int reverse, int line, int align) {
         XSetForeground(dzen.dpy, dzen.rgc, dzen.norm[ColBG]);
     }
 
-    parse_line(text, line, align, reverse, 0);
+    parse_line(text, line, align, reverse);
 }
 
 int get_tokval(const char *line, char *buf, char **retdata) {
@@ -167,7 +168,7 @@ typedef struct {
     /* Colors */
     long        lastfg, lastbg;
     const char *current_fgcolor, *current_bgcolor;
-    char       *allocated_fgcolor, *allocated_bgcolor;
+    char        fgcolor[ARGLEN], bgcolor[ARGLEN];
 
     /* Font */
     Fnt        *current_font;
@@ -197,7 +198,7 @@ typedef struct {
     char       *token_value;
 
     /* For nodraw mode */
-    char       *markup_free_text;
+    TextBuffer *markup_free_text;
 } ParseContext;
 
 /* Process rectangle command */
@@ -284,12 +285,10 @@ static void process_pos_command(ParseContext *ctx) {
 static void process_bg_command(ParseContext *ctx) {
     ctx->lastbg = (ctx->token_value && ctx->token_value[0]) ? (unsigned)get_color(ctx->token_value) : dzen.norm[ColBG];
     if (ctx->token_value && ctx->token_value[0]) {
-        if (ctx->allocated_bgcolor)
-            free(ctx->allocated_bgcolor);
-        ctx->allocated_bgcolor = estrdup(ctx->token_value);
-        ctx->current_bgcolor   = ctx->allocated_bgcolor;
+        memcpy(ctx->bgcolor, ctx->token_value, strlen(ctx->token_value) + 1);
+        ctx->current_bgcolor = ctx->bgcolor;
     } else {
-        ctx->current_bgcolor = dzen.bg;
+        ctx->current_bgcolor = text_buffer_data(&dzen.bg);
     }
 }
 
@@ -297,12 +296,10 @@ static void process_bg_command(ParseContext *ctx) {
 static void process_fg_command(ParseContext *ctx) {
     ctx->lastfg = (ctx->token_value && ctx->token_value[0]) ? (unsigned)get_color(ctx->token_value) : dzen.norm[ColFG];
     if (ctx->token_value && ctx->token_value[0]) {
-        if (ctx->allocated_fgcolor)
-            free(ctx->allocated_fgcolor);
-        ctx->allocated_fgcolor = estrdup(ctx->token_value);
-        ctx->current_fgcolor   = ctx->allocated_fgcolor;
+        memcpy(ctx->fgcolor, ctx->token_value, strlen(ctx->token_value) + 1);
+        ctx->current_fgcolor = ctx->fgcolor;
     } else {
-        ctx->current_fgcolor = dzen.fg;
+        ctx->current_fgcolor = text_buffer_data(&dzen.fg);
     }
     XSetForeground(dzen.dpy, dzen.tgc, ctx->lastfg);
 }
@@ -460,7 +457,8 @@ static void process_icon_command(ParseContext *ctx) {
 }
 
 /* Initialize parser context with default values */
-static void parse_context_init(ParseContext *ctx, int lnr, int align, int reverse, int nodraw) {
+static void parse_context_init(ParseContext *ctx, const char *line, int lnr, int align, int reverse, int nodraw,
+                               TextBuffer *output) {
     /* Position and dimensions */
     ctx->current_x          = 0;
     ctx->current_y          = 0;
@@ -477,12 +475,10 @@ static void parse_context_init(ParseContext *ctx, int lnr, int align, int revers
     ctx->nodraw       = nodraw;
 
     /* Colors */
-    ctx->lastfg            = dzen.norm[ColFG];
-    ctx->lastbg            = dzen.norm[ColBG];
-    ctx->current_fgcolor   = dzen.fg;
-    ctx->current_bgcolor   = dzen.bg;
-    ctx->allocated_fgcolor = NULL;
-    ctx->allocated_bgcolor = NULL;
+    ctx->lastfg          = dzen.norm[ColFG];
+    ctx->lastbg          = dzen.norm[ColBG];
+    ctx->current_fgcolor = text_buffer_data(&dzen.fg);
+    ctx->current_bgcolor = text_buffer_data(&dzen.bg);
 
     /* Font */
     ctx->current_font = NULL;
@@ -493,12 +489,9 @@ static void parse_context_init(ParseContext *ctx, int lnr, int align, int revers
     ctx->block_width = -1;
 
     /* Line buffer */
-    static char *static_lbuf = NULL;
-    if (static_lbuf == NULL) {
-        static_lbuf    = emalloc(MAX_LINE_LEN);
-        static_lbuf[0] = '\0';
-    }
-    ctx->text_buffer = static_lbuf;
+    text_buffer_reserve(&parse_scratch, line ? strlen(line) : 0);
+    text_buffer_clear(&parse_scratch);
+    ctx->text_buffer = parse_scratch.data;
     ctx->buffer_pos  = 0;
 
     /* Drawing surfaces */
@@ -518,32 +511,18 @@ static void parse_context_init(ParseContext *ctx, int lnr, int align, int revers
     ctx->token_value        = NULL;
 
     /* For nodraw mode */
-    ctx->markup_free_text = NULL;
+    ctx->markup_free_text = output;
 }
 
-char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) {
+static void parse_line_internal(const char *line, int lnr, int align, int reverse, int nodraw, TextBuffer *output) {
     ParseContext ctx;
-    parse_context_init(&ctx, lnr, align, reverse, nodraw);
+    parse_context_init(&ctx, line, lnr, align, reverse, nodraw, output);
 
-    /* temp variables that don't fit in context */
-    int rectw, recth, rectx, recty;
-    int n_posx, n_posy;
     int i, next_pos = 0, h = 0, tw = 0;
     int next_align = -1;
 
     /* parse line and return the text without control commands */
-    if (ctx.nodraw) {
-        ctx.markup_free_text    = emalloc(MAX_LINE_LEN);
-        ctx.markup_free_text[0] = '\0';
-        if ((ctx.line_number + dzen.slave_win.first_line_vis) >= dzen.slave_win.tcnt)
-            line = NULL;
-        else
-            line = dzen.slave_win.tbuf[dzen.slave_win.first_line_vis + ctx.line_number];
-
-        /* No need to copy - we're not modifying the string anymore */
-    }
-    /* parse line and render text */
-    else {
+    if (!ctx.nodraw) {
         font_get_dimensions(NULL, NULL, &h);
         ctx.current_y          = (dzen.line_height - h) / 2;
         ctx.alignment_offset_x = 0;
@@ -575,7 +554,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
             XCopyArea(dzen.dpy, ctx.pm, dzen.slave_win.drawable[ctx.line_number], dzen.gc, 0, 0, ctx.current_x,
                       dzen.line_height, ctx.alignment_offset_x, 0);
             XFreePixmap(dzen.dpy, ctx.pm);
-            return NULL;
+            return;
         }
     }
 
@@ -589,7 +568,7 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
                 ctx.pos_is_fixed = 0;
 
             if (ctx.nodraw) {
-                strcat(ctx.markup_free_text, ctx.text_buffer);
+                text_buffer_append_n(ctx.markup_free_text, ctx.text_buffer, (size_t)ctx.buffer_pos);
             } else {
                 if (ctx.token != -1 && ctx.token_value) {
                     switch (ctx.token) {
@@ -774,45 +753,47 @@ char *parse_line(const char *line, int lnr, int align, int reverse, int nodraw) 
 
     if (!ctx.nodraw && next_align != -1) {
         /* input_ptr now points to the character after the align token */
-        char *result = parse_line(ctx.input_ptr, ctx.line_number, next_align, ctx.reverse, 0);
-        if (ctx.allocated_fgcolor)
-            free(ctx.allocated_fgcolor);
-        if (ctx.allocated_bgcolor)
-            free(ctx.allocated_bgcolor);
-        return result;
+        parse_line_internal(ctx.input_ptr, ctx.line_number, next_align, ctx.reverse, 0, NULL);
+        return;
     }
-
-    if (ctx.allocated_fgcolor)
-        free(ctx.allocated_fgcolor);
-    if (ctx.allocated_bgcolor)
-        free(ctx.allocated_bgcolor);
-    return ctx.nodraw ? ctx.markup_free_text : NULL;
 }
 
-char *extract_between_parentheses(const char *str) {
-    if (!str)
-        return NULL;
+void parse_line(const char *line, int lnr, int align, int reverse) {
+    parse_line_internal(line, lnr, align, reverse, 0, NULL);
+}
 
-    const char *start = strchr(str, '(');
+void parse_line_text(const char *line, TextBuffer *output) {
+    text_buffer_clear(output);
+    parse_line_internal(line, -1, ALIGNLEFT, 0, 1, output);
+}
+
+static int extract_between_parentheses(const char *str, char *result, size_t capacity) {
+    const char *end;
+    const char *start;
+    size_t      length;
+
+    if (!str)
+        return 0;
+
+    start = strchr(str, '(');
     if (!start)
-        return NULL;
+        return 0;
     start++;
 
-    const char *end = strchr(start, ')');
+    end = strchr(start, ')');
     if (!end)
-        return NULL;
+        return 0;
 
-    size_t len    = end - start;
-    char  *result = malloc(len + 1);
-    if (!result)
-        return NULL;
+    length = (size_t)(end - start);
+    if (length >= capacity)
+        return 0;
 
-    memcpy(result, start, len);
-    result[len] = '\0';
-    return result;
+    memcpy(result, start, length);
+    result[length] = '\0';
+    return 1;
 }
 
-int parse_non_drawing_commands(char *text) {
+int parse_non_drawing_commands(const char *text) {
     if (!text)
         return 1;
 
@@ -881,12 +862,11 @@ int parse_non_drawing_commands(char *text) {
     }
 
     if (!strncmp(text, "^normfg(", strlen("^normfg("))) {
-        char *tval = extract_between_parentheses(text);
-        if (tval) {
+        char tval[ARGLEN];
+        if (extract_between_parentheses(text, tval, sizeof(tval))) {
             if ((dzen.norm[ColFG] = get_color(tval)) == ~0lu)
                 eprint("dzen: error, cannot allocate color '%s'\n", tval);
-            free((char *)dzen.fg);
-            dzen.fg = estrdup(tval);
+            text_buffer_assign(&dzen.fg, tval);
             XSetForeground(dzen.dpy, dzen.gc, dzen.norm[ColFG]);
             XSetBackground(dzen.dpy, dzen.gc, dzen.norm[ColBG]);
             XSetForeground(dzen.dpy, dzen.rgc, dzen.norm[ColBG]);
@@ -896,12 +876,11 @@ int parse_non_drawing_commands(char *text) {
     }
 
     if (!strncmp(text, "^normbg(", strlen("^normbg("))) {
-        char *tval = extract_between_parentheses(text);
-        if (tval) {
+        char tval[ARGLEN];
+        if (extract_between_parentheses(text, tval, sizeof(tval))) {
             if ((dzen.norm[ColBG] = get_color(tval)) == ~0lu)
                 eprint("dzen: error, cannot allocate color '%s'\n", tval);
-            free((char *)dzen.bg);
-            dzen.bg = estrdup(tval);
+            text_buffer_assign(&dzen.bg, tval);
             XSetForeground(dzen.dpy, dzen.gc, dzen.norm[ColFG]);
             XSetBackground(dzen.dpy, dzen.gc, dzen.norm[ColBG]);
             XSetForeground(dzen.dpy, dzen.rgc, dzen.norm[ColBG]);
@@ -911,11 +890,10 @@ int parse_non_drawing_commands(char *text) {
     }
 
     if (!strncmp(text, "^normfn(", strlen("^normfn("))) {
-        char *tval = extract_between_parentheses(text);
-        if (tval) {
-            free((char *)dzen.fnt);
-            dzen.fnt = estrdup(tval);
-            font_set_default(dzen.fnt);
+        char tval[ARGLEN];
+        if (extract_between_parentheses(text, tval, sizeof(tval))) {
+            text_buffer_assign(&dzen.fnt, tval);
+            font_set_default(text_buffer_data(&dzen.fnt));
         }
         return 0;
     }
@@ -923,41 +901,40 @@ int parse_non_drawing_commands(char *text) {
     return 1;
 }
 
+static void render_header(const char *text) {
+    dzen.w = dzen.title_win.width;
+    dzen.h = dzen.line_height;
+
+    window_sens[TOPWINDOW].sens_areas_cnt = 0;
+    XFillRectangle(dzen.dpy, dzen.title_win.drawable, dzen.rgc, 0, 0, dzen.w, dzen.h);
+    parse_line(text, -1, dzen.title_win.alignment, 0);
+}
+
+static void copy_header(void) {
+    XCopyArea(dzen.dpy, dzen.title_win.drawable, dzen.title_win.win, dzen.gc, 0, 0, dzen.title_win.width,
+              dzen.line_height, 0, 0);
+}
+
 void drawheader(const char *text) {
-    int should_draw = parse_non_drawing_commands((char *)text);
+    int should_draw = parse_non_drawing_commands(text);
 
     if (should_draw) {
         if (text) {
-            free(dzen.title_text);
-            dzen.title_text = estrdup(text);
-            dzen.w          = dzen.title_win.width;
-            dzen.h          = dzen.line_height;
-
-            window_sens[TOPWINDOW].sens_areas_cnt = 0;
-
-            XFillRectangle(dzen.dpy, dzen.title_win.drawable, dzen.rgc, 0, 0, dzen.w, dzen.h);
-            parse_line(text, -1, dzen.title_win.alignment, 0, 0);
+            text_buffer_assign(&dzen.title_text, text);
+            render_header(text_buffer_data(&dzen.title_text));
         }
     } else {
         dzen.slave_win.tcnt = -1;
         dzen.current_line   = 0;
     }
 
-    XCopyArea(dzen.dpy, dzen.title_win.drawable, dzen.title_win.win, dzen.gc, 0, 0, dzen.title_win.width,
-              dzen.line_height, 0, 0);
+    copy_header();
 }
 
 void redrawheader(void) {
-    char *text;
-
-    if (!dzen.title_text) {
-        drawheader(NULL);
-        return;
-    }
-
-    text = estrdup(dzen.title_text);
-    drawheader(text);
-    free(text);
+    if (dzen.title_text.data)
+        render_header(text_buffer_data(&dzen.title_text));
+    copy_header();
 }
 
 void drawbody(char *text) {
@@ -970,7 +947,7 @@ void drawbody(char *text) {
         return;
     }
 
-    if ((ec = strstr(text, "^tw()")) && (*(ec - 1) != '^')) {
+    if ((ec = strstr(text, "^tw()")) && (ec == text || ec[-1] != '^')) {
         drawheader(ec + 5);
         return;
     }
@@ -991,7 +968,11 @@ void drawbody(char *text) {
     }
 
     if (write_buffer && (dzen.slave_win.tcnt < dzen.slave_win.tsize)) {
-        dzen.slave_win.tbuf[dzen.slave_win.tcnt] = estrdup(text);
+        text_buffer_assign(&dzen.slave_win.tbuf[dzen.slave_win.tcnt], text);
         dzen.slave_win.tcnt++;
     }
+}
+
+void draw_cleanup(void) {
+    text_buffer_destroy(&parse_scratch);
 }

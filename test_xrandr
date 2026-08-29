@@ -232,7 +232,7 @@ run_rejected() {
 
 mapfile -t OUTPUTS < <(connected_outputs); mapfile -t ACTIVE_OUTPUTS < <(active_outputs)
 if [ "${#ACTIVE_OUTPUTS[@]}" -eq 0 ]; then fail "dummy DDX has no connected output with active CRTC"; summary; exit 1; fi
-OUTPUT=${ACTIVE_OUTPUTS[0]}; OUTPUT_COUNT=${#OUTPUTS[@]}; SECONDARY= CONNECT_OUTPUT=
+OUTPUT=${ACTIVE_OUTPUTS[0]}; OUTPUT_COUNT=${#OUTPUTS[@]}; ACTIVE_COUNT=${#ACTIVE_OUTPUTS[@]}; SECONDARY= CONNECT_OUTPUT=
 mapfile -t RANDR_OUTPUTS < <(randr_outputs)
 if [ "${#RANDR_OUTPUTS[@]}" -ge 2 ]; then
   SECONDARY=${RANDR_OUTPUTS[1]}

@@ -154,6 +154,38 @@ AS_IF([test "x$XINERAMA_ENABLED" = "xyes"], [
   AC_DEFINE([HAVE_XINERAMA], [1], [Define if Xinerama is enabled])
 ])
 
+# ============================================================
+#  XRandR
+# ============================================================
+AC_ARG_ENABLE([xrandr],
+  [AS_HELP_STRING([--enable-xrandr],[Enable XRandR monitor support (error if not found); default=auto])],
+  [enable_xrandr="$enableval"],
+  [enable_xrandr="auto"]
+)
+
+XRANDR_ENABLED="no"
+AS_IF([test "x$enable_xrandr" = "xno"], [
+  # disabled
+], [
+  PKG_CHECK_MODULES([XRANDR], [xrandr],
+    [ # Found
+      XRANDR_ENABLED="yes"
+      CFLAGS="$CFLAGS $XRANDR_CFLAGS"
+      LIBS="$LIBS $XRANDR_LIBS"
+    ],
+    [ # Not found
+      AS_IF([test "x$enable_xrandr" = "xyes"], [
+        AC_MSG_ERROR([XRandR requested (--enable-xrandr) but not found.])
+      ], [
+        AC_MSG_WARN([XRandR not found, disabling XRandR support.])
+      ])
+    ])
+])
+
+AM_CONDITIONAL([HAVE_XRANDR], [test "x$XRANDR_ENABLED" = "xyes"])
+AS_IF([test "x$XRANDR_ENABLED" = "xyes"], [
+  AC_DEFINE([HAVE_XRANDR], [1], [Define if XRandR is enabled])
+])
 
 # ----------------------------------------------------------
 #  Gadgets
@@ -178,6 +210,7 @@ AC_MSG_NOTICE([
   XFT:         $XFT_ENABLED
   XCursor:     $XCURSOR_ENABLED
   Xinerama:    $XINERAMA_ENABLED
+  XRandR:      $XRANDR_ENABLED
   Gadgets:     $enable_gadgets
 --------------------------------------------
 ])

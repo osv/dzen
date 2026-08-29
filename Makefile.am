@@ -21,6 +21,8 @@ EXTRA_DIST = \
   test_e2e \
   test_perfomance \
   test_xinerama \
+  test_xrandr \
+  tests/test_layout.c \
   TESTS.md \
   TESTS-NONXFT.md \
   .gitignore \
@@ -35,16 +37,25 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test test-xinerama update-man
+.PHONY: test test-layout test-xinerama test-xrandr update-man
 
 test:
+	$(MAKE) test-layout
 	./test_e2e TESTS.md
+
+test-layout:
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc -o tests/test_layout tests/test_layout.c src/layout.c $(X11_LIBS)
+	./tests/test_layout
+	$(RM) tests/test_layout
 
 test-nonxft:
 	./test_e2e TESTS-NONXFT.md
 
 test-xinerama:
 	./test_xinerama
+
+test-xrandr:
+	./test_xrandr
 
 # TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
 update-man: ./README.md

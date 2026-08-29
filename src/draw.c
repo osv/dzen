@@ -924,10 +924,14 @@ int parse_non_drawing_commands(char *text) {
 }
 
 void drawheader(const char *text) {
-    if (parse_non_drawing_commands((char *)text)) {
+    int should_draw = parse_non_drawing_commands((char *)text);
+
+    if (should_draw) {
         if (text) {
-            dzen.w = dzen.title_win.width;
-            dzen.h = dzen.line_height;
+            free(dzen.title_text);
+            dzen.title_text = estrdup(text);
+            dzen.w          = dzen.title_win.width;
+            dzen.h          = dzen.line_height;
 
             window_sens[TOPWINDOW].sens_areas_cnt = 0;
 
@@ -941,6 +945,19 @@ void drawheader(const char *text) {
 
     XCopyArea(dzen.dpy, dzen.title_win.drawable, dzen.title_win.win, dzen.gc, 0, 0, dzen.title_win.width,
               dzen.line_height, 0, 0);
+}
+
+void redrawheader(void) {
+    char *text;
+
+    if (!dzen.title_text) {
+        drawheader(NULL);
+        return;
+    }
+
+    text = estrdup(dzen.title_text);
+    drawheader(text);
+    free(text);
 }
 
 void drawbody(char *text) {

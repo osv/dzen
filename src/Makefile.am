@@ -14,9 +14,13 @@ dzen2_SOURCES = \
   font.h \
   kvstore.c \
   kvstore.h \
+  layout.c \
+  layout.h \
   main.c \
   util.c \
-  util.h
+  util.h \
+  xrandr.c \
+  xrandr.h
 
 # We can add extra CFLAGS or LIBS if needed, e.g.
 

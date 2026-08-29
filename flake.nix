@@ -13,6 +13,7 @@
         useXFT = true;
         useXinerama = true;
         useXcursor = true;
+        useXrandr = true;
       };
 
       # Function to create packages with options
@@ -28,7 +29,8 @@
               ++ lib.optional actualOptions.useXPM xorg.libXpm
               ++ lib.optional actualOptions.useXFT xorg.libXft
               ++ lib.optional actualOptions.useXinerama xorg.libXinerama
-              ++ lib.optional actualOptions.useXcursor xorg.libXcursor;
+              ++ lib.optional actualOptions.useXcursor xorg.libXcursor
+              ++ lib.optional actualOptions.useXrandr xorg.libXrandr;
           in pkgs.stdenv.mkDerivation rec {
             pname = "dzen2";
             version = "1.0.0";
@@ -38,6 +40,13 @@
             preConfigure = ''
               autoreconf -vfi
             '';
+
+            configureFlags = [ ]
+              ++ lib.optional actualOptions.useXPM "--enable-xpm"
+              ++ lib.optional actualOptions.useXFT "--enable-xft"
+              ++ lib.optional actualOptions.useXinerama "--enable-xinerama"
+              ++ lib.optional actualOptions.useXcursor "--enable-xcursor"
+              ++ lib.optional actualOptions.useXrandr "--enable-xrandr";
 
             nativeBuildInputs = [
               pkgs.autoconf
@@ -97,6 +106,11 @@
             xorg.libXinerama
             xorg.libXpm
             xorg.libXcursor
+            xorg.libXrandr
+            xorg.xorgserver     # isolated Xorg/Xvfb integration tests
+            xorg.xf86videodummy # RandR-capable dummy DDX for test_xrandr
+            dejavu_fonts
+            fontconfig
 
             valgrind            # I want check for memory leak, `printer-app | valgrind -s --leak-check=full --show-leak-kinds=all ./dzen2 ...`
 
@@ -108,7 +122,10 @@
             bc
           ];
 
+          FONTCONFIG_FILE = pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; };
+
           shellHook = ''
+            export XRANDR_XORG_MODULE_PATH="${pkgs.xorg.xf86videodummy}/lib/xorg/modules,${pkgs.xorg.xorgserver}/lib/xorg/modules"
             echo "!! Entering the dzen2 development shell"
           '';
         };

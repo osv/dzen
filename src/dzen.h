@@ -156,6 +156,7 @@ struct DZEN {
     char         *fnt; /* Default font name/specification */
     char         *bg; /* Default background color string */
     char         *fg; /* Default foreground color string */
+    char         *title_text; /* Last rendered title, used to redraw after a resize */
     int           line_height; /* Height of each text line in pixels */
 
     /* X11 display and screen information */
@@ -194,6 +195,7 @@ void         x_draw_body(void);
 extern void  drawtext(const char *text, int reverse, int line, int align);
 extern char *parse_line(const char *text, int linenr, int align, int reverse, int nodraw);
 extern void  drawheader(const char *text);
+extern void  redrawheader(void);
 extern void  drawbody(char *text);
 
 /* caches.c */

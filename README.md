@@ -100,9 +100,31 @@ Running dzen
     -h      line height (default: fontheight + 2 pixels)
     -w      width
     -xs     number of Xinerama screen
+    -output XRandR output name
+    -lm     list connected XRandR outputs with an active CRTC
     -v      version information
 
     See "(5) In-text formating language".
+
+
+Monitor selection
+=================
+
+Without a monitor selector, dzen uses the root-window geometry and follows
+XRandR changes to its size.
+
+`-output NAME` selects a physical XRandR output by name.  Dzen follows changes
+to that output's mode, position and rotation.  If the output is disconnected,
+its windows and dock struts are hidden; reconnecting it restores the windows
+with the original `-x`, `-y`, `-tw` and `-w` settings.  An unknown output name
+is an error.  Use `-lm` to list connected outputs which currently have an
+active CRTC.
+
+`-output` and `-xs` are mutually exclusive.  The legacy `-xs` selector is
+static: values from 1 through the number of Xinerama screens select that
+screen, while 0, negative and out-of-range values use the root geometry.
+Geometry is resolved once at startup and later XRandR events are ignored when
+`-xs` was explicitly supplied.
 
 
 X resources

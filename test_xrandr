@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# XRandR integration tests using an isolated Xorg dummy server. Tests which
-# need a second output run only when the DDX actually reports one.
+# XRandR integration tests using an isolated Xorg dummy server. Additional
+# outputs are provisioned when the DDX exposes them.
 set -u
 
 ROOT=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
@@ -89,7 +89,7 @@ Section "Screen"
  DefaultDepth 24
  SubSection "Display"
   Depth 24
-  Virtual 1600 1200
+  Virtual 2048 1200
   Modes "${SCREEN_W}x${SCREEN_H}" "${ALT_W}x${ALT_H}"
  EndSubSection
 EndSection
@@ -143,7 +143,9 @@ fi
 
 active_outputs() { xrandr --query | awk '$2 == "connected" { for (i=3; i<=NF; i++) if ($i ~ /^[0-9]+x[0-9]+[+-]/) { print $1; break } }'; }
 connected_outputs() { xrandr --query | awk '$2 == "connected" { print $1 }'; }
+randr_outputs() { xrandr --query | awk '$2 == "connected" || $2 == "disconnected" { print $1 }'; }
 output_geometry() { xrandr --query | awk -v o="$1" '$1 == o && $2 == "connected" { for (i=3; i<=NF; i++) if ($i ~ /^[0-9]+x[0-9]+[+-]/) { print $i; exit } }'; }
+output_connection() { xrandr --query | awk -v o="$1" '$1 == o { print $2; exit }'; }
 wait_output_geometry() {
   local output=$1 expected=$2 actual= _
   for _ in $(seq 1 60); do actual=$(output_geometry "$output"); [ "$actual" = "$expected" ] && return 0; sleep .05; done
@@ -230,9 +232,24 @@ run_rejected() {
 
 mapfile -t OUTPUTS < <(connected_outputs); mapfile -t ACTIVE_OUTPUTS < <(active_outputs)
 if [ "${#ACTIVE_OUTPUTS[@]}" -eq 0 ]; then fail "dummy DDX has no connected output with active CRTC"; summary; exit 1; fi
-OUTPUT=${ACTIVE_OUTPUTS[0]}; OUTPUT_COUNT=${#OUTPUTS[@]}; ACTIVE_COUNT=${#ACTIVE_OUTPUTS[@]}
+OUTPUT=${ACTIVE_OUTPUTS[0]}; OUTPUT_COUNT=${#OUTPUTS[@]}; SECONDARY= CONNECT_OUTPUT=
+mapfile -t RANDR_OUTPUTS < <(randr_outputs)
+if [ "${#RANDR_OUTPUTS[@]}" -ge 2 ]; then
+  SECONDARY=${RANDR_OUTPUTS[1]}
+  if ! xrandr --addmode "$SECONDARY" "${SCREEN_W}x${SCREEN_H}" >/dev/null 2>&1 ||
+     ! xrandr --addmode "$SECONDARY" "${ALT_W}x${ALT_H}" >/dev/null 2>&1; then
+    info "Second dummy output $SECONDARY cannot accept test modes; multi-output checks will skip"
+    SECONDARY=
+  fi
+fi
+if [ "${#RANDR_OUTPUTS[@]}" -ge 3 ]; then
+  CONNECT_OUTPUT=${RANDR_OUTPUTS[2]}
+  if ! xrandr --addmode "$CONNECT_OUTPUT" "${ALT_W}x${ALT_H}" >/dev/null 2>&1; then CONNECT_OUTPUT=; fi
+fi
 echo "XRandR backend: Xorg dummy on $DISPLAY"
 echo "Connected outputs: $OUTPUT_COUNT; active CRTCs: $ACTIVE_COUNT; selected: $OUTPUT"
+if [ -n "$SECONDARY" ]; then info "Prepared inactive secondary output: $SECONDARY"; fi
+if [ -n "$CONNECT_OUTPUT" ]; then info "Prepared never-activated connection-test output: $CONNECT_OUTPUT"; fi
 xrandr --query
 
 test_case 01 "output discovery and selector validation"
@@ -267,13 +284,27 @@ if xrandr --output "$OUTPUT" --rotate left >/dev/null 2>&1; then
   wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+0+0" || fail "normal rotation did not settle"
 else skip "dummy DDX does not support rotation"; fi
 
-POS_X=123; POS_Y=47
-test_case 05 "output position" 05-dummy-position.png
-if xrandr --fb 1200x900 --output "$OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos "${POS_X}x${POS_Y}" >/dev/null 2>&1; then
-  if wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+${POS_X}+${POS_Y}"; then
-    assert_window_geometry "output position" "$((POS_X + BAR_X))" "$((POS_Y + BAR_Y))" "$BAR_W" "$BAR_H"; capture 05-dummy-position
-  else skip "single-output dummy DDX keeps its output at +0+0"; fi
-else skip "dummy DDX rejected explicit output position"; fi
+test_case 05 "extended desktop and output position" 05-dummy-extended-position.png
+if [ -n "$SECONDARY" ]; then
+  if xrandr --fb "$((2 * ALT_W))x${ALT_H}" \
+      --output "$SECONDARY" --mode "${ALT_W}x${ALT_H}" --pos 0x0 \
+      --output "$OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos "${ALT_W}x0" >/dev/null 2>&1; then
+    wait_output_geometry "$SECONDARY" "${ALT_W}x${ALT_H}+0+0" || fail "secondary output position did not settle"
+    wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+${ALT_W}+0" || fail "selected output position did not settle"
+    wait_window_geometry "$((ALT_W + BAR_X))" "$BAR_Y" "$BAR_W" "$BAR_H" || fail "bar did not follow positioned output"
+    assert_window_geometry "positioned output" "$((ALT_W + BAR_X))" "$BAR_Y" "$BAR_W" "$BAR_H"
+    assert_eq "position change keeps title window" "$WIN" "$INITIAL_WIN"
+    DUAL_LM_OUTPUT=$("$ROOT/src/dzen2" -lm 2>&1)
+    assert_match "-lm lists positioned output $OUTPUT" "$DUAL_LM_OUTPUT" "(^|[[:space:]])$OUTPUT([[:space:]]|$)"
+    assert_match "-lm lists active secondary $SECONDARY" "$DUAL_LM_OUTPUT" "(^|[[:space:]])$SECONDARY([[:space:]]|$)"
+    capture 05-dummy-extended-position
+  else fail "configure extended dummy outputs"; fi
+  xrandr --fb "${ALT_W}x${ALT_H}" --output "$SECONDARY" --off \
+    --output "$OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore primary output after position test"
+  wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+0+0" || fail "primary output restoration did not settle"
+else
+  skip "dummy DDX exposes no secondary output for position testing"
+fi
 
 test_case 06 "output disconnect and reconnect" 06-dummy-reconnect.png
 if xrandr --output "$OUTPUT" --off >/dev/null 2>&1; then
@@ -372,30 +403,57 @@ wait_root_geometry "${SCREEN_W}x${SCREEN_H}" || fail "restored root geometry did
 
 # Starting on a known but currently disconnected output must create hidden
 # windows and remain alive until the output returns.
-test_case 14 "startup on a known output without an active CRTC"
-xrandr --output "$OUTPUT" --off >/dev/null 2>&1 || fail "disconnect before startup"
-if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -h "$BAR_H" -w "$BAR_W"; then
+test_case 14 "startup on an RR_Disconnected output, then connect it" 14-dummy-output-connected.png
+if [ -n "$CONNECT_OUTPUT" ]; then
+  assert_eq "test output initial RandR connection" "$(output_connection "$CONNECT_OUTPUT")" disconnected
+fi
+if [ -n "$CONNECT_OUTPUT" ] && start -output "$CONNECT_OUTPUT" -x "$BAR_X" -y "$BAR_Y" -h "$BAR_H" -w "$BAR_W"; then
   if wait_window_state IsUnMapped; then pass "known disconnected output starts hidden"; else fail "known disconnected output starts hidden"; fi
-  if xrandr --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1; then
-    wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "startup reconnect did not settle"
+  if xrandr --fb "$((SCREEN_W + ALT_W))x${SCREEN_H}" \
+      --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 \
+      --output "$CONNECT_OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos "${SCREEN_W}x0" >/dev/null 2>&1; then
+    wait_output_geometry "$CONNECT_OUTPUT" "${ALT_W}x${ALT_H}+${SCREEN_W}+0" || fail "test output connection did not settle"
+    assert_eq "test output active RandR connection" "$(output_connection "$CONNECT_OUTPUT")" connected
     if wait_window_state IsViewable; then pass "disconnected-start window maps after reconnect"; else fail "disconnected-start window maps after reconnect"; fi
-    assert_window_geometry "disconnected-start offsets restored" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
+    assert_window_geometry "connected output offsets" "$((SCREEN_W + BAR_X))" "$BAR_Y" "$BAR_W" "$BAR_H"
+    capture 14-dummy-output-connected
+    xrandr --output "$CONNECT_OUTPUT" --off >/dev/null 2>&1 || fail "disable test output after startup test"
+    if wait_window_state IsUnMapped; then pass "output without CRTC hides title window"; else fail "output without CRTC hides title window"; fi
+    if [ -z "$(output_geometry "$CONNECT_OUTPUT")" ]; then pass "test output final CRTC is inactive"; else fail "test output final CRTC remains active"; fi
   else fail "reconnect after disconnected startup"; fi
+elif [ -z "$CONNECT_OUTPUT" ]; then
+  skip "dummy DDX exposes no untouched output for connection testing"
 else fail "known disconnected output process remains alive"; fi
+if [ -n "$CONNECT_OUTPUT" ]; then
+  xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$CONNECT_OUTPUT" --off \
+    --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore primary after secondary connection test"
+fi
+wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "primary restoration after connection test did not settle"
 
 test_case 15 "unrelated output topology event"
-if [ "$ACTIVE_COUNT" -ge 2 ]; then
-  SECONDARY=${ACTIVE_OUTPUTS[1]}
+if [ -n "$SECONDARY" ]; then
+  if ! xrandr --fb "$((SCREEN_W + ALT_W))x${SCREEN_H}" \
+      --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 \
+      --output "$SECONDARY" --mode "${ALT_W}x${ALT_H}" --pos "${SCREEN_W}x0" >/dev/null 2>&1; then
+    fail "activate secondary for unrelated-output test"
+  fi
+  wait_output_geometry "$SECONDARY" "${ALT_W}x${ALT_H}+${SCREEN_W}+0" || fail "secondary activation did not settle"
   if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -h "$BAR_H" -w "$BAR_W"; then
     BEFORE=$(window_geometry); BEFORE_WIN=$WIN
-    if xrandr --output "$SECONDARY" --off >/dev/null 2>&1; then
-      sleep .2; AFTER=$(window_geometry)
+    if xrandr --fb "$((2 * SCREEN_W))x${SCREEN_H}" \
+        --output "$SECONDARY" --mode "${SCREEN_W}x${SCREEN_H}" --pos "${SCREEN_W}x0" >/dev/null 2>&1; then
+      wait_output_geometry "$SECONDARY" "${SCREEN_W}x${SCREEN_H}+${SCREEN_W}+0" || fail "unrelated mode change did not settle"
+      AFTER=$(window_geometry)
       assert_eq "unrelated-output event leaves layout unchanged" "$AFTER" "$BEFORE"
       assert_eq "unrelated-output event keeps title window" "$WIN" "$BEFORE_WIN"
-    else skip "second output cannot be disabled independently"; fi
+    else fail "change unrelated output mode"; fi
   else fail "start for unrelated-output event"; fi
 else
-  skip "dummy DDX exposes only $ACTIVE_COUNT active RandR output; multi-output/unrelated-output assertions unavailable"
+  skip "dummy DDX exposes no secondary output for unrelated-output testing"
+fi
+if [ -n "$SECONDARY" ]; then
+  xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$SECONDARY" --off \
+    --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore primary after unrelated-output test"
 fi
 
 cleanup_dzen; summary; exit "$FAILURES"

@@ -626,11 +626,11 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                 }
 
                 /* check if text is longer than window's width */
-                tw = font_get_text_width(ctx.text_buffer, strlen(ctx.text_buffer));
+                tw = font_get_text_width(ctx.text_buffer, (unsigned int)ctx.buffer_pos);
                 while ((((tw + ctx.current_x) > (dzen.w)) || (ctx.block_align != -1 && tw > ctx.block_width)) &&
-                       ctx.buffer_pos >= 0) {
+                       ctx.buffer_pos > 0) {
                     ctx.text_buffer[--ctx.buffer_pos] = '\0';
-                    tw                                = font_get_text_width(ctx.text_buffer, strlen(ctx.text_buffer));
+                    tw = font_get_text_width(ctx.text_buffer, (unsigned int)ctx.buffer_pos);
                 }
 
                 ctx.block_start_x = ctx.current_x;
@@ -649,8 +649,8 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                 if (!ctx.nobg)
                     setcolor(&ctx.pm, ctx.current_x, tw, ctx.lastfg, ctx.lastbg, ctx.reverse, ctx.nobg);
 
-                font_draw_text(ctx.pm, dzen.tgc, ctx.current_x, ctx.current_y, ctx.text_buffer, strlen(ctx.text_buffer),
-                               ctx.reverse, ctx.current_fgcolor, ctx.current_bgcolor);
+                font_draw_text(ctx.pm, dzen.tgc, ctx.current_x, ctx.current_y, ctx.text_buffer,
+                               (unsigned int)ctx.buffer_pos, ctx.reverse, ctx.current_fgcolor, ctx.current_bgcolor);
 
                 if (ctx.current_font) {
                     ctx.max_y = MAX(ctx.max_y, ctx.current_y + ctx.current_font->height);

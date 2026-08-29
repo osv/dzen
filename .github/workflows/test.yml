@@ -30,16 +30,22 @@ jobs:
             libxpm-dev
             libxcursor-dev
             libxinerama-dev
+            libxrandr-dev
             fonts-dejavu-core
+            fontconfig
             xfonts-base
             xdotool
             x11-apps
+            x11-utils
+            x11-xserver-utils
             xvfb
             xserver-xephyr
+            xserver-xorg-core
+            xserver-xorg-video-dummy
             x11-xkb-utils
             xkb-data
             clang-format
-          version: 4
+          version: 5
 
       # Fix ImageMagick symlinks (cache-apt-pkgs-action doesn't preserve alternatives)
       - name: Fix ImageMagick alternatives
@@ -59,7 +65,7 @@ jobs:
 
       # Run configure
       - name: Configure the project
-        run: ./configure --enable-gadgets --enable-xft --enable-xpm --enable-xinerama --enable-xcursor
+        run: ./configure --enable-gadgets --enable-xft --enable-xpm --enable-xinerama --enable-xcursor --enable-xrandr
 
       # Build the app using Makefile
       - name: Build the application
@@ -85,11 +91,16 @@ jobs:
           export DISPLAY=:99
           make test-xinerama
 
+      # Run XRandR tests on an isolated Xorg dummy display. Missing test tools
+      # or the dummy DDX are errors by default, so this step cannot silently skip.
+      - name: Run XRandR integration tests
+        run: make test-xrandr
+
       # Test without XFT support
       - name: Configure and build without XFT
         run: |
           make distclean
-          ./configure --disable-xft --enable-xpm --enable-xinerama --enable-xcursor
+          ./configure --disable-xft --enable-xpm --enable-xinerama --enable-xcursor --enable-xrandr
           make
 
       - name: Run non-XFT tests
@@ -97,11 +108,16 @@ jobs:
           export DISPLAY=:99
           make test-nonxft
 
-      # TODO: fix build without xft too
-      - name: Compile without xinerama, xcursor, xpm
+      - name: Compile with XRandR and without Xinerama
         run: |
-          make clean
-          ./configure --disable-xinerama --disable-xcursor --disable-xpm
+          make distclean
+          ./configure --enable-xrandr --disable-xinerama --disable-xcursor --disable-xpm
+          make
+
+      - name: Compile without XRandR
+        run: |
+          make distclean
+          ./configure --disable-xrandr --enable-xinerama --enable-xcursor --enable-xpm
           make
 
       # Upload screenshots and diffs as artifacts if ANY test fails
@@ -110,5 +126,5 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots
+          name: integration-test-artifacts
           path: integration-tests

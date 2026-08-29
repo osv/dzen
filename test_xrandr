@@ -4,12 +4,12 @@
 set -u
 
 ROOT=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
-SCREEN_W=${XRANDR_TEST_SCREEN_W:-1024}; SCREEN_H=${XRANDR_TEST_SCREEN_H:-600}
-ALT_W=${XRANDR_TEST_ALT_W:-800}; ALT_H=${XRANDR_TEST_ALT_H:-600}
-BAR_H=${XRANDR_TEST_BAR_H:-28}; BAR_X=${XRANDR_TEST_BAR_X:-37}
-BAR_Y=${XRANDR_TEST_BAR_Y:-23}; BAR_W=${XRANDR_TEST_BAR_W:-211}
-TEST_FONT=${XRANDR_TEST_FONT:-DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none}
-BAR_BG=${XRANDR_TEST_BG:-#203040}; BAR_FG=${XRANDR_TEST_FG:-#ffffff}
+SCREEN_W=1024; SCREEN_H=600
+ALT_W=800; ALT_H=600
+BAR_H=28; BAR_X=37
+BAR_Y=23; BAR_W=211
+TEST_FONT='DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none'
+BAR_BG='#203040'; BAR_FG='#ffffff'
 TEST_DIR=$ROOT/integration-tests/test_xrandr
 ACTUAL=$TEST_DIR/actual; EXPECTED=$TEST_DIR/expected; DIFFS=$TEST_DIR/diffs
 mkdir -p "$ACTUAL" "$EXPECTED" "$DIFFS"
@@ -29,12 +29,6 @@ info "  XRANDR_TEST_ALLOW_MISSING_BACKEND=1  skip when the Xorg dummy DDX is una
 info "  UPDATE_XRANDR_EXPECTED=1             replace expected screenshots with actual results"
 info "  XRANDR_TEST_DISPLAY=:N               use a specific Xorg display instead of finding one"
 info "  XRANDR_XORG_MODULE_PATH=PATHS         override the Xorg module search path"
-info "  XRANDR_TEST_SCREEN_W, XRANDR_TEST_SCREEN_H=N  set the initial output dimensions"
-info "  XRANDR_TEST_ALT_W, XRANDR_TEST_ALT_H=N        set the alternate output dimensions"
-info "  XRANDR_TEST_BAR_X, XRANDR_TEST_BAR_Y, XRANDR_TEST_BAR_W, XRANDR_TEST_BAR_H=N"
-info "                                               set the tested bar geometry"
-info "  XRANDR_TEST_FONT=PATTERN              set the deterministic screenshot font"
-info "  XRANDR_TEST_BG, XRANDR_TEST_FG=COLOR          set the screenshot colors"
 info "  NO_COLOR=1                            disable colored output"
 cleanup_dzen() {
   if [ -n "$DZEN_PID" ]; then kill "$DZEN_PID" 2>/dev/null || true; wait "$DZEN_PID" 2>/dev/null || true; DZEN_PID=; fi

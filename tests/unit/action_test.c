@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 Dzen          dzen = { 0 };
 static int    draw_body_calls;
@@ -186,6 +187,28 @@ static void test_togglecollapse_attribute_failure(void) {
     window_attributes_status = True;
 }
 
+static void test_hide_does_not_write_stdout(void) {
+    FILE *capture = tmpfile();
+    long  output_size;
+    int   saved_stdout;
+
+    CHECK(capture != NULL);
+    saved_stdout = dup(STDOUT_FILENO);
+    CHECK(saved_stdout >= 0);
+    CHECK(fflush(stdout) == 0);
+    CHECK(dup2(fileno(capture), STDOUT_FILENO) >= 0);
+
+    dzen.title_win.ishidden = True;
+    CHECK(a_hide(NULL) == 0);
+    CHECK(fflush(stdout) == 0);
+    output_size = ftell(capture);
+
+    CHECK(dup2(saved_stdout, STDOUT_FILENO) >= 0);
+    close(saved_stdout);
+    fclose(capture);
+    CHECK(output_size == 0);
+}
+
 int main(void) {
     test_action_limit();
     test_option_limit();
@@ -193,6 +216,7 @@ int main(void) {
     test_menu_selection();
     test_event_names_are_exact();
     test_togglecollapse_attribute_failure();
+    test_hide_does_not_write_stdout();
     puts("action tests passed");
     return EXIT_SUCCESS;
 }

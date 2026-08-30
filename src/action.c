@@ -47,14 +47,25 @@ struct action_lookup ac_lookup_table[] = { { "print", a_print },
                                            { 0, 0 } };
 
 ev_list             *head = NULL;
+static TextBuffer    menu_action_text;
 
-static int           new_event(long evid) {
+static void          free_action(As *action) {
+    int i;
+
+    if (!action)
+        return;
+    for (i = 0; i < MAXOPTIONS; i++)
+        free(action->options[i]);
+    free(action);
+}
+
+static int new_event(long evid) {
     ev_list *item, *newitem;
 
     if (!head) {
-        head       = emalloc(sizeof(ev_list));
-        head->id   = evid;
-        head->next = NULL;
+        head = emalloc(sizeof(ev_list));
+        memset(head, 0, sizeof(ev_list));
+        head->id = evid;
     } else {
         item = head;
         /* check if we already handle this event */
@@ -67,10 +78,10 @@ static int           new_event(long evid) {
         while (item->next)
             item = item->next;
 
-        newitem       = emalloc(sizeof(ev_list));
-        newitem->id   = evid;
-        item->next    = newitem;
-        newitem->next = NULL;
+        newitem = emalloc(sizeof(ev_list));
+        memset(newitem, 0, sizeof(ev_list));
+        newitem->id = evid;
+        item->next  = newitem;
     }
     return 0;
 }
@@ -82,6 +93,7 @@ static void add_handler(long evid, int hpos, handlerf *hcb) {
     while (item) {
         if (item->id == evid) {
             if (hpos < MAXACTIONS) {
+                free_action(item->action[hpos]);
                 item->action[hpos]          = emalloc(sizeof(As));
                 item->action[hpos]->handler = hcb;
                 /* Initialize all options to NULL */
@@ -175,12 +187,10 @@ void free_event_list(void) {
 
     item = head;
     while (item) {
-        for (i = 0; i < MAXACTIONS && item->action[i] != NULL; i++) {
-            /* Free all allocated options for this action */
-            for (int j = 0; j < MAXOPTIONS && item->action[i]->options[j] != NULL; j++) {
-                free(item->action[i]->options[j]);
-            }
-            free(item->action[i]);
+        for (i = 0; i < MAXACTIONS; i++) {
+            if (!item->action[i])
+                continue;
+            free_action(item->action[i]);
         }
 
         next = item->next;
@@ -188,6 +198,7 @@ void free_event_list(void) {
         item = next;
     }
     head = NULL;
+    text_buffer_destroy(&menu_action_text);
 }
 
 void fill_ev_table(char *input) {
@@ -397,20 +408,19 @@ int a_print(char *opt[]) {
 }
 
 int a_menuprint(char *opt[]) {
-    char *text;
-    int   i;
+    int i;
 
     if (dzen.slave_win.ismenu && dzen.slave_win.sel_line != -1 &&
         (dzen.slave_win.sel_line + dzen.slave_win.first_line_vis) < dzen.slave_win.tcnt) {
-        text = parse_line(NULL, dzen.slave_win.sel_line, 0, 0, 1);
-        printf("%s", text);
+        int index = dzen.slave_win.sel_line + dzen.slave_win.first_line_vis;
+        parse_line_text(text_buffer_data(&dzen.slave_win.tbuf[index]), &menu_action_text);
+        printf("%s", text_buffer_data(&menu_action_text));
         if (opt)
             for (i = 0; opt[i]; ++i)
                 printf("%s", opt[i]);
         puts("");
         fflush(stdout);
         dzen.slave_win.sel_line = -1;
-        free(text);
     }
     return 0;
 }
@@ -420,7 +430,8 @@ int a_menuprint_noparse(char *opt[]) {
 
     if (dzen.slave_win.ismenu && dzen.slave_win.sel_line != -1 &&
         (dzen.slave_win.sel_line + dzen.slave_win.first_line_vis) < dzen.slave_win.tcnt) {
-        printf("%s", dzen.slave_win.tbuf[dzen.slave_win.sel_line]);
+        int index = dzen.slave_win.sel_line + dzen.slave_win.first_line_vis;
+        printf("%s", text_buffer_data(&dzen.slave_win.tbuf[index]));
         if (opt)
             for (i = 0; opt[i]; ++i)
                 printf("%s", opt[i]);
@@ -432,15 +443,14 @@ int a_menuprint_noparse(char *opt[]) {
 }
 
 int a_menuexec(char *opt[]) {
-    char *text;
     (void)opt;
 
     if (dzen.slave_win.ismenu && dzen.slave_win.sel_line != -1 &&
         (dzen.slave_win.sel_line + dzen.slave_win.first_line_vis) < dzen.slave_win.tcnt) {
-        text = parse_line(NULL, dzen.slave_win.sel_line, 0, 0, 1);
-        spawn(text);
+        int index = dzen.slave_win.sel_line + dzen.slave_win.first_line_vis;
+        parse_line_text(text_buffer_data(&dzen.slave_win.tbuf[index]), &menu_action_text);
+        spawn(text_buffer_data(&menu_action_text));
         dzen.slave_win.sel_line = -1;
-        free(text);
     }
     return 0;
 }

@@ -20,9 +20,13 @@ EXTRA_DIST = \
   integration-tests \
   test_e2e \
   test_perfomance \
+  test_signals \
   test_xinerama \
   test_xrandr \
+  tests/test_common.h \
   tests/test_layout.c \
+  tests/test_signal_dispatch.c \
+  tests/test_text_buffer.c \
   TESTS.md \
   TESTS-NONXFT.md \
   .gitignore \
@@ -37,16 +41,34 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test test-layout test-xinerama test-xrandr update-man
+.PHONY: test test-layout test-signal-dispatch test-signals test-text-buffer test-xinerama test-xrandr update-man
 
 test:
 	$(MAKE) test-layout
+	$(MAKE) test-signal-dispatch
+	$(MAKE) test-text-buffer
+	$(MAKE) test-signals
 	./test_e2e TESTS.md
 
 test-layout:
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc -o tests/test_layout tests/test_layout.c src/layout.c $(X11_LIBS)
 	./tests/test_layout
 	$(RM) tests/test_layout
+
+test-text-buffer:
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc -o tests/test_text_buffer tests/test_text_buffer.c \
+		src/text_buffer.c src/line_reader.c src/util.c
+	./tests/test_text_buffer
+	$(RM) tests/test_text_buffer
+
+test-signal-dispatch:
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc -o tests/test_signal_dispatch tests/test_signal_dispatch.c \
+		src/signal_dispatch.c
+	./tests/test_signal_dispatch
+	$(RM) tests/test_signal_dispatch
+
+test-signals:
+	./test_signals
 
 test-nonxft:
 	./test_e2e TESTS-NONXFT.md

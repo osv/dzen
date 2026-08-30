@@ -298,6 +298,12 @@ Always run `make test` before committing. If visual output changes are intention
 git add integration-tests/TESTS/expected/*.png
 ```
 
+For C tests under `tests/`, include `test_common.h` and use `CHECK(...)` for
+validation. Do not use the standard `assert()` macro or place side effects in
+it: assertions disappear when compiled with `-DNDEBUG`, which can turn a test
+into a false pass or skip the operation being tested. `CHECK(...)` remains
+active in all build modes and reports the failing source file and line.
+
 ### Testing Font Module
 
 A dedicated test script `test_font_module` verifies font functionality:
@@ -410,4 +416,3 @@ ulimit -n 65536  # Set before running valgrind if you get "Private file creation
 - Keep line length under 120 characters
 - Use `make format` after finishing modifying all files or before committing
 - Ensure new files are part of distribution, file must be included in Makefile.am (for example EXTRA_DIST)
-

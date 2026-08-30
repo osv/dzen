@@ -39,17 +39,19 @@ void xrandr_update_configuration(XEvent *event) {
 XRandROutputStatus xrandr_query_output(Display *display, int screen, const char *name, XRectangle *geometry) {
     XRRScreenResources *resources;
     XRandROutputStatus  status = XRANDR_OUTPUT_NOT_FOUND;
+    size_t              name_length;
     int                 i;
 
     resources = XRRGetScreenResourcesCurrent(display, RootWindow(display, screen));
     if (!resources)
         return XRANDR_OUTPUT_QUERY_ERROR;
 
+    name_length = strlen(name);
     for (i = 0; i < resources->noutput; i++) {
         XRROutputInfo *output = XRRGetOutputInfo(display, resources, resources->outputs[i]);
         if (!output)
             continue;
-        if ((int)strlen(name) == output->nameLen && !memcmp(output->name, name, output->nameLen)) {
+        if (name_length == (size_t)output->nameLen && !memcmp(output->name, name, name_length)) {
             status = XRANDR_OUTPUT_DISCONNECTED;
             if (output->connection == RR_Connected && output->crtc != None) {
                 XRRCrtcInfo *crtc = XRRGetCrtcInfo(display, resources, output->crtc);

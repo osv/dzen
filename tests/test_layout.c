@@ -1,7 +1,8 @@
 #include "../src/layout.h"
+#include "test_common.h"
 
-#include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static LayoutRequest request(void) {
@@ -27,29 +28,29 @@ int main(void) {
     input.title_width_explicit = True;
     input.slave_width_explicit = True;
     layout_resolve(&input, &target, &first);
-    assert(first.title.x == 137 && first.title.y == 73);
-    assert(first.title.width == 211 && first.slave.width == 284);
+    CHECK(first.title.x == 137 && first.title.y == 73);
+    CHECK(first.title.width == 211 && first.slave.width == 284);
 
     input.x = -1;
     input.y = -1;
     layout_resolve(&input, &target, &first);
-    assert(first.title.x == 689 && first.title.y == 630);
+    CHECK(first.title.x == 689 && first.title.y == 630);
 
     input.x = 0;
     input.y = 590;
     layout_resolve(&input, &target, &first);
-    assert(first.slave.y == 570);
+    CHECK(first.slave.y == 570);
 
     input.y               = 0;
     input.horizontal_menu = True;
     layout_resolve(&input, &target, &first);
-    assert(first.slave.y == first.title.y && first.slave.height == 20);
+    CHECK(first.slave.y == first.title.y && first.slave.height == 20);
     layout_menu_child(&first, 2, 3, &child);
-    assert(child.x == 188 && child.width == 96);
+    CHECK(child.x == 188 && child.width == 96);
 
     layout_resolve(&input, &target, &second);
-    assert(layout_equal(&first, &second));
+    CHECK(layout_equal(&first, &second));
 
     puts("layout tests passed");
-    return 0;
+    return EXIT_SUCCESS;
 }

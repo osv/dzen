@@ -7,9 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-Dzen  dzen = { 0 };
+Dzen       dzen = { 0 };
+static int draw_body_calls;
 
-void *emalloc(unsigned int size) {
+void      *emalloc(unsigned int size) {
     void *result = malloc(size);
 
     CHECK(result != NULL);
@@ -37,6 +38,7 @@ void spawn(const char *command) {
 }
 
 void x_draw_body(void) {
+    draw_body_calls++;
 }
 
 void parse_line_text(const char *text, TextBuffer *output) {
@@ -86,9 +88,39 @@ static void test_option_limit(void) {
     free_event_list();
 }
 
+static void check_scroll_range(int count, int first, int last, int scroll_to_end) {
+    dzen.slave_win.max_lines      = 5;
+    dzen.slave_win.tcnt           = count;
+    dzen.slave_win.first_line_vis = -1;
+    dzen.slave_win.last_line_vis  = -1;
+    draw_body_calls               = 0;
+
+    if (scroll_to_end)
+        a_scrollend(NULL);
+    else
+        a_scrollhome(NULL);
+
+    CHECK(dzen.slave_win.first_line_vis == first);
+    CHECK(dzen.slave_win.last_line_vis == last);
+    CHECK(draw_body_calls == 1);
+}
+
+static void test_scroll_endpoints(void) {
+    check_scroll_range(0, 0, 0, 0);
+    check_scroll_range(2, 0, 2, 0);
+    check_scroll_range(5, 0, 5, 0);
+    check_scroll_range(8, 0, 5, 0);
+
+    check_scroll_range(0, 0, 0, 1);
+    check_scroll_range(2, 0, 2, 1);
+    check_scroll_range(5, 0, 5, 1);
+    check_scroll_range(8, 3, 8, 1);
+}
+
 int main(void) {
     test_action_limit();
     test_option_limit();
+    test_scroll_endpoints();
     puts("action tests passed");
     return EXIT_SUCCESS;
 }

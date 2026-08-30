@@ -65,16 +65,21 @@ Note: Using the `--enable-FEATURE` options requires libraries to be installed.
 Contribute:
 ========
 
-Feature requests, patches or anything else related to dzen can be send
+Feature requests, patches or anything else related to dzen can be sent
 to: https://github.com/osv/dzen
 
 To update man page and README.md from README.dzen, run:
 
     make update-man
 
-To run integration tests, DejaVu fonts and compilation with the `--enable-xft` options are required:
+To run all tests applicable to the current build:
 
-    make test
+    make check
+
+`make test` is an alias for `make check`. Integration tests are selected
+according to the enabled configure features. Visual tests require Xvfb,
+xdotool, xwd, and ImageMagick. Xinerama tests additionally require Xephyr.
+XRandR tests require XFT, DejaVu Sans Mono, Xorg, and the dummy video driver.
 
 
 Running dzen

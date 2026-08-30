@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
+cd "$ROOT"
+
 # Set reasonable file descriptor limit for Valgrind
 ulimit -n 65536
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || {
+        echo "Required command is unavailable: $1" >&2
+        exit 1
+    }
+}
+
+[ -x ./src/dzen2 ] || { echo "src/dzen2 is not built" >&2; exit 1; }
 
 read_sleep() {
     local IFS
@@ -81,9 +94,11 @@ test_bench() {
 # Parse command line arguments
 case "${1:-}" in
     --valgrind)
+        require_command valgrind
         test_valgrind
         ;;
     --perf)
+        require_command perf
         test_perf
         ;;
     --printer)
@@ -91,6 +106,7 @@ case "${1:-}" in
         printer "$@"
         ;;
     --bench)
+        require_command bc
         test_bench
         ;;
     *)

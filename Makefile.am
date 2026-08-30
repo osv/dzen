@@ -7,7 +7,7 @@ if ENABLE_GADGETS
 endif
 
 bin_SCRIPTS = dzen2-help
-CLEANFILES = $(bin_SCRIPTS) tests/blocked_signal_exec tests/high_fd_exec
+CLEANFILES = $(bin_SCRIPTS)
 dist_doc_DATA = README.dzen README.md
 
 dist_man_MANS = dzen2.1
@@ -16,25 +16,73 @@ EXTRA_DIST = \
   CREDITS \
   LICENSE \
   INSTALL \
+  bitmaps \
   dzen2-help.in \
-  integration-tests \
-  test_e2e \
-  test_perfomance \
-  test_signals \
-  test_xinerama \
-  test_xrandr \
-  tests/blocked_signal_exec.c \
-  tests/high_fd_exec.c \
-  tests/test_common.h \
-  tests/test_layout.c \
-  tests/test_signal_dispatch.c \
-  tests/test_text_buffer.c \
-  TESTS.md \
-  TESTS-NONXFT.md \
+  tests/integration/test_common.sh \
+  tests/integration/signals/test.sh \
+  tests/integration/xinerama/test.sh \
+  tests/integration/xinerama/.gitignore \
+  tests/integration/xinerama/expected \
+  tests/integration/xrandr/test.sh \
+  tests/integration/xrandr/.gitignore \
+  tests/integration/xrandr/expected \
+  tests/integration/visual/runner.sh \
+  tests/integration/visual/xft/cases.md \
+  tests/integration/visual/xft/.gitignore \
+  tests/integration/visual/xft/expected \
+  tests/integration/visual/core-font/cases.md \
+  tests/integration/visual/core-font/.gitignore \
+  tests/integration/visual/core-font/expected \
+  tests/tools/performance_benchmark.sh \
   .gitignore \
   flake.nix \
   flake.lock \
   .envrc
+
+noinst_HEADERS = tests/unit/test_common.h
+
+UNIT_TESTS = \
+  tests/unit/layout_test \
+  tests/unit/signal_dispatch_test \
+  tests/unit/text_buffer_test
+
+TEST_HELPERS = \
+  tests/helpers/blocked_signal_exec \
+  tests/helpers/high_fd_exec
+
+check_PROGRAMS = $(UNIT_TESTS) $(TEST_HELPERS)
+TESTS = $(UNIT_TESTS)
+
+tests_unit_layout_test_SOURCES = \
+  tests/unit/layout_test.c \
+  src/layout.c \
+  src/layout.h
+tests_unit_layout_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
+tests_unit_layout_test_LDADD = $(X11_LIBS)
+
+tests_unit_signal_dispatch_test_SOURCES = \
+  tests/unit/signal_dispatch_test.c \
+  src/signal_dispatch.c \
+  src/signal_dispatch.h
+tests_unit_signal_dispatch_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
+
+tests_unit_text_buffer_test_SOURCES = \
+  tests/unit/text_buffer_test.c \
+  src/text_buffer.c \
+  src/text_buffer.h \
+  src/line_reader.c \
+  src/line_reader.h \
+  src/util.c \
+  src/util.h
+tests_unit_text_buffer_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
+
+tests_helpers_blocked_signal_exec_SOURCES = tests/helpers/blocked_signal_exec.c
+tests_helpers_high_fd_exec_SOURCES = tests/helpers/high_fd_exec.c
+
+TEST_ENV = \
+  DZEN2_TEST_SOURCE_ROOT="$(abs_top_srcdir)" \
+  DZEN2_TEST_BUILD_ROOT="$(abs_top_builddir)" \
+  DZEN2_TEST_BINARY="$(abs_top_builddir)/src/dzen2"
 
 do_subst = sed -e 's,[@]bindir[@],$(bindir),g' \
             -e 's,[@]docdir[@],$(docdir),g'
@@ -43,49 +91,101 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test test-layout test-signal-dispatch test-signals test-text-buffer test-xinerama test-xrandr update-man
+.PHONY: test test-unit test-layout test-signal-dispatch test-text-buffer \
+  test-signals test-visual test-visual-xft test-visual-core test-nonxft \
+  test-xinerama test-xrandr update-man
 
-test:
-	$(MAKE) test-layout
-	$(MAKE) test-signal-dispatch
-	$(MAKE) test-text-buffer
-	$(MAKE) test-signals
-	./test_e2e TESTS.md
+test: check
 
-test-layout:
-	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc -o tests/test_layout tests/test_layout.c src/layout.c $(X11_LIBS)
-	./tests/test_layout
-	$(RM) tests/test_layout
+test-unit: $(UNIT_TESTS)
+	@set -e; for test_program in $(UNIT_TESTS); do ./$$test_program; done
 
-test-text-buffer:
-	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc -o tests/test_text_buffer tests/test_text_buffer.c \
-		src/text_buffer.c src/line_reader.c src/util.c
-	./tests/test_text_buffer
-	$(RM) tests/test_text_buffer
+test-layout: tests/unit/layout_test
+	./tests/unit/layout_test
 
-test-signal-dispatch:
-	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc -o tests/test_signal_dispatch tests/test_signal_dispatch.c \
-		src/signal_dispatch.c
-	./tests/test_signal_dispatch
-	$(RM) tests/test_signal_dispatch
+test-signal-dispatch: tests/unit/signal_dispatch_test
+	./tests/unit/signal_dispatch_test
 
-test-signals: tests/blocked_signal_exec tests/high_fd_exec
-	./test_signals
+test-text-buffer: tests/unit/text_buffer_test
+	./tests/unit/text_buffer_test
 
-tests/blocked_signal_exec: tests/blocked_signal_exec.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
+test-signals: all $(TEST_HELPERS)
+	@$(TEST_ENV) $(top_srcdir)/tests/integration/signals/test.sh
 
-tests/high_fd_exec: tests/high_fd_exec.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
+if HAVE_XFT
+test-visual: test-visual-xft
 
-test-nonxft:
-	./test_e2e TESTS-NONXFT.md
+test-visual-xft: all
+	@$(TEST_ENV) $(top_srcdir)/tests/integration/visual/runner.sh \
+		$(abs_top_srcdir)/tests/integration/visual/xft/cases.md
 
+test-visual-core:
+	@echo "test-visual-core requires a build configured with --disable-xft" >&2
+	@exit 1
+else
+test-visual: test-visual-core
+
+test-visual-xft:
+	@echo "test-visual-xft requires a build configured with --enable-xft" >&2
+	@exit 1
+
+test-visual-core: all
+	@$(TEST_ENV) $(top_srcdir)/tests/integration/visual/runner.sh \
+		$(abs_top_srcdir)/tests/integration/visual/core-font/cases.md
+endif
+
+test-nonxft: test-visual-core
+
+if HAVE_XINERAMA
+test-xinerama: all
+	@$(TEST_ENV) $(top_srcdir)/tests/integration/xinerama/test.sh
+else
 test-xinerama:
-	./test_xinerama
+	@echo "test-xinerama requires a build configured with --enable-xinerama" >&2
+	@exit 1
+endif
 
+if HAVE_XRANDR
+if HAVE_XFT
+test-xrandr: all
+	@$(TEST_ENV) $(top_srcdir)/tests/integration/xrandr/test.sh
+else
 test-xrandr:
-	./test_xrandr
+	@echo "test-xrandr requires a build configured with --enable-xrandr and --enable-xft" >&2
+	@exit 1
+endif
+else
+test-xrandr:
+	@echo "test-xrandr requires a build configured with --enable-xrandr and --enable-xft" >&2
+	@exit 1
+endif
+
+CHECK_LOCAL_TARGETS = test-signals test-visual
+
+if HAVE_XINERAMA
+CHECK_LOCAL_TARGETS += test-xinerama
+endif
+
+if HAVE_XRANDR
+if HAVE_XFT
+CHECK_LOCAL_TARGETS += test-xrandr
+endif
+endif
+
+check-local: $(CHECK_LOCAL_TARGETS)
+
+# Integration tests keep diagnostic artifacts in the build tree.  Remove only
+# those generated directories so out-of-tree builds pass distcleancheck.
+clean-local:
+	$(RM) -r \
+	  tests/integration/visual/xft/actual \
+	  tests/integration/visual/xft/diffs \
+	  tests/integration/visual/core-font/actual \
+	  tests/integration/visual/core-font/diffs \
+	  tests/integration/xinerama/actual \
+	  tests/integration/xinerama/diffs \
+	  tests/integration/xrandr/actual \
+	  tests/integration/xrandr/diffs
 
 # TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
 update-man: ./README.md

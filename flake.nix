@@ -108,7 +108,12 @@
             xorg.libXcursor
             xorg.libXrandr
             xorg.xorgserver     # isolated Xorg/Xvfb integration tests
-            xorg.xf86videodummy # RandR-capable dummy DDX for test_xrandr
+            xorg.xf86videodummy # RandR-capable dummy DDX for the XRandR suite
+            xdotool
+            xorg.xrandr
+            xorg.xset
+            xorg.xwininfo
+            xorg.xprop
             dejavu_fonts
             fontconfig
 

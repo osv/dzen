@@ -3,7 +3,12 @@
 # outputs are provisioned when the DDX exposes them.
 set -u
 
-ROOT=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+SCRIPT_DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+SOURCE_ROOT=$(cd "${DZEN2_TEST_SOURCE_ROOT:-$SCRIPT_DIR/../../..}" && pwd)
+BUILD_ROOT=$(cd "${DZEN2_TEST_BUILD_ROOT:-$SOURCE_ROOT}" && pwd)
+DZEN2_BINARY=${DZEN2_TEST_BINARY:-$BUILD_ROOT/src/dzen2}
+# shellcheck source=../test_common.sh
+. "$SOURCE_ROOT/tests/integration/test_common.sh"
 SCREEN_W=1024; SCREEN_H=600
 ALT_W=800; ALT_H=600
 EXPANDED_W=1200; EXPANDED_H=900
@@ -11,15 +16,12 @@ BAR_H=28; BAR_X=37
 BAR_Y=23; BAR_W=211
 TEST_FONT='DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none'
 BAR_BG='#203040'; BAR_FG='#ffffff'
-TEST_DIR=$ROOT/integration-tests/test_xrandr
-ACTUAL=$TEST_DIR/actual; EXPECTED=$TEST_DIR/expected; DIFFS=$TEST_DIR/diffs
+TEST_DIR=$SCRIPT_DIR
+ACTUAL=$BUILD_ROOT/tests/integration/xrandr/actual; EXPECTED=$TEST_DIR/expected; DIFFS=$BUILD_ROOT/tests/integration/xrandr/diffs
 mkdir -p "$ACTUAL" "$EXPECTED" "$DIFFS"
 XORG_PID= DZEN_PID= TMPDIR_XRANDR= WIN=
 FAILURES=0; PASSES=0; SKIPS=0
 
-if { [ -t 1 ] || [ "${GITHUB_ACTIONS:-}" = true ]; } && [ -z "${NO_COLOR:-}" ]; then
-  RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; GRAY=$'\033[90m'; RESET=$'\033[0m'
-else RED= GREEN= YELLOW= GRAY= RESET=; fi
 pass() { PASSES=$((PASSES + 1)); echo "${GREEN}PASS:${RESET} $*"; }
 fail() { FAILURES=$((FAILURES + 1)); echo "${RED}FAIL:${RESET} $*"; }
 skip() { SKIPS=$((SKIPS + 1)); echo "${YELLOW}SKIP:${RESET} $*"; }
@@ -28,6 +30,15 @@ test_case() {
   if [ -n "${3:-}" ]; then echo "${GRAY}TEST $1:${RESET} $2 ($3)"; else echo "${GRAY}TEST $1:${RESET} $2"; fi
 }
 summary() { echo "---------------------"; echo "${GREEN}PASS:${RESET} $PASSES  ${YELLOW}SKIP:${RESET} $SKIPS  ${RED}FAIL:${RESET} $FAILURES"; }
+test_announce \
+  'INFO: XRandR integration test plan:' \
+  '      - start an isolated Xorg server with the dummy video driver' \
+  '      - change output modes, positions, connections, and framebuffer geometry' \
+  '      - verify dzen geometry, window identity, dock properties, and menus' \
+  "      - compare screenshots and write diagnostics below $(test_project_path "$ACTUAL") and $(test_project_path "$DIFFS")"
+if [ "${UPDATE_XRANDR_EXPECTED:-0}" = 1 ]; then
+  test_announce '      - UPDATE_XRANDR_EXPECTED=1: replace expected screenshots with captures'
+fi
 info "Environment variables:"
 info "  XRANDR_TEST_ALLOW_MISSING_BACKEND=1  skip when the Xorg dummy DDX is unavailable"
 info "  UPDATE_XRANDR_EXPECTED=1             replace expected screenshots with actual results"
@@ -50,10 +61,11 @@ trap cleanup EXIT INT TERM
 assert_eq() { if [ "$2" = "$3" ]; then pass "$1 = $3"; else fail "$1 expected $3, got $2"; fi; }
 assert_match() { if printf '%s\n' "$2" | grep -Eq "$3"; then pass "$1"; else fail "$1 (got: $2)"; fi; }
 
-for command in Xorg xrandr xdotool xwininfo xprop import compare awk grep mktemp stat fc-match; do
-  if ! command -v "$command" >/dev/null 2>&1; then fail "required command is unavailable: $command"; summary; exit 1; fi
-done
-if [ ! -x "$ROOT/src/dzen2" ]; then fail "src/dzen2 is not built"; summary; exit 1; fi
+if ! test_require_commands Xorg xrandr xdotool xwininfo xprop import compare awk grep mktemp stat fc-match seq; then
+  summary
+  exit 1
+fi
+if [ ! -x "$DZEN2_BINARY" ]; then fail "dzen2 test binary is not built: $DZEN2_BINARY"; summary; exit 1; fi
 FONT_MATCH=$(fc-match -f '%{family}|%{style}\n' "$TEST_FONT" | head -1)
 if ! printf '%s\n' "$FONT_MATCH" | grep -Eq '^DejaVu Sans Mono\|Book'; then
   fail "required screenshot font did not resolve to DejaVu Sans Mono Book (got: $FONT_MATCH)"
@@ -99,14 +111,7 @@ Section "ServerLayout"
 EndSection
 EOF
 
-find_free_display() {
-  local n
-  for n in $(seq 200 599); do
-    if [ ! -S "/tmp/.X11-unix/X$n" ] && [ ! -e "/tmp/.X$n-lock" ]; then printf ':%s\n' "$n"; return 0; fi
-  done
-  return 1
-}
-if [ -n "${XRANDR_TEST_DISPLAY:-}" ]; then DISPLAY_NUM=$XRANDR_TEST_DISPLAY; else DISPLAY_NUM=$(find_free_display) || { fail "no free X display"; summary; exit 1; }; fi
+if [ -n "${XRANDR_TEST_DISPLAY:-}" ]; then DISPLAY_NUM=$XRANDR_TEST_DISPLAY; else DISPLAY_NUM=$(test_find_free_display) || { fail "no free X display"; summary; exit 1; }; fi
 # Xorg rejects the filesystem UNIX transport when /tmp/.X11-unix is not owned
 # by root (some containers deliberately map it to nobody).  Use loopback TCP in
 # that environment; on normal hosts retain the safer UNIX-only default.
@@ -181,7 +186,7 @@ assert_window_geometry() {
 }
 start() {
   cleanup_dzen; WIN=
-  printf 'xrandr title\nitem one\nitem two\n' | "$ROOT/src/dzen2" "$@" -fn "$TEST_FONT" -bg "$BAR_BG" -fg "$BAR_FG" -p 30 >"$TMPDIR_XRANDR/dzen.stdout" 2>"$TMPDIR_XRANDR/dzen.stderr" &
+  printf 'xrandr title\nitem one\nitem two\n' | "$DZEN2_BINARY" "$@" -fn "$TEST_FONT" -bg "$BAR_BG" -fg "$BAR_FG" -p 30 >"$TMPDIR_XRANDR/dzen.stdout" 2>"$TMPDIR_XRANDR/dzen.stderr" &
   DZEN_PID=$!
   local _
   for _ in $(seq 1 60); do
@@ -227,7 +232,7 @@ assert_slave_geometry() {
 }
 run_rejected() {
   local label=$1; shift
-  if printf 'test\n' | "$ROOT/src/dzen2" "$@" -p 1 >"$TMPDIR_XRANDR/rejected.stdout" 2>"$TMPDIR_XRANDR/rejected.stderr"; then fail "$label accepted"; else pass "$label rejected"; fi
+  if printf 'test\n' | "$DZEN2_BINARY" "$@" -p 1 >"$TMPDIR_XRANDR/rejected.stdout" 2>"$TMPDIR_XRANDR/rejected.stderr"; then fail "$label accepted"; else pass "$label rejected"; fi
 }
 
 mapfile -t OUTPUTS < <(connected_outputs); mapfile -t ACTIVE_OUTPUTS < <(active_outputs)
@@ -253,7 +258,7 @@ if [ -n "$CONNECT_OUTPUT" ]; then info "Prepared never-activated connection-test
 xrandr --query
 
 test_case 01 "output discovery and selector validation"
-LM_OUTPUT=$("$ROOT/src/dzen2" -lm 2>&1)
+LM_OUTPUT=$("$DZEN2_BINARY" -lm 2>&1)
 assert_match "-lm lists active output $OUTPUT" "$LM_OUTPUT" "(^|[[:space:]])$OUTPUT([[:space:]]|$)"
 run_rejected "unknown output" -output __dzen_nonexistent_output__
 run_rejected "-output/-xs conflict (output first)" -output "$OUTPUT" -xs 1
@@ -294,7 +299,7 @@ if [ -n "$SECONDARY" ]; then
     wait_window_geometry "$((ALT_W + BAR_X))" "$BAR_Y" "$BAR_W" "$BAR_H" || fail "bar did not follow positioned output"
     assert_window_geometry "positioned output" "$((ALT_W + BAR_X))" "$BAR_Y" "$BAR_W" "$BAR_H"
     assert_eq "position change keeps title window" "$WIN" "$INITIAL_WIN"
-    DUAL_LM_OUTPUT=$("$ROOT/src/dzen2" -lm 2>&1)
+    DUAL_LM_OUTPUT=$("$DZEN2_BINARY" -lm 2>&1)
     assert_match "-lm lists positioned output $OUTPUT" "$DUAL_LM_OUTPUT" "(^|[[:space:]])$OUTPUT([[:space:]]|$)"
     assert_match "-lm lists active secondary $SECONDARY" "$DUAL_LM_OUTPUT" "(^|[[:space:]])$SECONDARY([[:space:]]|$)"
     capture 05-dummy-extended-position

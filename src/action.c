@@ -357,9 +357,8 @@ int a_scrolldown(char *opt[]) {
 }
 
 int a_hide(char *opt[]) {
-    int n = 1;
+    (void)opt;
 
-    printf("n:%d\n", n);
     if (!dzen.title_win.ishidden) {
         if (!dzen.slave_win.ishmenu)
             XResizeWindow(dzen.dpy, dzen.title_win.win, dzen.title_win.width, 1);

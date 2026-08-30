@@ -163,11 +163,20 @@ static void test_menu_selection(void) {
     dzen.slave_win.tsize = 0;
 }
 
+static void test_event_names_are_exact(void) {
+    CHECK(get_ev_id("button1") == button1);
+    CHECK(get_ev_id("onstart") == onstart);
+    CHECK(get_ev_id("button10") == -1);
+    CHECK(get_ev_id("onstartup") == -1);
+    CHECK(get_ev_id("sigusr123") == -1);
+}
+
 int main(void) {
     test_action_limit();
     test_option_limit();
     test_scroll_endpoints();
     test_menu_selection();
+    test_event_names_are_exact();
     puts("action tests passed");
     return EXIT_SUCCESS;
 }

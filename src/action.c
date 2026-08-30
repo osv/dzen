@@ -165,7 +165,7 @@ int get_ev_id(const char *evname) {
 
     /* own events */
     for (i = 0; ev_lookup_table[i].name; i++) {
-        if (strncmp(ev_lookup_table[i].name, evname, strlen(ev_lookup_table[i].name)) == 0)
+        if (strcmp(ev_lookup_table[i].name, evname) == 0)
             return ev_lookup_table[i].id;
     }
     return -1;

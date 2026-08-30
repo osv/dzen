@@ -42,6 +42,7 @@ for command in Xvfb xset mktemp; do
   command -v "$command" >/dev/null 2>&1 || { echo "missing required command: $command" >&2; exit 1; }
 done
 [ -x "$ROOT/src/dzen2" ] || { echo "src/dzen2 is not built" >&2; exit 1; }
+[ -x "$ROOT/tests/high_fd_exec" ] || { echo "tests/high_fd_exec is not built" >&2; exit 1; }
 
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/dzen-signals.XXXXXX")
 for display_number in $(seq 200 599); do
@@ -165,33 +166,23 @@ else
 fi
 
 test_case 09 'X connection and signal pipe work above FD_SETSIZE'
-SOFT_FD_LIMIT=$(ulimit -n)
-if [ "$SOFT_FD_LIMIT" != unlimited ] && [ "$SOFT_FD_LIMIT" -lt 1027 ]; then
-  skip "open-file limit $SOFT_FD_LIMIT is too low for the high-fd scenario"
-else
-  bash -c '
-    for ((fd = 3; fd < 1024; fd++)); do
-      eval "exec ${fd}</dev/null" || exit 77
-    done
-    exec "$@"
-  ' bash "$ROOT/src/dzen2" -p < /dev/null >"$TEST_TMP/high-fd.out" 2>"$TEST_TMP/high-fd.err" &
-  DZEN_PID=$!
-  sleep .15
-  if ! kill -0 "$DZEN_PID" 2>/dev/null; then
-    set +e
-    wait "$DZEN_PID"
-    HIGH_FD_STATUS=$?
-    set -e
-    DZEN_PID=
-    if [ "$HIGH_FD_STATUS" -eq 77 ]; then
-      skip "the environment could not reserve descriptors below FD_SETSIZE"
-    else
-      fail "high-fd dzen exited early with status $HIGH_FD_STATUS"
-    fi
+"$ROOT/tests/high_fd_exec" "$ROOT/src/dzen2" -p < /dev/null >"$TEST_TMP/high-fd.out" 2>"$TEST_TMP/high-fd.err" &
+DZEN_PID=$!
+sleep .15
+if ! kill -0 "$DZEN_PID" 2>/dev/null; then
+  set +e
+  wait "$DZEN_PID"
+  HIGH_FD_STATUS=$?
+  set -e
+  DZEN_PID=
+  if [ "$HIGH_FD_STATUS" -eq 77 ]; then
+    skip "the environment could not reserve descriptors through FD_SETSIZE"
   else
-    kill -TERM "$DZEN_PID"
-    wait_status 143
+    fail "high-fd dzen exited early with status $HIGH_FD_STATUS"
   fi
+else
+  kill -TERM "$DZEN_PID"
+  wait_status 143
 fi
 
 summary

@@ -7,7 +7,7 @@ if ENABLE_GADGETS
 endif
 
 bin_SCRIPTS = dzen2-help
-CLEANFILES = $(bin_SCRIPTS)
+CLEANFILES = $(bin_SCRIPTS) tests/high_fd_exec
 dist_doc_DATA = README.dzen README.md
 
 dist_man_MANS = dzen2.1
@@ -23,6 +23,7 @@ EXTRA_DIST = \
   test_signals \
   test_xinerama \
   test_xrandr \
+  tests/high_fd_exec.c \
   tests/test_common.h \
   tests/test_layout.c \
   tests/test_signal_dispatch.c \
@@ -67,8 +68,11 @@ test-signal-dispatch:
 	./tests/test_signal_dispatch
 	$(RM) tests/test_signal_dispatch
 
-test-signals:
+test-signals: tests/high_fd_exec
 	./test_signals
+
+tests/high_fd_exec: tests/high_fd_exec.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 test-nonxft:
 	./test_e2e TESTS-NONXFT.md

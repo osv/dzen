@@ -407,12 +407,21 @@ int a_print(char *opt[]) {
     return 0;
 }
 
+static int selected_menu_index(void) {
+    int first = dzen.slave_win.first_line_vis;
+    int line  = dzen.slave_win.sel_line;
+
+    if (!dzen.slave_win.ismenu || first < 0 || first > dzen.slave_win.tcnt || line < 0 ||
+        line >= dzen.slave_win.tcnt - first)
+        return -1;
+    return first + line;
+}
+
 int a_menuprint(char *opt[]) {
     int i;
+    int index = selected_menu_index();
 
-    if (dzen.slave_win.ismenu && dzen.slave_win.sel_line != -1 &&
-        (dzen.slave_win.sel_line + dzen.slave_win.first_line_vis) < dzen.slave_win.tcnt) {
-        int index = dzen.slave_win.sel_line + dzen.slave_win.first_line_vis;
+    if (index != -1) {
         parse_line_text(text_buffer_data(&dzen.slave_win.tbuf[index]), &menu_action_text);
         printf("%s", text_buffer_data(&menu_action_text));
         if (opt)
@@ -420,38 +429,40 @@ int a_menuprint(char *opt[]) {
                 printf("%s", opt[i]);
         puts("");
         fflush(stdout);
-        dzen.slave_win.sel_line = -1;
     }
+    if (dzen.slave_win.ismenu)
+        dzen.slave_win.sel_line = -1;
     return 0;
 }
 
 int a_menuprint_noparse(char *opt[]) {
     int i;
+    int index = selected_menu_index();
 
-    if (dzen.slave_win.ismenu && dzen.slave_win.sel_line != -1 &&
-        (dzen.slave_win.sel_line + dzen.slave_win.first_line_vis) < dzen.slave_win.tcnt) {
-        int index = dzen.slave_win.sel_line + dzen.slave_win.first_line_vis;
+    if (index != -1) {
         printf("%s", text_buffer_data(&dzen.slave_win.tbuf[index]));
         if (opt)
             for (i = 0; opt[i]; ++i)
                 printf("%s", opt[i]);
         puts("");
         fflush(stdout);
-        dzen.slave_win.sel_line = -1;
     }
+    if (dzen.slave_win.ismenu)
+        dzen.slave_win.sel_line = -1;
     return 0;
 }
 
 int a_menuexec(char *opt[]) {
+    int index = selected_menu_index();
+
     (void)opt;
 
-    if (dzen.slave_win.ismenu && dzen.slave_win.sel_line != -1 &&
-        (dzen.slave_win.sel_line + dzen.slave_win.first_line_vis) < dzen.slave_win.tcnt) {
-        int index = dzen.slave_win.sel_line + dzen.slave_win.first_line_vis;
+    if (index != -1) {
         parse_line_text(text_buffer_data(&dzen.slave_win.tbuf[index]), &menu_action_text);
         spawn(text_buffer_data(&menu_action_text));
-        dzen.slave_win.sel_line = -1;
     }
+    if (dzen.slave_win.ismenu)
+        dzen.slave_win.sel_line = -1;
     return 0;
 }
 

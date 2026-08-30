@@ -7,10 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-Dzen       dzen = { 0 };
-static int draw_body_calls;
+Dzen        dzen = { 0 };
+static int  draw_body_calls;
+static int  spawn_calls;
+static char spawned_command[64];
 
-void      *emalloc(unsigned int size) {
+void       *emalloc(unsigned int size) {
     void *result = malloc(size);
 
     CHECK(result != NULL);
@@ -34,7 +36,8 @@ void eprint(const char *format, ...) {
 }
 
 void spawn(const char *command) {
-    (void)command;
+    spawn_calls++;
+    snprintf(spawned_command, sizeof(spawned_command), "%s", command);
 }
 
 void x_draw_body(void) {
@@ -117,10 +120,54 @@ static void test_scroll_endpoints(void) {
     check_scroll_range(8, 3, 8, 1);
 }
 
+static void check_invalid_menu_selection(int first, int selected) {
+    dzen.slave_win.first_line_vis = first;
+    dzen.slave_win.sel_line       = selected;
+    spawn_calls                   = 0;
+
+    a_menuexec(NULL);
+
+    CHECK(spawn_calls == 0);
+    CHECK(dzen.slave_win.sel_line == -1);
+}
+
+static void test_menu_selection(void) {
+    int i;
+
+    dzen.slave_win.ismenu = True;
+    dzen.slave_win.tcnt   = 3;
+    dzen.slave_win.tsize  = 3;
+    dzen.slave_win.tbuf   = calloc(3, sizeof(TextBuffer));
+    CHECK(dzen.slave_win.tbuf != NULL);
+    text_buffer_assign(&dzen.slave_win.tbuf[0], "first");
+    text_buffer_assign(&dzen.slave_win.tbuf[1], "second");
+    text_buffer_assign(&dzen.slave_win.tbuf[2], "third");
+
+    check_invalid_menu_selection(0, -1);
+    check_invalid_menu_selection(-1, 0);
+    check_invalid_menu_selection(0, 3);
+    check_invalid_menu_selection(3, 0);
+
+    dzen.slave_win.first_line_vis = 1;
+    dzen.slave_win.sel_line       = 1;
+    spawn_calls                   = 0;
+    a_menuexec(NULL);
+    CHECK(spawn_calls == 1);
+    CHECK(strcmp(spawned_command, "third") == 0);
+    CHECK(dzen.slave_win.sel_line == -1);
+
+    for (i = 0; i < dzen.slave_win.tsize; i++)
+        text_buffer_destroy(&dzen.slave_win.tbuf[i]);
+    free(dzen.slave_win.tbuf);
+    dzen.slave_win.tbuf  = NULL;
+    dzen.slave_win.tsize = 0;
+}
+
 int main(void) {
     test_action_limit();
     test_option_limit();
     test_scroll_endpoints();
+    test_menu_selection();
     puts("action tests passed");
     return EXIT_SUCCESS;
 }

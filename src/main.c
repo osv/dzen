@@ -949,6 +949,7 @@ int main(int argc, char *argv[]) {
     text_buffer_assign(&dzen.bg, BGCOLOR);
     text_buffer_assign(&dzen.fg, FGCOLOR);
     dzen.slave_win.max_lines = 0;
+    dzen.slave_win.sel_line  = -1;
     dzen.running             = True;
     dzen.xinescreen          = 0;
     dzen.tsupdate            = 0;

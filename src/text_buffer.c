@@ -7,6 +7,28 @@
 
 #define INITIAL_TEXT_CAPACITY 64U
 
+static int text_buffer_source_offset(const TextBuffer *buffer, const char *text, size_t length, size_t *offset) {
+    uintptr_t buffer_address;
+    uintptr_t text_address;
+    uintptr_t address_offset;
+
+    if (!buffer->data || !text)
+        return 0;
+
+    buffer_address = (uintptr_t)(const void *)buffer->data;
+    text_address   = (uintptr_t)(const void *)text;
+    if (text_address < buffer_address)
+        return 0;
+
+    address_offset = text_address - buffer_address;
+    if (address_offset > SIZE_MAX || (size_t)address_offset > buffer->length ||
+        length > buffer->length - (size_t)address_offset)
+        return 0;
+
+    *offset = (size_t)address_offset;
+    return 1;
+}
+
 void text_buffer_reserve(TextBuffer *buffer, size_t length) {
     size_t capacity;
     char  *data;
@@ -40,21 +62,34 @@ void text_buffer_assign(TextBuffer *buffer, const char *text) {
 }
 
 void text_buffer_assign_n(TextBuffer *buffer, const char *text, size_t length) {
+    size_t source_offset = 0;
+    int    source_is_internal;
+
+    source_is_internal = text_buffer_source_offset(buffer, text, length, &source_offset);
     text_buffer_reserve(buffer, length);
+    if (source_is_internal)
+        text = buffer->data + source_offset;
     if (length)
-        memcpy(buffer->data, text, length);
+        memmove(buffer->data, text, length);
     buffer->data[length] = '\0';
     buffer->length       = length;
 }
 
 void text_buffer_append_n(TextBuffer *buffer, const char *text, size_t length) {
+    size_t old_length    = buffer->length;
+    size_t source_offset = 0;
+    int    source_is_internal;
+
     if (length > SIZE_MAX - buffer->length)
         eprint("fatal: text buffer size overflow\n");
 
-    text_buffer_reserve(buffer, buffer->length + length);
+    source_is_internal = text_buffer_source_offset(buffer, text, length, &source_offset);
+    text_buffer_reserve(buffer, old_length + length);
+    if (source_is_internal)
+        text = buffer->data + source_offset;
     if (length)
-        memcpy(buffer->data + buffer->length, text, length);
-    buffer->length += length;
+        memmove(buffer->data + old_length, text, length);
+    buffer->length               = old_length + length;
     buffer->data[buffer->length] = '\0';
 }
 

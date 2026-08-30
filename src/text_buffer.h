@@ -15,6 +15,7 @@ static inline const char *text_buffer_data(const TextBuffer *buffer) {
 
 void text_buffer_reserve(TextBuffer *buffer, size_t length);
 void text_buffer_assign(TextBuffer *buffer, const char *text);
+/* Sources may refer to initialized contents of the destination buffer. */
 void text_buffer_assign_n(TextBuffer *buffer, const char *text, size_t length);
 void text_buffer_append_n(TextBuffer *buffer, const char *text, size_t length);
 void text_buffer_clear(TextBuffer *buffer);

@@ -23,6 +23,7 @@ EXTRA_DIST = \
   test_signals \
   test_xinerama \
   test_xrandr \
+  tests/test_common.h \
   tests/test_layout.c \
   tests/test_signal_dispatch.c \
   tests/test_text_buffer.c \

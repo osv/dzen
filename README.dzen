@@ -210,6 +210,11 @@ A6:  Yes, both vertical and horizontal menus are supported.
   - this is the default behaviour, ^fg(#6fbf47)see (2)
   - in some modes the Escape key terminates too, ^fg(#6fbf47)see (2)
 
+`SIGTERM` performs the normal shutdown lifecycle, including the `onexit` event,
+and exits with status 143. An `exit:N` action attached to `onexit` does not
+override that status. A `-p N` timeout also performs `onexit`, but exits with
+status 0.
+
 
 ^fg(#6fbf47)Return values:
 ^fg(#6fbf47)--------------

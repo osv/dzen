@@ -210,6 +210,11 @@ Termination:
   - this is the default behaviour, see (2)
   - in some modes the Escape key terminates too, see (2)
 
+`SIGTERM` performs the normal shutdown lifecycle, including the `onexit` event,
+and exits with status 143. An `exit:N` action attached to `onexit` does not
+override that status. A `-p N` timeout also performs `onexit`, but exits with
+status 0.
+
 
 Return values:
 --------------

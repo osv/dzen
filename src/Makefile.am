@@ -19,6 +19,8 @@ dzen2_SOURCES = \
   line_reader.c \
   line_reader.h \
   main.c \
+  signal_dispatch.c \
+  signal_dispatch.h \
   text_buffer.c \
   text_buffer.h \
   util.c \

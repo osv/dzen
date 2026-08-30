@@ -9,6 +9,7 @@
 #include "font.h"
 #include "layout.h"
 #include "line_reader.h"
+#include "signal_dispatch.h"
 #include "xrandr.h"
 
 #include <ctype.h>
@@ -30,7 +31,6 @@
 
 Dzen                  dzen     = { 0 };
 static int            last_cnt = 0;
-typedef void          sigfunc(int);
 
 static LayoutRequest  layout_request;
 static ResolvedLayout current_layout;
@@ -45,8 +45,11 @@ static int            use_ewmh_dock;
 static Bool           title_mapped_before_disconnect = True;
 static Bool           slave_mapped_before_disconnect;
 static LineReader     stdin_reader;
+static SignalDispatch signal_dispatch;
 
-static Bool           has_output_name(void) {
+enum ExitReason { EXIT_REASON_NORMAL, EXIT_REASON_SIGTERM, EXIT_REASON_TIMEOUT };
+
+static Bool has_output_name(void) {
     return output_name.length != 0;
 }
 
@@ -97,42 +100,6 @@ static void clean_up(void) {
     destroy_text_state();
 }
 
-static void catch_sigusr1(int s) {
-    (void)s;
-    do_action(sigusr1);
-}
-
-static void catch_sigusr2(int s) {
-    (void)s;
-    do_action(sigusr2);
-}
-
-static void catch_sigterm(int s) {
-    (void)s;
-    do_action(onexit);
-    clean_up();
-}
-
-static void catch_alrm(int s) {
-    (void)s;
-    do_action(onexit);
-    clean_up();
-    exit(0);
-}
-
-static sigfunc *setup_signal(int signr, sigfunc *shandler) {
-    struct sigaction nh, oh;
-
-    nh.sa_handler = shandler;
-    sigemptyset(&nh.sa_mask);
-    nh.sa_flags = 0;
-
-    if (sigaction(signr, &nh, &oh) < 0)
-        return SIG_ERR;
-
-    return NULL;
-}
-
 void free_buffer(void) {
     int i;
     for (i = 0; i < dzen.slave_win.tcnt; i++)
@@ -158,9 +125,10 @@ static int read_stdin(void) {
     char    chunk[16384];
     ssize_t length;
 
-    do {
-        length = read(STDIN_FILENO, chunk, sizeof(chunk));
-    } while (length < 0 && errno == EINTR);
+    length = read(STDIN_FILENO, chunk, sizeof(chunk));
+
+    if (length < 0 && errno == EINTR)
+        return -3;
 
     if (length < 0)
         eprint("dzen: cannot read stdin: %s\n", strerror(errno));
@@ -854,32 +822,74 @@ static void handle_newl(void) {
     }
 }
 
-static void event_loop(void) {
-    int    xfd, ret, dr = 0;
-    fd_set rmask;
+static enum ExitReason process_pending_signals(void) {
+    unsigned int pending = signal_dispatch_take(&signal_dispatch);
 
-    xfd = ConnectionNumber(dzen.dpy);
-    while (dzen.running) {
+    if (pending & SIGNAL_DISPATCH_TERM) {
+        dzen.running = False;
+        return EXIT_REASON_SIGTERM;
+    }
+    if (pending & SIGNAL_DISPATCH_ALRM) {
+        dzen.running = False;
+        return EXIT_REASON_TIMEOUT;
+    }
+    if (pending & SIGNAL_DISPATCH_USR1)
+        do_action(sigusr1);
+    if (pending & SIGNAL_DISPATCH_USR2)
+        do_action(sigusr2);
+    return EXIT_REASON_NORMAL;
+}
+
+static enum ExitReason event_loop(void) {
+    int             xfd, signal_fd, max_fd, ret, dr = 0;
+    enum ExitReason exit_reason;
+    fd_set          rmask;
+
+    xfd       = ConnectionNumber(dzen.dpy);
+    signal_fd = signal_dispatch_fd(&signal_dispatch);
+    max_fd    = xfd > signal_fd ? xfd : signal_fd;
+    for (;;) {
+        exit_reason = process_pending_signals();
+        if (exit_reason != EXIT_REASON_NORMAL)
+            return exit_reason;
+        if (!dzen.running)
+            return EXIT_REASON_NORMAL;
+
         FD_ZERO(&rmask);
         FD_SET(xfd, &rmask);
+        FD_SET(signal_fd, &rmask);
         if (dr != -2)
             FD_SET(STDIN_FILENO, &rmask);
 
         while (XPending(dzen.dpy))
             handle_xev();
+        if (!dzen.running)
+            return EXIT_REASON_NORMAL;
 
-        ret = select(xfd + 1, &rmask, NULL, NULL, NULL);
-        if (ret) {
+        ret = select(max_fd + 1, &rmask, NULL, NULL, NULL);
+        if (ret < 0) {
+            if (errno == EINTR)
+                continue;
+            eprint("dzen: select failed: %s\n", strerror(errno));
+        }
+        if (ret > 0) {
+            if (FD_ISSET(signal_fd, &rmask)) {
+                exit_reason = process_pending_signals();
+                if (exit_reason != EXIT_REASON_NORMAL)
+                    return exit_reason;
+            }
             if (dr != -2 && FD_ISSET(STDIN_FILENO, &rmask)) {
-                if ((dr = read_stdin()) == -1)
-                    return;
-                handle_newl();
+                dr = read_stdin();
+                if (dr == -1)
+                    return EXIT_REASON_NORMAL;
+                if (dr != -3)
+                    handle_newl();
             }
             if (FD_ISSET(xfd, &rmask))
                 handle_xev();
         }
     }
-    return;
+    return EXIT_REASON_NORMAL;
 }
 
 /* Get alignment from character 'l'eft, 'r'ight and 'c'enter */
@@ -914,10 +924,11 @@ static void init_input_buffer(void) {
 }
 
 int main(int argc, char *argv[]) {
-    int        i;
-    char      *action_string = NULL;
-    char      *endptr;
-    TextBuffer fnpre = { 0 };
+    int             i;
+    char           *action_string = NULL;
+    char           *endptr;
+    enum ExitReason exit_reason;
+    TextBuffer      fnpre = { 0 };
 
     /* default values */
     text_buffer_assign(&dzen.title_win.name, "dzen title");
@@ -998,10 +1009,8 @@ int main(int argc, char *argv[]) {
                 dzen.timeout = strtoul(argv[i + 1], &endptr, 10);
                 if (*endptr)
                     dzen.timeout = 0;
-                else {
+                else
                     i++;
-                    start_timer(dzen.timeout);
-                }
             }
         } else if (!strncmp(argv[i], "-ta", 4)) {
             if (++i < argc)
@@ -1148,18 +1157,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if ((find_event(onexit) != -1) && (setup_signal(SIGTERM, catch_sigterm) == SIG_ERR))
-        fprintf(stderr, "dzen: error hooking SIGTERM\n");
-
-    if ((find_event(sigusr1) != -1) && (setup_signal(SIGUSR1, catch_sigusr1) == SIG_ERR))
-        fprintf(stderr, "dzen: error hooking SIGUSR1\n");
-
-    if ((find_event(sigusr2) != -1) && (setup_signal(SIGUSR2, catch_sigusr2) == SIG_ERR))
-        fprintf(stderr, "dzen: error hooking SIGUSR2\n");
-
-    if (setup_signal(SIGALRM, catch_alrm) == SIG_ERR)
-        fprintf(stderr, "dzen: error hooking SIGALARM\n");
-
     if (dzen.slave_win.ishmenu && !dzen.slave_win.max_lines)
         dzen.slave_win.max_lines = 1;
     if (dzen.slave_win.max_lines && !dzen.slave_win.tbuf)
@@ -1249,6 +1246,11 @@ int main(int argc, char *argv[]) {
         font_preload(text_buffer_data(&fnpre));
     text_buffer_destroy(&fnpre);
 
+    if (signal_dispatch_init(&signal_dispatch, find_event(sigusr1) != -1, find_event(sigusr2) != -1) < 0)
+        eprint("dzen: cannot initialize signal dispatcher: %s\n", strerror(errno));
+    if (dzen.timeout > 0)
+        start_timer(dzen.timeout);
+
     do_action(onstart);
 
     if (has_output_name() && !output_connected) {
@@ -1262,10 +1264,16 @@ int main(int argc, char *argv[]) {
     }
 
     /* main loop */
-    event_loop();
+    exit_reason = event_loop();
 
+    signal_dispatch_shutdown(&signal_dispatch);
     do_action(onexit);
     clean_up();
+
+    if (exit_reason == EXIT_REASON_SIGTERM)
+        return 128 + SIGTERM;
+    if (exit_reason == EXIT_REASON_TIMEOUT)
+        return EXIT_SUCCESS;
 
     if (dzen.ret_val)
         return dzen.ret_val;

@@ -45,9 +45,11 @@ make format
 │   ├── gdbar.c       # Graphical progress bar
 │   ├── gcpubar.c     # CPU usage bar
 │   └── textwidth.c   # Text width calculator
-├── test_e2e          # Integration test runner
-├── test_perfomance   # Performance and memory test tool
-└── test_xinerama     # Multi-monitor test script
+└── tests/
+    ├── unit/         # Automake-managed C unit tests
+    ├── helpers/      # Helper executables for integration tests
+    ├── integration/  # Signal, visual, Xinerama, and XRandR suites
+    └── tools/        # Manual performance and profiling tools
 ```
 
 ## Command Line Options
@@ -90,137 +92,67 @@ echo "Monitor 2" | ./src/dzen2 -xs 1 -p
 echo -e "Menu\nItem 1\nItem 2" | ./src/dzen2 -l 2 -e "onstart=uncollapse" -p
 ```
 
-## Running E2E Tests
+## Testing
 
-The project uses a screenshot-based integration test system:
+Tests are grouped by purpose:
 
-```bash
-# Show help and available options
-./test_e2e --help
-
-# Run all integration tests in virtual display (default)
-./test_e2e TESTS.md
-
-# Run all integration tests on native X11 display
-./test_e2e --native TESTS.md
-
-# Run a specific test by line number in virtual display
-./test_e2e TESTS.md:286  # Runs "Test: 9 Block area"
-
-# Run a specific test by line number on native X11 display
-./test_e2e --native TESTS.md:286
+```text
+tests/unit/                  C unit tests managed by Automake
+tests/helpers/               helper executables used by integration tests
+tests/integration/signals/   signal and process lifecycle tests
+tests/integration/visual/    Markdown-driven XFT and core-font visual suites
+tests/integration/xinerama/  isolated Xvfb + Xephyr multi-screen test
+tests/integration/xrandr/    isolated Xorg dummy-output tests
+tests/tools/                 manual performance and profiling tools
 ```
 
-### Display Modes
+Run every test applicable to the current build with `make check` or its `make
+test` alias. Useful focused targets are `make test-unit`, `make test-signals`,
+`make test-visual`, `make test-xinerama`, and `make test-xrandr`. Targets that
+need a disabled feature, such as `make test-nonxft`, fail with a configure hint
+when used with an incompatible build.
 
-**Virtual Display (Default)**: `./test_e2e TESTS.md`
-- Runs tests in isolated Xvfb virtual display
-- Automatically starts and manages virtual X server
-- Recommended for CI/CD and automated testing
-- No interference with your desktop environment
-
-**Native Display**: `./test_e2e --native TESTS.md`  
-- Runs tests on your current X11 display
-- Useful for debugging and visual inspection
-- Tests appear on your actual screen
-- Use when you need to see tests running interactively
-
-### Running Specific Tests
-
-You can run a specific test by appending `:<line_number>` to the test file. The line number can be any line between the test start (`## Test:`) and the next test. For example:
-
-- `./test_e2e TESTS.md:1` - Runs "Test: 1 Color" (line 1)
-- `./test_e2e TESTS.md:286` - Runs "Test: 9 Block area" (line 286)
-- `./test_e2e TESTS.md:290` - Also runs "Test: 9 Block area" (line 290 is within the test)
-
-### Testing E2E Architecture
-
-Integration tests simulate user interactions and verify visual output:
-1. `test_e2e` launches Xvfb virtual display (unless `--native` is used)
-2. Runs dzen2 with test input
-3. Captures screenshots with `xwd`
-4. Compares against reference images using ImageMagick
-5. Simulates mouse/keyboard with `xdotool`
-6. Automatically cleans up virtual display on exit
-
-The test_e2e script requires a test file parameter. Screenshots are organized by test file:
-- Expected screenshots: `integration-tests/<test_basename>/expected/`
-- Actual screenshots: `integration-tests/<test_basename>/actual/`
-- Diff images: `integration-tests/<test_basename>/diffs/`
-
-For example, when running `./test_e2e TESTS.md`:
-- Expected: `integration-tests/TESTS/expected/05-position-padding.png`
-- Actual: `integration-tests/TESTS/actual/05-position-padding.png`
-- Diff: `integration-tests/TESTS/diffs/05-position-padding.png`
-
-### Testing Xinerama Functionality
-
-The `test_xinerama` script specifically tests multi-monitor support:
+The visual runner starts an isolated Xvfb by default:
 
 ```bash
-# Run Xinerama tests
-make test-xinerama
-# or directly
-./test_xinerama
+tests/integration/visual/runner.sh tests/integration/visual/xft/cases.md
+tests/integration/visual/runner.sh tests/integration/visual/xft/cases.md:286
+tests/integration/visual/runner.sh --native tests/integration/visual/xft/cases.md
 ```
 
-**Prerequisites:**
-- dzen2 must be built with Xinerama support (`--enable-xinerama` configure option)
-- Requires `xserver-xephyr` package for virtual monitor simulation
-- Uses ImageMagick for screenshot comparison
-
-**What test_xinerama does:**
-- Uses Xephyr to create 3 virtual monitors (100x100 each in 3x1 layout)
-- Tests dzen2's `-xs` option for screen-specific positioning
-- Starts dzen2 on second monitor (xs=2) with red background
-- Captures and compares screenshots for regression testing
-- Provides colorized output (errors in red, success in green)
-
-**Screenshot locations:**
-- Expected: `integration-tests/test_xinerama/expected/test.png`
-- Actual: `integration-tests/test_xinerama/actual/test.png`
-- Diff: `integration-tests/test_xinerama/diffs/test.png` (on failure)
-
-## Manual Testing with test_perfomance
-
-The `test_perfomance` script provides a comprehensive test environment that simulates real-world dzen2 usage:
+A line suffix selects the test block containing that line. Expected images,
+actual captures, and diffs live beside each suite in `expected/`, `actual/`, and
+`diffs/`. Never create or replace an expected image implicitly. Review actual
+images first, then update the relevant suite explicitly:
 
 ```bash
-# Basic functionality test - displays complex status bar
-timeout 10s ./test_perfomance
-
-# Memory analysis - comprehensive Valgrind check and save report to ./valgrind-out.txt
-# This script runs `valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose --log-file=valgrind-out.txt`
-timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?"
-
-# Performance profiling - generates perf.data for analysis
-timeout 10s ./test_perfomance --perf
-
-# Benchmark mode - generates exactly 10,000 frames and measures FPS
-./test_perfomance --bench
-
-# Generates continuous stream of complex dzen2 markup (pipe to dzen2 if you need to run it manually)
-timeout 10s ./test_perfomance --printer
-
-# Generate specific number of frames then exit
-./test_perfomance --printer 1000  # Generates exactly 1000 frames
+UPDATE_VISUAL_EXPECTED=1 make test-visual
+UPDATE_XINERAMA_EXPECTED=1 make test-xinerama
+UPDATE_XRANDR_EXPECTED=1 make test-xrandr
 ```
 
-**What test_perfomance does:**
-- Generates continuous stream of complex dzen2 markup
-- Tests desktop switching, CPU/memory display, network stats, GPU info
-- Includes clickable areas, colors, fonts, positioning, and graphics
-- Updates every 10ms to stress-test the drawing system
-- Exposes memory management issues quickly
-- **Benchmark mode**: Generates exactly 10,000 frames and measures performance (FPS)
-- **Frame counting**: `--printer` mode accepts optional frame count argument
+After reviewing an intentional change, add only files under the suite's
+`expected/` directory. The `actual/` and `diffs/` directories are ignored.
 
-**Analyzing test results:**
+Integration output uses green for PASS, red for FAIL/error, yellow for
+SKIP/warnings, and gray for TEST/INFO headings. Colors are enabled on a terminal
+and in GitHub Actions. Set `NO_COLOR=1` to disable them.
+
+Feature requirements:
+
+- XFT visual cases require `--enable-xft`; core-font cases require `--disable-xft`.
+- Xinerama requires `--enable-xinerama`, Xvfb, Xephyr, xset, and ImageMagick.
+- XRandR requires `--enable-xrandr --enable-xft`, the Xorg dummy driver,
+  xrandr/xdotool utilities, ImageMagick, fontconfig, and DejaVu Sans Mono Book.
+
+The manual performance tool is not part of `make check`:
+
 ```bash
-# After running Valgrind test
-grep "ERROR SUMMARY" valgrind-out.txt
-grep "LEAK SUMMARY" -A 5 valgrind-out.txt
-grep "definitely lost" valgrind-out.txt
+timeout 10s tests/tools/performance_benchmark.sh
+timeout 10s tests/tools/performance_benchmark.sh --valgrind
+timeout 10s tests/tools/performance_benchmark.sh --perf
+tests/tools/performance_benchmark.sh --bench
+tests/tools/performance_benchmark.sh --printer 1000
 ```
 
 ## Architecture Overview
@@ -292,10 +224,11 @@ The font functionality has been extracted into a separate module consisting of:
 
 ### Testing Changes
 
-Always run `make test` before committing. If visual output changes are intentional:
+Always run `make check` before committing. If visual output changes are intentional:
 ```bash
-./test_e2e TESTS.md
-git add integration-tests/TESTS/expected/*.png
+UPDATE_VISUAL_EXPECTED=1 make test-visual
+# Review the PNG files before adding them.
+git add tests/integration/visual/*/expected/*.png
 ```
 
 For C tests under `tests/`, include `test_common.h` and use `CHECK(...)` for
@@ -303,48 +236,6 @@ validation. Do not use the standard `assert()` macro or place side effects in
 it: assertions disappear when compiled with `-DNDEBUG`, which can turn a test
 into a false pass or skip the operation being tested. `CHECK(...)` remains
 active in all build modes and reports the failing source file and line.
-
-### Testing Font Module
-
-A dedicated test script `test_font_module` verifies font functionality:
-
-```bash
-# Test current build configuration (auto-detects XFT vs non-XFT)
-./test_font_module
-```
-
-**What it tests:**
-- Basic font functionality (font switching with `^fn()`)
-- Font and color combinations
-- Font preloading (non-XFT builds only)
-- Screenshot-based verification (saved to `./font_test_screenshots/`)
-
-**Test different configurations:**
-```bash
-# Test without XFT (uses X11 core fonts)
-make distclean
-./configure --disable-xft --enable-xpm --enable-xinerama --enable-xcursor
-make
-./test_font_module
-
-# Test with XFT (uses modern font rendering)
-make distclean  
-./configure --enable-xft --enable-xpm --enable-xinerama --enable-xcursor
-make
-./test_font_module
-```
-
-**Manual font testing examples:**
-```bash
-# XFT build - test different XFT fonts
-echo "XFT: ^fn(monospace-12)Monospace^fn() ^fn(serif-14)Serif^fn() Normal" | ./src/dzen2 -p
-
-# Non-XFT build - test X11 fonts
-echo "X11: ^fn(8x16)Large^fn() ^fn(6x13)Small^fn() Normal" | ./src/dzen2 -p -fn "fixed"
-
-# Non-XFT build - test font preloading
-echo "Preloaded: ^fn(dfnt0)Font0^fn() ^fn(dfnt1)Font1^fn() Normal" | ./src/dzen2 -p -fn-preload "6x13,8x16"
-```
 
 ### Common Tasks
 
@@ -366,12 +257,12 @@ echo "Monitor 1" | ./src/dzen2 -xs 0 -p  # Display on first monitor
 echo "Monitor 2" | ./src/dzen2 -xs 1 -p  # Display on second monitor
 echo "Monitor 3" | ./src/dzen2 -xs 2 -p  # Display on third monitor
 
-# Run test_perfomance with different modes
-./test_perfomance # Normal test mode - displays complex dzen2 bar with live updates
-timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?"  # Run with Valgrind memory checking - logs to valgrind-out.txt
-./test_perfomance --perf # Run with perf profiling - creates perf.data for analysis
+# Run performance_benchmark.sh with different modes
+tests/tools/performance_benchmark.sh # Normal test mode - displays complex dzen2 bar with live updates
+timeout 10s tests/tools/performance_benchmark.sh --valgrind 2>&1; echo "Exit code: $?"  # Run with Valgrind memory checking - logs to valgrind-out.txt
+tests/tools/performance_benchmark.sh --perf # Run with perf profiling - creates perf.data for analysis
 
-# Fix Valgrind file descriptor limit error (no need if run ./test_perfomance)
+# Fix Valgrind file descriptor limit error (no need if run tests/tools/performance_benchmark.sh)
 ulimit -n 65536  # Set before running valgrind if you get "Private file creation failed" error
 ```
 
@@ -403,12 +294,12 @@ ulimit -n 65536  # Set before running valgrind if you get "Private file creation
 
    ```bash
    # Run for specific duration and analyze
-   timeout 10s ./test_perfomance --valgrind 2>&1; echo "Exit code: $?" # Stop after 10 seconds
+   timeout 10s tests/tools/performance_benchmark.sh --valgrind 2>&1; echo "Exit code: $?" # Stop after 10 seconds
    cat valgrind-out.txt | grep "ERROR SUMMARY"      # Check error count
    cat valgrind-out.txt | grep "LEAK SUMMARY" -A 5  # Check memory leaks
    
    # Run valgrind manually 10seconds:
-   ./test_perfomance --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p 10; echo "Exit code: $?"
+   tests/tools/performance_benchmark.sh --printer | valgrind --leak-check=full --track-origins=yes ./src/dzen2 -p 10; echo "Exit code: $?"
    ```
 
 ## Code Style

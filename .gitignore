@@ -16,6 +16,8 @@ Makefile.in
 /missing
 /stamp-h1
 /compile
+/test-driver
+/dzen2-help
 # Ignore directories created by build tools
 /build/
 /.libs/
@@ -54,6 +56,14 @@ TAGS
 
 # Ignore log files
 *.log
+*.trs
+
+# Automake test executables
+/tests/unit/layout_test
+/tests/unit/signal_dispatch_test
+/tests/unit/text_buffer_test
+/tests/helpers/blocked_signal_exec
+/tests/helpers/high_fd_exec
 
 # Ignore Python bytecode files
 __pycache__/

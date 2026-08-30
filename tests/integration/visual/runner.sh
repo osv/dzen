@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+SOURCE_ROOT=$(cd "${DZEN2_TEST_SOURCE_ROOT:-$SCRIPT_DIR/../../..}" && pwd)
+BUILD_ROOT=$(cd "${DZEN2_TEST_BUILD_ROOT:-$SOURCE_ROOT}" && pwd)
+DZEN2_BINARY=${DZEN2_TEST_BINARY:-$BUILD_ROOT/src/dzen2}
+# shellcheck source=../../test_common.sh
+. "$SOURCE_ROOT/tests/integration/test_common.sh"
+cd "$SOURCE_ROOT"
+
 # Global variables
 USE_VIRTUAL_DISPLAY=true
 XVFB_PID=""
-DISPLAY_NUM=99
 SHOW_IMAGES_ON_SUCCESS=false
 DISABLE_IMAGES=false
 IS_KITTY_TERMINAL=false
-ORIGINAL_DISPLAY="$DISPLAY"
+ORIGINAL_DISPLAY="${DISPLAY:-}"
 
 # ImageMagick command variables (set by detect_imagemagick)
 CONVERT_CMD=""
@@ -26,12 +33,10 @@ OPTIONS:
     --no-images     Disable image display even in Kitty terminal
 
 EXAMPLES:
-    $0 TESTS.md                    # Run all tests in virtual display
-    $0 --native TESTS.md           # Run all tests on native X11 display
-    $0 TESTS.md:286                # Run specific test at line 286 in virtual display
-    $0 --native TESTS.md:286       # Run specific test at line 286 on native display
-    $0 --show-images TESTS.md      # Show actual images on success (Kitty only)
-    $0 --no-images TESTS.md        # Disable all image display
+    $0 tests/integration/visual/xft/cases.md
+    $0 --native tests/integration/visual/xft/cases.md
+    $0 tests/integration/visual/xft/cases.md:286
+    $0 --show-images tests/integration/visual/xft/cases.md
 
 NOTE: By default, tests run in a virtual Xvfb display for isolation.
       Use --native to run tests on your current X11 display.
@@ -131,15 +136,30 @@ if [ ! -f "$TEST_FILE" ]; then
     echo "Error: Test file '$TEST_FILE' not found"
     exit 1
 fi
+TEST_FILE=$(readlink -f "$TEST_FILE")
 
-# Extract base name without extension for directory naming
-TEST_BASENAME=$(basename "$TEST_FILE" .md)
-
-# Directory structure based on test file
-SCREENSHOT_DIR="integration-tests/$TEST_BASENAME"
+# Read reference images from the source tree and put generated images in the
+# corresponding build-tree directory (the same place for in-tree builds).
+SCREENSHOT_DIR=$(dirname "$TEST_FILE")
+RELATIVE_SCREENSHOT_DIR=${SCREENSHOT_DIR#"$SOURCE_ROOT"/}
 EXPECTED_DIR="$SCREENSHOT_DIR/expected"
-ACTUAL_DIR="$SCREENSHOT_DIR/actual"
-DIFF_DIR="$SCREENSHOT_DIR/diffs"
+ACTUAL_DIR="$BUILD_ROOT/$RELATIVE_SCREENSHOT_DIR/actual"
+DIFF_DIR="$BUILD_ROOT/$RELATIVE_SCREENSHOT_DIR/diffs"
+
+if [ "$USE_VIRTUAL_DISPLAY" = true ]; then
+    DISPLAY_DESCRIPTION='an isolated Xvfb display'
+else
+    DISPLAY_DESCRIPTION="the native display ${DISPLAY:-<unset>}"
+fi
+test_announce \
+    'INFO: Visual integration test plan:' \
+    "      - run cases from $(test_project_path "$TEST_FILE") on $DISPLAY_DESCRIPTION" \
+    '      - drive dzen with xdotool and capture each requested screenshot' \
+    "      - compare captures with $(test_project_path "$EXPECTED_DIR")" \
+    "      - write captures and differences below $(test_project_path "$ACTUAL_DIR") and $(test_project_path "$DIFF_DIR")"
+if [ "${UPDATE_VISUAL_EXPECTED:-0}" = 1 ]; then
+    test_announce '      - UPDATE_VISUAL_EXPECTED=1: replace expected screenshots with captures'
+fi
 
 # Create directories
 mkdir -p "$EXPECTED_DIR"
@@ -151,39 +171,36 @@ if [[ "$TERM" == "xterm-kitty" ]] || [[ -n "$KITTY_WINDOW_ID" ]]; then
     IS_KITTY_TERMINAL=true
 fi
 
-check_dependencies() {
-    local missing_dependencies=()
-
-    # Check for each dependency
-    for dep in "$@"; do
-        if ! type "$dep" &>/dev/null; then
-            missing_dependencies+=("$dep")
-        fi
-    done
-
-    # If there are missing dependencies, print them and exit
-    if [ ${#missing_dependencies[@]} -ne 0 ]; then
-        echo >&2 "Missing executables: ${missing_dependencies[@]}"
-        echo >&2 "Exiting"
-        exit 1
-    fi
-}
-
 # Function to start virtual display
 start_virtual_display() {
-    # Find an available display number
-    while [ -e "/tmp/.X${DISPLAY_NUM}-lock" ]; do
-        DISPLAY_NUM=$((DISPLAY_NUM + 1))
-    done
+    local display_number
+    local server_display
+    local -a transport
+
+    server_display=$(test_find_free_display 99 599) || {
+        echo "No free X display found" >&2
+        exit 1
+    }
+    display_number=${server_display#:}
+    if [ "$(stat -c %u /tmp/.X11-unix 2>/dev/null || printf 1)" = 0 ]; then
+        transport=(-nolisten tcp)
+        DISPLAY=$server_display
+    else
+        transport=(-nolisten unix -nolisten local -listen tcp)
+        DISPLAY=127.0.0.1:$display_number
+    fi
     
-    echo "Starting virtual display :${DISPLAY_NUM}..."
-    Xvfb ":${DISPLAY_NUM}" -screen 0 1920x1080x24 > /dev/null 2>&1 &
+    echo "Starting virtual display ${server_display}..."
+    Xvfb "$server_display" -screen 0 1920x1080x24 "${transport[@]}" > /dev/null 2>&1 &
     XVFB_PID=$!
-    
-    # Wait for Xvfb to start
-    sleep 2
-    
-    export DISPLAY=":${DISPLAY_NUM}"
+
+    export DISPLAY
+    for _ in $(seq 1 100); do
+        xset q >/dev/null 2>&1 && break
+        kill -0 "$XVFB_PID" 2>/dev/null || break
+        sleep .05
+    done
+    xset q >/dev/null 2>&1 || { echo "Xvfb failed to start" >&2; exit 1; }
     echo "Virtual display started on DISPLAY=${DISPLAY}"
 }
 
@@ -206,7 +223,7 @@ handle_interrupt() {
     echo -e "\n${RED}Interrupted! Cleaning up...${NC}"
     
     # Kill any running dzen2 processes started by this script
-    if [ -n "${program_coproc_PID}" ]; then
+    if [ -n "${program_coproc_PID:-}" ]; then
         kill "${program_coproc_PID}" 2>/dev/null || true
     fi
     
@@ -226,17 +243,16 @@ detect_imagemagick
 
 # Setup display
 if [ "$USE_VIRTUAL_DISPLAY" = true ]; then
-    check_dependencies xwd xdotool base64 Xvfb
+    test_require_commands xwd xdotool base64 Xvfb xset seq stat || exit 1
     start_virtual_display
 else
-    check_dependencies xwd xdotool base64
+    test_require_commands xwd xdotool base64 xset || exit 1
+    [ -n "${DISPLAY:-}" ] || { echo "DISPLAY is not set" >&2; exit 1; }
+    xset q >/dev/null 2>&1 || { echo "Cannot connect to DISPLAY=$DISPLAY" >&2; exit 1; }
     echo "Running tests on native X11 display: $DISPLAY"
 fi
 
-# Define ANSI color codes for green (pass) and red (fail)
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'  # No Color (reset)
+[ -x "$DZEN2_BINARY" ] || { echo "dzen2 test binary is not built: $DZEN2_BINARY" >&2; exit 1; }
 
 # Threshold for acceptable difference in screenshots
 delta_threshold=2
@@ -290,7 +306,8 @@ run_test() {
 
   # Run the app using coproc and capture the PID
   eval "args=($cmd_args)"
-  coproc program_coproc { exec ./src/dzen2 -p "${args[@]}" &> app_output.txt; }
+  local app_output_path="$ACTUAL_DIR/app_output.txt"
+  coproc program_coproc { exec "$DZEN2_BINARY" -p "${args[@]}" &> "$app_output_path"; }
   local app_pid=$program_coproc_PID
 
   # Wait for the app to start (adjust this time if necessary)
@@ -336,7 +353,7 @@ run_test() {
         expected_output=$(echo "$params" | cut -d',' -f2- | xargs)
         xdotool click "$button"
         sleep 0.1
-        app_output=$(cat app_output.txt)
+        app_output=$(cat "$app_output_path")
         if [[ "$app_output" != *"$expected_output"* ]]; then
           echo -e "\n${RED}$check_num: Error:\nExpected output: '${expected_output}'.${NC}"
           echo -e "Actual output: '${app_output}'.\n"
@@ -365,7 +382,8 @@ run_test() {
         expected_screenshot="$params"
         if [[ "$expected_screenshot" = "" ]]; then
           echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}You forgot to set image in markdown:${NC}"
-          echo -e "${RED}![reference](./integration-tests/$TEST_BASENAME/expected/$test_name.png)${NC}\n"
+          echo -e "${RED}![reference](./expected/$test_name.png)${NC}\n"
+          all_tests_passed=false
           return
         fi
         # Extract just the filename from the path
@@ -378,8 +396,12 @@ run_test() {
         else
           xwd -root | $CONVERT_CMD "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$actual_screenshot_path"
         fi
+        if [ "${UPDATE_VISUAL_EXPECTED:-0}" = 1 ]; then
+          cp "$actual_screenshot_path" "$expected_screenshot_path"
+          rm -f "$DIFF_DIR/$screenshot_filename"
+          echo -en "$check_num: Screenshot ${GREEN}Updated.${NC} "
         # Compare with the expected screenshot
-        if [ -f "$expected_screenshot_path" ]; then
+        elif [ -f "$expected_screenshot_path" ]; then
           local diff_screenshot="$DIFF_DIR/${screenshot_filename}"
           $COMPARE_CMD -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" "$diff_screenshot" 2> /dev/null || true
           local raw_diff=$($COMPARE_CMD -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" null: 2>&1 || true)
@@ -402,10 +424,8 @@ run_test() {
           fi
         else
           echo -e "\n${RED}Subtest: $check_num: Error: Expected screenshot not found for $test_name at $expected_screenshot_path.${NC}"
-          echo -e "${GREEN}  Copying actual screenshot to $expected_screenshot_path.${NC}\n"
-          cp "$actual_screenshot_path" "$expected_screenshot_path"
-          # Display the actual screenshot that was just copied
-          display_image_in_kitty "$actual_screenshot_path" "Actual (copied to expected)"
+          echo -e "${YELLOW}Run with UPDATE_VISUAL_EXPECTED=1 after reviewing the actual image.${NC}\n"
+          display_image_in_kitty "$actual_screenshot_path" "Actual: $actual_screenshot_path"
           all_tests_passed=false
         fi
         ;;

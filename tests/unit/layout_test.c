@@ -1,4 +1,4 @@
-#include "../src/layout.h"
+#include "layout.h"
 #include "test_common.h"
 
 #include <stdio.h>

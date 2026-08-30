@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -u
 
-ROOT=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+SCRIPT_DIR=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+SOURCE_ROOT=$(cd "${DZEN2_TEST_SOURCE_ROOT:-$SCRIPT_DIR/../../..}" && pwd)
+BUILD_ROOT=$(cd "${DZEN2_TEST_BUILD_ROOT:-$SOURCE_ROOT}" && pwd)
+DZEN2_BINARY=${DZEN2_TEST_BINARY:-$BUILD_ROOT/src/dzen2}
+# shellcheck source=../test_common.sh
+. "$SOURCE_ROOT/tests/integration/test_common.sh"
 XVFB_PID=
 DZEN_PID=
 TEST_TMP=
@@ -9,17 +14,12 @@ FAILURES=0
 PASSES=0
 SKIPS=0
 
-if { [ -t 1 ] || [ "${GITHUB_ACTIONS:-}" = true ]; } && [ -z "${NO_COLOR:-}" ]; then
-  RED=$'\033[31m'
-  GREEN=$'\033[32m'
-  GRAY=$'\033[90m'
-  RESET=$'\033[0m'
-else
-  RED=
-  GREEN=
-  GRAY=
-  RESET=
-fi
+test_announce \
+  'INFO: Signal integration test plan:' \
+  '      - start dzen on an isolated Xvfb display' \
+  '      - send termination and user signals and verify actions/exit statuses' \
+  '      - exercise inherited signals, high file descriptors, and X disconnects' \
+  '      - keep temporary diagnostics only until the suite exits'
 
 cleanup() {
   if [ -n "$DZEN_PID" ]; then kill "$DZEN_PID" 2>/dev/null || true; wait "$DZEN_PID" 2>/dev/null || true; fi
@@ -30,28 +30,21 @@ trap cleanup EXIT INT TERM
 
 pass() { PASSES=$((PASSES + 1)); printf '%sPASS:%s %s\n' "$GREEN" "$RESET" "$*"; }
 fail() { FAILURES=$((FAILURES + 1)); printf '%sFAIL:%s %s\n' "$RED" "$RESET" "$*" >&2; }
-skip() { SKIPS=$((SKIPS + 1)); printf '%sSKIP:%s %s\n' "$GRAY" "$RESET" "$*"; }
+skip() { SKIPS=$((SKIPS + 1)); printf '%sSKIP:%s %s\n' "$YELLOW" "$RESET" "$*"; }
 test_case() { printf '%sTEST %s:%s %s\n' "$GRAY" "$1" "$RESET" "$2"; }
 summary() {
   echo '---------------------'
   printf '%sPASS:%s %d  %sFAIL:%s %d  %sSKIP:%s %d\n' \
-    "$GREEN" "$RESET" "$PASSES" "$RED" "$RESET" "$FAILURES" "$GRAY" "$RESET" "$SKIPS"
+    "$GREEN" "$RESET" "$PASSES" "$RED" "$RESET" "$FAILURES" "$YELLOW" "$RESET" "$SKIPS"
 }
 
-for command in Xvfb xset mktemp; do
-  command -v "$command" >/dev/null 2>&1 || { echo "missing required command: $command" >&2; exit 1; }
-done
-[ -x "$ROOT/src/dzen2" ] || { echo "src/dzen2 is not built" >&2; exit 1; }
-[ -x "$ROOT/tests/blocked_signal_exec" ] || { echo "tests/blocked_signal_exec is not built" >&2; exit 1; }
-[ -x "$ROOT/tests/high_fd_exec" ] || { echo "tests/high_fd_exec is not built" >&2; exit 1; }
+test_require_commands Xvfb xset mktemp seq stat || exit 1
+[ -x "$DZEN2_BINARY" ] || { echo "dzen2 test binary is not built: $DZEN2_BINARY" >&2; exit 1; }
+[ -x "$BUILD_ROOT/tests/helpers/blocked_signal_exec" ] || { echo "blocked_signal_exec is not built" >&2; exit 1; }
+[ -x "$BUILD_ROOT/tests/helpers/high_fd_exec" ] || { echo "high_fd_exec is not built" >&2; exit 1; }
 
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/dzen-signals.XXXXXX")
-for display_number in $(seq 200 599); do
-  if [ ! -S "/tmp/.X11-unix/X$display_number" ] && [ ! -e "/tmp/.X$display_number-lock" ]; then
-    DISPLAY_NUMBER=:$display_number
-    break
-  fi
-done
+DISPLAY_NUMBER=$(test_find_free_display) || { echo "no free X display" >&2; exit 1; }
 if [ "$(stat -c %u /tmp/.X11-unix 2>/dev/null || printf 1)" = 0 ]; then
   XVFB_TRANSPORT=(-nolisten tcp)
   DISPLAY=$DISPLAY_NUMBER
@@ -71,7 +64,7 @@ xset q >/dev/null 2>&1 || { echo "Xvfb failed to start" >&2; exit 1; }
 start_dzen() {
   local output=$1
   shift
-  "$ROOT/src/dzen2" -p "$@" < /dev/null >"$output" 2>"$TEST_TMP/dzen.err" &
+  "$DZEN2_BINARY" -p "$@" < /dev/null >"$output" 2>"$TEST_TMP/dzen.err" &
   DZEN_PID=$!
   sleep .15
   kill -0 "$DZEN_PID" 2>/dev/null || { fail "dzen exited before the test signal"; DZEN_PID=; return 1; }
@@ -105,7 +98,7 @@ kill -TERM "$DZEN_PID"
 wait_status 143
 
 test_case 04 'onexit exit:N does not override timeout status'
-"$ROOT/src/dzen2" -p 1 -e 'onexit=print:MARKER,exit:7' < /dev/null >"$TEST_TMP/timeout.out" 2>"$TEST_TMP/dzen.err" &
+"$DZEN2_BINARY" -p 1 -e 'onexit=print:MARKER,exit:7' < /dev/null >"$TEST_TMP/timeout.out" 2>"$TEST_TMP/dzen.err" &
 DZEN_PID=$!
 wait_status 0
 [ "$(grep -c '^MARKER$' "$TEST_TMP/timeout.out" || true)" -eq 1 ] && pass "timeout onexit runs once" || fail "timeout onexit did not run once"
@@ -127,7 +120,7 @@ kill -USR1 "$DZEN_PID"
 wait_status 5
 
 test_case 07 'ordinary exit:N preserves the requested status'
-"$ROOT/src/dzen2" -p -e 'onstart=exit:9' < /dev/null >"$TEST_TMP/ordinary-exit.out" 2>"$TEST_TMP/dzen.err" &
+"$DZEN2_BINARY" -p -e 'onstart=exit:9' < /dev/null >"$TEST_TMP/ordinary-exit.out" 2>"$TEST_TMP/dzen.err" &
 DZEN_PID=$!
 wait_status 9
 
@@ -167,7 +160,7 @@ else
 fi
 
 test_case 09 'X connection and signal pipe work above FD_SETSIZE'
-"$ROOT/tests/high_fd_exec" "$ROOT/src/dzen2" -p < /dev/null >"$TEST_TMP/high-fd.out" 2>"$TEST_TMP/high-fd.err" &
+"$BUILD_ROOT/tests/helpers/high_fd_exec" "$DZEN2_BINARY" -p < /dev/null >"$TEST_TMP/high-fd.out" 2>"$TEST_TMP/high-fd.err" &
 DZEN_PID=$!
 sleep .15
 if ! kill -0 "$DZEN_PID" 2>/dev/null; then
@@ -187,7 +180,7 @@ else
 fi
 
 test_case 10 'inherited blocked SIGTERM is enabled by the dispatcher'
-"$ROOT/tests/blocked_signal_exec" "$ROOT/src/dzen2" -p < /dev/null >"$TEST_TMP/blocked-term.out" 2>"$TEST_TMP/blocked-term.err" &
+"$BUILD_ROOT/tests/helpers/blocked_signal_exec" "$DZEN2_BINARY" -p < /dev/null >"$TEST_TMP/blocked-term.out" 2>"$TEST_TMP/blocked-term.err" &
 DZEN_PID=$!
 sleep .15
 if kill -0 "$DZEN_PID" 2>/dev/null; then

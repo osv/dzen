@@ -72,29 +72,12 @@ jobs:
         run: |
           make
 
-      # Run E2E tests using native mode (Xvfb already set up by GitHub Actions)
-      - name: Run E2E tests
+      # Each integration suite manages its own isolated X display.
+      - name: Run tests
         run: |
-          # Start Xvfb on display :99
-          Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
-          # Set the DISPLAY environment variable to use the virtual display
-          export DISPLAY=:99
-          # waiting for framebuffer
-          sleep 4
+          # Keep the font list in the log: it is essential when visual tests differ.
           fc-list
-          # run tests using --native since we manage Xvfb externally
-          make test
-
-      # Run Xinerama-specific tests
-      - name: Run Xinerama tests
-        run: |
-          export DISPLAY=:99
-          make test-xinerama
-
-      # Run XRandR tests on an isolated Xorg dummy display. Missing test tools
-      # or the dummy DDX are errors by default, so this step cannot silently skip.
-      - name: Run XRandR integration tests
-        run: make test-xrandr
+          make check
 
       # Test without XFT support
       - name: Configure and build without XFT
@@ -104,9 +87,7 @@ jobs:
           make
 
       - name: Run non-XFT tests
-        run: |
-          export DISPLAY=:99
-          make test-nonxft
+        run: make check
 
       - name: Compile with XRandR and without Xinerama
         run: |
@@ -120,6 +101,12 @@ jobs:
           ./configure --disable-xrandr --enable-xinerama --enable-xcursor --enable-xpm
           make
 
+      - name: Compile with all optional features disabled
+        run: |
+          make distclean
+          ./configure --disable-xft --disable-xpm --disable-xinerama --disable-xcursor --disable-xrandr
+          make
+
       # Upload screenshots and diffs as artifacts if ANY test fails
       # This must be at the END of the workflow to catch all failures
       - name: Upload screenshots as artifacts (for debugging)
@@ -127,4 +114,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: integration-test-artifacts
-          path: integration-tests
+          path: |
+            tests/integration/**/actual
+            tests/integration/**/diffs

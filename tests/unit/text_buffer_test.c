@@ -1,5 +1,5 @@
-#include "../src/line_reader.h"
-#include "../src/text_buffer.h"
+#include "line_reader.h"
+#include "text_buffer.h"
 #include "test_common.h"
 
 #include <stdio.h>

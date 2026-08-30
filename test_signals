@@ -130,28 +130,34 @@ DZEN_PID=$!
 wait_status 9
 
 test_case 08 'onexit exec does not inherit ignored SIGTERM'
-ONEXIT_STARTED="$TEST_TMP/onexit-started"
+ONEXIT_PID_FILE="$TEST_TMP/onexit-pid"
 ONEXIT_MARKER="$TEST_TMP/onexit-after-signal"
 ONEXIT_SCRIPT="$TEST_TMP/onexit-signal.sh"
 {
   echo '#!/bin/sh'
-  printf "touch '%s'\n" "$ONEXIT_STARTED"
+  printf "printf '%%s\\n' \"\$\$\" > '%s'\n" "$ONEXIT_PID_FILE"
   echo 'kill -TERM $$'
   printf "touch '%s'\n" "$ONEXIT_MARKER"
 } >"$ONEXIT_SCRIPT"
 chmod +x "$ONEXIT_SCRIPT"
-start_dzen "$TEST_TMP/onexit-signal.out" -e "onexit=exec:$ONEXIT_SCRIPT"
+start_dzen "$TEST_TMP/onexit-signal.out" -e "onexit=exec:exec $ONEXIT_SCRIPT"
 kill -TERM "$DZEN_PID"
 wait_status 143
 for _ in $(seq 1 100); do
-  [ -e "$ONEXIT_STARTED" ] && break
+  [ -s "$ONEXIT_PID_FILE" ] && break
   sleep .02
 done
-if [ ! -e "$ONEXIT_STARTED" ]; then
+if [ ! -s "$ONEXIT_PID_FILE" ]; then
   fail "onexit exec command did not start"
 else
-  sleep .1
-  if [ -e "$ONEXIT_MARKER" ]; then
+  ONEXIT_PID=$(cat "$ONEXIT_PID_FILE")
+  for _ in $(seq 1 100); do
+    kill -0 "$ONEXIT_PID" 2>/dev/null || break
+    sleep .02
+  done
+  if kill -0 "$ONEXIT_PID" 2>/dev/null; then
+    fail "onexit exec command did not terminate"
+  elif [ -e "$ONEXIT_MARKER" ]; then
     fail "onexit exec command inherited an ignored SIGTERM"
   else
     pass "onexit exec resets SIGTERM to the default disposition"

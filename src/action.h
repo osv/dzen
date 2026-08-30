@@ -56,7 +56,7 @@ struct action_lookup {
 };
 
 struct AS {
-    char *options[MAXOPTIONS];
+    char *options[MAXOPTIONS + 1];
     int (*handler)(char **);
 };
 

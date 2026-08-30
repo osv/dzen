@@ -841,16 +841,17 @@ static enum ExitReason process_pending_signals(void) {
 }
 
 static enum ExitReason event_loop(void) {
+    enum { POLL_X, POLL_SIGNAL, POLL_STDIN, POLL_FD_COUNT };
     int             ret, dr = 0;
     enum ExitReason exit_reason;
-    struct pollfd   fds[3];
+    struct pollfd   fds[POLL_FD_COUNT];
 
-    fds[0].fd     = ConnectionNumber(dzen.dpy);
-    fds[0].events = POLLIN;
-    fds[1].fd     = signal_dispatch_fd(&signal_dispatch);
-    fds[1].events = POLLIN;
-    fds[2].fd     = STDIN_FILENO;
-    fds[2].events = POLLIN;
+    fds[POLL_X].fd          = ConnectionNumber(dzen.dpy);
+    fds[POLL_X].events      = POLLIN;
+    fds[POLL_SIGNAL].fd     = signal_dispatch_fd(&signal_dispatch);
+    fds[POLL_SIGNAL].events = POLLIN;
+    fds[POLL_STDIN].fd      = STDIN_FILENO;
+    fds[POLL_STDIN].events  = POLLIN;
     for (;;) {
         exit_reason = process_pending_signals();
         if (exit_reason != EXIT_REASON_NORMAL)
@@ -863,29 +864,33 @@ static enum ExitReason event_loop(void) {
         if (!dzen.running)
             return EXIT_REASON_NORMAL;
 
-        fds[2].fd = dr == -2 ? -1 : STDIN_FILENO;
-        ret       = poll(fds, 3, -1);
+        fds[POLL_STDIN].fd = dr == -2 ? -1 : STDIN_FILENO;
+        ret                = poll(fds, POLL_FD_COUNT, -1);
         if (ret < 0) {
             if (errno == EINTR)
                 continue;
             eprint("dzen: poll failed: %s\n", strerror(errno));
         }
         if (ret > 0) {
-            if ((fds[0].revents | fds[1].revents | fds[2].revents) & POLLNVAL)
-                eprint("dzen: poll reported an invalid file descriptor\n");
-            if (fds[1].revents & POLLIN) {
+            if (fds[POLL_X].revents & (POLLERR | POLLHUP | POLLNVAL))
+                eprint("dzen: X connection polling failed\n");
+            if (fds[POLL_SIGNAL].revents & (POLLERR | POLLHUP | POLLNVAL))
+                eprint("dzen: signal pipe polling failed\n");
+            if (fds[POLL_STDIN].revents & (POLLERR | POLLNVAL))
+                eprint("dzen: stdin polling failed\n");
+            if (fds[POLL_SIGNAL].revents & POLLIN) {
                 exit_reason = process_pending_signals();
                 if (exit_reason != EXIT_REASON_NORMAL)
                     return exit_reason;
             }
-            if (dr != -2 && (fds[2].revents & (POLLIN | POLLHUP))) {
+            if (dr != -2 && (fds[POLL_STDIN].revents & (POLLIN | POLLHUP))) {
                 dr = read_stdin();
                 if (dr == -1)
                     return EXIT_REASON_NORMAL;
                 if (dr != -3)
                     handle_newl();
             }
-            if (fds[0].revents & POLLIN)
+            if (fds[POLL_X].revents & POLLIN)
                 handle_xev();
         }
     }

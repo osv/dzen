@@ -198,6 +198,24 @@ else
   DZEN_PID=
 fi
 
+test_case 11 'X connection loss does not leave dzen in a poll busy-loop'
+start_dzen "$TEST_TMP/x-disconnect.out"
+kill "$XVFB_PID"
+wait "$XVFB_PID" 2>/dev/null || true
+XVFB_PID=
+for _ in $(seq 1 100); do
+  kill -0 "$DZEN_PID" 2>/dev/null || break
+  sleep .02
+done
+if kill -0 "$DZEN_PID" 2>/dev/null; then
+  fail "dzen remained running after the X connection closed"
+  kill -TERM "$DZEN_PID"
+  wait "$DZEN_PID" 2>/dev/null || true
+  DZEN_PID=
+else
+  wait_status 1
+fi
+
 summary
 if [ "$FAILURES" -ne 0 ]; then exit 1; fi
 echo "signal integration tests passed"

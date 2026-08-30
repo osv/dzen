@@ -85,26 +85,44 @@ static void install_noop_handler(int signum) {
 }
 
 int signal_dispatch_init(SignalDispatch *dispatch, int handle_usr1, int handle_usr2) {
-    int pipe_fds[2];
+    int      pipe_fds[2];
+    sigset_t old_mask;
+    sigset_t runtime_mask;
 
     dispatch->read_fd     = -1;
     dispatch->write_fd    = -1;
     dispatch->handle_usr1 = handle_usr1;
     dispatch->handle_usr2 = handle_usr2;
     sigemptyset(&dispatch->handled_signals);
+    sigaddset(&dispatch->handled_signals, SIGTERM);
+    sigaddset(&dispatch->handled_signals, SIGALRM);
+    if (handle_usr1)
+        sigaddset(&dispatch->handled_signals, SIGUSR1);
+    if (handle_usr2)
+        sigaddset(&dispatch->handled_signals, SIGUSR2);
 
-    if (pipe(pipe_fds) < 0)
+    if (sigprocmask(SIG_BLOCK, &dispatch->handled_signals, &old_mask) < 0)
         return -1;
+
+    if (pipe(pipe_fds) < 0) {
+        int saved_errno = errno;
+
+        (void)sigprocmask(SIG_SETMASK, &old_mask, NULL);
+        errno = saved_errno;
+        return -1;
+    }
     if (set_fd_flags(pipe_fds[0]) < 0 || set_fd_flags(pipe_fds[1]) < 0) {
         int saved_errno = errno;
         close(pipe_fds[0]);
         close(pipe_fds[1]);
+        (void)sigprocmask(SIG_SETMASK, &old_mask, NULL);
         errno = saved_errno;
         return -1;
     }
     if ((uintmax_t)pipe_fds[1] + 1 > (uintmax_t)SIG_ATOMIC_MAX) {
         close(pipe_fds[0]);
         close(pipe_fds[1]);
+        (void)sigprocmask(SIG_SETMASK, &old_mask, NULL);
         errno = EMFILE;
         return -1;
     }
@@ -114,17 +132,27 @@ int signal_dispatch_init(SignalDispatch *dispatch, int handle_usr1, int handle_u
     signal_write_fd_code = (sig_atomic_t)((uintmax_t)dispatch->write_fd + 1);
     pending_term = pending_alrm = pending_usr1 = pending_usr2 = 0;
 
-    sigaddset(&dispatch->handled_signals, SIGTERM);
-    sigaddset(&dispatch->handled_signals, SIGALRM);
-    if (handle_usr1)
-        sigaddset(&dispatch->handled_signals, SIGUSR1);
-    if (handle_usr2)
-        sigaddset(&dispatch->handled_signals, SIGUSR2);
-
     if (install_handler(SIGTERM) < 0 || install_handler(SIGALRM) < 0 || (handle_usr1 && install_handler(SIGUSR1) < 0) ||
         (handle_usr2 && install_handler(SIGUSR2) < 0)) {
         int saved_errno = errno;
         signal_dispatch_shutdown(dispatch);
+        (void)sigprocmask(SIG_SETMASK, &old_mask, NULL);
+        errno = saved_errno;
+        return -1;
+    }
+
+    runtime_mask = old_mask;
+    sigdelset(&runtime_mask, SIGTERM);
+    sigdelset(&runtime_mask, SIGALRM);
+    if (handle_usr1)
+        sigdelset(&runtime_mask, SIGUSR1);
+    if (handle_usr2)
+        sigdelset(&runtime_mask, SIGUSR2);
+    if (sigprocmask(SIG_SETMASK, &runtime_mask, NULL) < 0) {
+        int saved_errno = errno;
+
+        signal_dispatch_shutdown(dispatch);
+        (void)sigprocmask(SIG_SETMASK, &old_mask, NULL);
         errno = saved_errno;
         return -1;
     }

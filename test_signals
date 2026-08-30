@@ -42,6 +42,7 @@ for command in Xvfb xset mktemp; do
   command -v "$command" >/dev/null 2>&1 || { echo "missing required command: $command" >&2; exit 1; }
 done
 [ -x "$ROOT/src/dzen2" ] || { echo "src/dzen2 is not built" >&2; exit 1; }
+[ -x "$ROOT/tests/blocked_signal_exec" ] || { echo "tests/blocked_signal_exec is not built" >&2; exit 1; }
 [ -x "$ROOT/tests/high_fd_exec" ] || { echo "tests/high_fd_exec is not built" >&2; exit 1; }
 
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/dzen-signals.XXXXXX")
@@ -183,6 +184,18 @@ if ! kill -0 "$DZEN_PID" 2>/dev/null; then
 else
   kill -TERM "$DZEN_PID"
   wait_status 143
+fi
+
+test_case 10 'inherited blocked SIGTERM is enabled by the dispatcher'
+"$ROOT/tests/blocked_signal_exec" "$ROOT/src/dzen2" -p < /dev/null >"$TEST_TMP/blocked-term.out" 2>"$TEST_TMP/blocked-term.err" &
+DZEN_PID=$!
+sleep .15
+if kill -0 "$DZEN_PID" 2>/dev/null; then
+  kill -TERM "$DZEN_PID"
+  wait_status 143
+else
+  fail "dzen with inherited blocked SIGTERM exited before the test signal"
+  DZEN_PID=
 fi
 
 summary

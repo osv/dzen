@@ -37,6 +37,13 @@ static void check_handler_installed(int signum) {
     CHECK(action.sa_handler != SIG_IGN);
 }
 
+static void check_signal_unblocked(int signum) {
+    sigset_t mask;
+
+    CHECK(sigprocmask(SIG_SETMASK, NULL, &mask) == 0);
+    CHECK(sigismember(&mask, signum) == 0);
+}
+
 /* Raise one signal and verify that it wakes poll() and is reported once. */
 static void check_signal(SignalDispatch *dispatch, int signum, unsigned int expected) {
     struct pollfd poll_fd = { signal_dispatch_fd(dispatch), POLLIN, 0 };
@@ -95,10 +102,26 @@ static void run_configuration(int handle_usr1, int handle_usr2) {
     unsigned int   expected;
     int            read_fd;
     int            write_fd;
+    sigset_t       inherited_mask;
 
     /* Make the optional-handler checks independent of the invoking shell. */
     set_disposition(SIGUSR1, SIG_DFL);
     set_disposition(SIGUSR2, SIG_DFL);
+    CHECK(sigemptyset(&inherited_mask) == 0);
+    CHECK(sigaddset(&inherited_mask, SIGTERM) == 0);
+    CHECK(sigaddset(&inherited_mask, SIGALRM) == 0);
+    if (handle_usr1)
+        CHECK(sigaddset(&inherited_mask, SIGUSR1) == 0);
+    if (handle_usr2)
+        CHECK(sigaddset(&inherited_mask, SIGUSR2) == 0);
+    CHECK(sigprocmask(SIG_BLOCK, &inherited_mask, NULL) == 0);
+    CHECK(raise(SIGTERM) == 0);
+    CHECK(raise(SIGALRM) == 0);
+    if (handle_usr1)
+        CHECK(raise(SIGUSR1) == 0);
+    if (handle_usr2)
+        CHECK(raise(SIGUSR2) == 0);
+
     CHECK(signal_dispatch_init(&dispatch, handle_usr1, handle_usr2) == 0);
     read_fd  = dispatch.read_fd;
     write_fd = dispatch.write_fd;
@@ -108,6 +131,8 @@ static void run_configuration(int handle_usr1, int handle_usr2) {
 
     check_handler_installed(SIGTERM);
     check_handler_installed(SIGALRM);
+    check_signal_unblocked(SIGTERM);
+    check_signal_unblocked(SIGALRM);
     if (handle_usr1)
         check_handler_installed(SIGUSR1);
     else
@@ -116,6 +141,18 @@ static void run_configuration(int handle_usr1, int handle_usr2) {
         check_handler_installed(SIGUSR2);
     else
         check_disposition(SIGUSR2, SIG_DFL);
+
+    expected = SIGNAL_DISPATCH_TERM | SIGNAL_DISPATCH_ALRM;
+    if (handle_usr1) {
+        check_signal_unblocked(SIGUSR1);
+        expected |= SIGNAL_DISPATCH_USR1;
+    }
+    if (handle_usr2) {
+        check_signal_unblocked(SIGUSR2);
+        expected |= SIGNAL_DISPATCH_USR2;
+    }
+    CHECK(signal_dispatch_take(&dispatch) == expected);
+    CHECK(signal_dispatch_take(&dispatch) == 0);
 
     check_signal(&dispatch, SIGTERM, SIGNAL_DISPATCH_TERM);
     check_signal(&dispatch, SIGALRM, SIGNAL_DISPATCH_ALRM);
@@ -209,6 +246,7 @@ static void check_configuration(int handle_usr1, int handle_usr2) {
 
 int main(int argc, char **argv) {
     if (argc == 3 && strcmp(argv[1], "--raise") == 0) {
+        check_signal_unblocked(atoi(argv[2]));
         CHECK(raise(atoi(argv[2])) == 0);
         return EXIT_SUCCESS;
     }

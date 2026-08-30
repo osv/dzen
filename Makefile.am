@@ -7,7 +7,7 @@ if ENABLE_GADGETS
 endif
 
 bin_SCRIPTS = dzen2-help
-CLEANFILES = $(bin_SCRIPTS) tests/high_fd_exec
+CLEANFILES = $(bin_SCRIPTS) tests/blocked_signal_exec tests/high_fd_exec
 dist_doc_DATA = README.dzen README.md
 
 dist_man_MANS = dzen2.1
@@ -23,6 +23,7 @@ EXTRA_DIST = \
   test_signals \
   test_xinerama \
   test_xrandr \
+  tests/blocked_signal_exec.c \
   tests/high_fd_exec.c \
   tests/test_common.h \
   tests/test_layout.c \
@@ -68,8 +69,11 @@ test-signal-dispatch:
 	./tests/test_signal_dispatch
 	$(RM) tests/test_signal_dispatch
 
-test-signals: tests/high_fd_exec
+test-signals: tests/blocked_signal_exec tests/high_fd_exec
 	./test_signals
+
+tests/blocked_signal_exec: tests/blocked_signal_exec.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 tests/high_fd_exec: tests/high_fd_exec.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<

@@ -21,7 +21,8 @@ typedef struct {
 
 /*
  * Install handlers and create a nonblocking, close-on-exec self-pipe.
- * SIGTERM and SIGALRM are always handled; SIGUSR1/2 are optional.
+ * SIGTERM and SIGALRM are always handled; SIGUSR1/2 are optional. Handled
+ * signals are unblocked after their handlers have been installed.
  */
 int          signal_dispatch_init(SignalDispatch *dispatch, int handle_usr1, int handle_usr2);
 /* Return the descriptor that must be monitored for readability. */

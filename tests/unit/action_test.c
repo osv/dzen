@@ -7,12 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-Dzen        dzen = { 0 };
-static int  draw_body_calls;
-static int  spawn_calls;
-static char spawned_command[64];
+Dzen          dzen = { 0 };
+static int    draw_body_calls;
+static int    spawn_calls;
+static char   spawned_command[64];
+static Status window_attributes_status = True;
 
-void       *emalloc(unsigned int size) {
+void         *emalloc(unsigned int size) {
     void *result = malloc(size);
 
     CHECK(result != NULL);
@@ -46,6 +47,13 @@ void x_draw_body(void) {
 
 void parse_line_text(const char *text, TextBuffer *output) {
     text_buffer_assign(output, text);
+}
+
+Status XGetWindowAttributes(Display *display, Window window, XWindowAttributes *attributes) {
+    (void)display;
+    (void)window;
+    (void)attributes;
+    return window_attributes_status;
 }
 
 static void append_text(char *buffer, size_t capacity, const char *text) {
@@ -171,12 +179,20 @@ static void test_event_names_are_exact(void) {
     CHECK(get_ev_id("sigusr123") == -1);
 }
 
+static void test_togglecollapse_attribute_failure(void) {
+    dzen.slave_win.max_lines = 1;
+    window_attributes_status = False;
+    CHECK(a_togglecollapse(NULL) != 0);
+    window_attributes_status = True;
+}
+
 int main(void) {
     test_action_limit();
     test_option_limit();
     test_scroll_endpoints();
     test_menu_selection();
     test_event_names_are_exact();
+    test_togglecollapse_attribute_failure();
     puts("action tests passed");
     return EXIT_SUCCESS;
 }

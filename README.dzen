@@ -65,16 +65,21 @@ To enable all features and compile gadgets use next configure options:
 ^fg(#6fbf47)Contribute:
 ^fg(#6fbf47)========
 
-Feature requests, patches or anything else related to dzen can be send
+Feature requests, patches or anything else related to dzen can be sent
 to: ^fg(lightblue)https://github.com/osv/dzen
 
 To update man page and README.md from README.dzen, run:
 
     ^fg(grey85)make update-man
 
-To run integration tests, DejaVu fonts and compilation with the `--enable-xft` options are required:
+To run all tests applicable to the current build:
 
-    ^fg(grey85)make test
+    ^fg(grey85)make check
+
+`make test` is an alias for `make check`. Integration tests are selected
+according to the enabled configure features. Visual tests require Xvfb,
+xdotool, xwd, and ImageMagick. Xinerama tests additionally require Xephyr.
+XRandR tests require XFT, DejaVu Sans Mono, Xorg, and the dummy video driver.
 
 
 ^fg(#6fbf47)Running dzen

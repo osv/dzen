@@ -4,11 +4,11 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -37,17 +37,14 @@ static void check_handler_installed(int signum) {
     CHECK(action.sa_handler != SIG_IGN);
 }
 
-/* Raise one signal and verify that it wakes select() and is reported once. */
+/* Raise one signal and verify that it wakes poll() and is reported once. */
 static void check_signal(SignalDispatch *dispatch, int signum, unsigned int expected) {
-    fd_set         read_fds;
-    struct timeval timeout = { 1, 0 };
-    int            fd      = signal_dispatch_fd(dispatch);
+    struct pollfd poll_fd = { signal_dispatch_fd(dispatch), POLLIN, 0 };
 
     CHECK(raise(signum) == 0);
-    FD_ZERO(&read_fds);
-    FD_SET(fd, &read_fds);
-    CHECK(select(fd + 1, &read_fds, NULL, NULL, &timeout) == 1);
-    CHECK(FD_ISSET(fd, &read_fds));
+    CHECK(poll(&poll_fd, 1, 1000) == 1);
+    CHECK((poll_fd.revents & POLLIN) != 0);
+    CHECK((poll_fd.revents & (POLLERR | POLLHUP | POLLNVAL)) == 0);
     CHECK(signal_dispatch_take(dispatch) == expected);
     CHECK(signal_dispatch_take(dispatch) == 0);
 }

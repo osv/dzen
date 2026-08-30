@@ -284,8 +284,11 @@ int a_togglecollapse(char *opt[]) {
     XWindowAttributes wa;
     (void)opt;
 
-    if (dzen.slave_win.max_lines &&
-        (XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &wa), wa.map_state == IsUnmapped))
+    if (!dzen.slave_win.max_lines)
+        return 0;
+    if (!XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &wa))
+        return 1;
+    if (wa.map_state == IsUnmapped)
         a_uncollapse(NULL);
     else
         a_collapse(NULL);

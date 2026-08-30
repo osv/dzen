@@ -20,8 +20,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <poll.h>
 #include <signal.h>
-#include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -841,13 +841,16 @@ static enum ExitReason process_pending_signals(void) {
 }
 
 static enum ExitReason event_loop(void) {
-    int             xfd, signal_fd, max_fd, ret, dr = 0;
+    int             ret, dr = 0;
     enum ExitReason exit_reason;
-    fd_set          rmask;
+    struct pollfd   fds[3];
 
-    xfd       = ConnectionNumber(dzen.dpy);
-    signal_fd = signal_dispatch_fd(&signal_dispatch);
-    max_fd    = xfd > signal_fd ? xfd : signal_fd;
+    fds[0].fd     = ConnectionNumber(dzen.dpy);
+    fds[0].events = POLLIN;
+    fds[1].fd     = signal_dispatch_fd(&signal_dispatch);
+    fds[1].events = POLLIN;
+    fds[2].fd     = STDIN_FILENO;
+    fds[2].events = POLLIN;
     for (;;) {
         exit_reason = process_pending_signals();
         if (exit_reason != EXIT_REASON_NORMAL)
@@ -855,37 +858,34 @@ static enum ExitReason event_loop(void) {
         if (!dzen.running)
             return EXIT_REASON_NORMAL;
 
-        FD_ZERO(&rmask);
-        FD_SET(xfd, &rmask);
-        FD_SET(signal_fd, &rmask);
-        if (dr != -2)
-            FD_SET(STDIN_FILENO, &rmask);
-
         while (XPending(dzen.dpy))
             handle_xev();
         if (!dzen.running)
             return EXIT_REASON_NORMAL;
 
-        ret = select(max_fd + 1, &rmask, NULL, NULL, NULL);
+        fds[2].fd = dr == -2 ? -1 : STDIN_FILENO;
+        ret       = poll(fds, 3, -1);
         if (ret < 0) {
             if (errno == EINTR)
                 continue;
-            eprint("dzen: select failed: %s\n", strerror(errno));
+            eprint("dzen: poll failed: %s\n", strerror(errno));
         }
         if (ret > 0) {
-            if (FD_ISSET(signal_fd, &rmask)) {
+            if ((fds[0].revents | fds[1].revents | fds[2].revents) & POLLNVAL)
+                eprint("dzen: poll reported an invalid file descriptor\n");
+            if (fds[1].revents & POLLIN) {
                 exit_reason = process_pending_signals();
                 if (exit_reason != EXIT_REASON_NORMAL)
                     return exit_reason;
             }
-            if (dr != -2 && FD_ISSET(STDIN_FILENO, &rmask)) {
+            if (dr != -2 && (fds[2].revents & (POLLIN | POLLHUP))) {
                 dr = read_stdin();
                 if (dr == -1)
                     return EXIT_REASON_NORMAL;
                 if (dr != -3)
                     handle_newl();
             }
-            if (FD_ISSET(xfd, &rmask))
+            if (fds[0].revents & POLLIN)
                 handle_xev();
         }
     }
@@ -1266,7 +1266,14 @@ int main(int argc, char *argv[]) {
     /* main loop */
     exit_reason = event_loop();
 
-    signal_dispatch_shutdown(&signal_dispatch);
+    {
+        unsigned int pending = signal_dispatch_shutdown(&signal_dispatch);
+
+        if (pending & SIGNAL_DISPATCH_TERM)
+            exit_reason = EXIT_REASON_SIGTERM;
+        else if ((pending & SIGNAL_DISPATCH_ALRM) && exit_reason != EXIT_REASON_SIGTERM)
+            exit_reason = EXIT_REASON_TIMEOUT;
+    }
     do_action(onexit);
     clean_up();
 

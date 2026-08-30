@@ -28,7 +28,7 @@ int          signal_dispatch_init(SignalDispatch *dispatch, int handle_usr1, int
 int          signal_dispatch_fd(const SignalDispatch *dispatch);
 /* Drain the self-pipe and atomically take the coalesced pending signals. */
 unsigned int signal_dispatch_take(SignalDispatch *dispatch);
-/* Disable the timer and handlers, then close the self-pipe. */
-void         signal_dispatch_shutdown(SignalDispatch *dispatch);
+/* Atomically take pending signals, disable dispatch, and close the self-pipe. */
+unsigned int signal_dispatch_shutdown(SignalDispatch *dispatch);
 
 #endif

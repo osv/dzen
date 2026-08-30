@@ -1,4 +1,4 @@
-/* Unit tests for delivery, select wakeups, coalescing, and cleanup. */
+/* Unit tests for delivery, wakeups, coalescing, and cleanup. */
 #include "signal_dispatch.h"
 #include "test_common.h"
 
@@ -7,11 +7,14 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-static void check_disposition(int signum, void (*expected)(int)) {
+static const char *test_program;
+
+static void        check_disposition(int signum, void (*expected)(int)) {
     struct sigaction action;
 
     CHECK(sigaction(signum, NULL, &action) == 0);
@@ -57,6 +60,22 @@ static void check_default_termination(int signum) {
     if (child == 0) {
         CHECK(raise(signum) == 0);
         _exit(EXIT_SUCCESS);
+    }
+    CHECK(waitpid(child, &status, 0) == child);
+    CHECK(WIFSIGNALED(status));
+    CHECK(WTERMSIG(status) == signum);
+}
+
+static void check_default_after_exec(int signum) {
+    char  signum_text[32];
+    pid_t child = fork();
+    int   status;
+
+    CHECK(child >= 0);
+    if (child == 0) {
+        snprintf(signum_text, sizeof(signum_text), "%d", signum);
+        execl(test_program, test_program, "--raise", signum_text, (char *)NULL);
+        _exit(127);
     }
     CHECK(waitpid(child, &status, 0) == child);
     CHECK(WIFSIGNALED(status));
@@ -130,7 +149,18 @@ static void run_configuration(int handle_usr1, int handle_usr2) {
     CHECK(signal_dispatch_take(&dispatch) == expected);
     CHECK(signal_dispatch_take(&dispatch) == 0);
 
-    signal_dispatch_shutdown(&dispatch);
+    expected = SIGNAL_DISPATCH_TERM | SIGNAL_DISPATCH_ALRM;
+    CHECK(raise(SIGTERM) == 0);
+    CHECK(raise(SIGALRM) == 0);
+    if (handle_usr1) {
+        CHECK(raise(SIGUSR1) == 0);
+        expected |= SIGNAL_DISPATCH_USR1;
+    }
+    if (handle_usr2) {
+        CHECK(raise(SIGUSR2) == 0);
+        expected |= SIGNAL_DISPATCH_USR2;
+    }
+    CHECK(signal_dispatch_shutdown(&dispatch) == expected);
     CHECK(dispatch.read_fd == -1);
     CHECK(dispatch.write_fd == -1);
     errno = 0;
@@ -140,10 +170,30 @@ static void run_configuration(int handle_usr1, int handle_usr2) {
     CHECK(fcntl(write_fd, F_GETFD) == -1);
     CHECK(errno == EBADF);
 
-    check_disposition(SIGTERM, SIG_IGN);
-    check_disposition(SIGALRM, SIG_IGN);
-    check_disposition(SIGUSR1, handle_usr1 ? SIG_IGN : SIG_DFL);
-    check_disposition(SIGUSR2, handle_usr2 ? SIG_IGN : SIG_DFL);
+    check_handler_installed(SIGTERM);
+    check_handler_installed(SIGALRM);
+    if (handle_usr1)
+        check_handler_installed(SIGUSR1);
+    else
+        check_disposition(SIGUSR1, SIG_DFL);
+    if (handle_usr2)
+        check_handler_installed(SIGUSR2);
+    else
+        check_disposition(SIGUSR2, SIG_DFL);
+
+    CHECK(raise(SIGTERM) == 0);
+    CHECK(raise(SIGALRM) == 0);
+    if (handle_usr1)
+        CHECK(raise(SIGUSR1) == 0);
+    if (handle_usr2)
+        CHECK(raise(SIGUSR2) == 0);
+
+    check_default_after_exec(SIGTERM);
+    check_default_after_exec(SIGALRM);
+    if (handle_usr1)
+        check_default_after_exec(SIGUSR1);
+    if (handle_usr2)
+        check_default_after_exec(SIGUSR2);
 }
 
 static void check_configuration(int handle_usr1, int handle_usr2) {
@@ -160,7 +210,13 @@ static void check_configuration(int handle_usr1, int handle_usr2) {
     CHECK(WEXITSTATUS(status) == EXIT_SUCCESS);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    if (argc == 3 && strcmp(argv[1], "--raise") == 0) {
+        CHECK(raise(atoi(argv[2])) == 0);
+        return EXIT_SUCCESS;
+    }
+    test_program = argv[0];
+
     check_configuration(0, 0);
     check_configuration(1, 0);
     check_configuration(0, 1);

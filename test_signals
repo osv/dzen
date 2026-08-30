@@ -7,6 +7,7 @@ DZEN_PID=
 TEST_TMP=
 FAILURES=0
 PASSES=0
+SKIPS=0
 
 if { [ -t 1 ] || [ "${GITHUB_ACTIONS:-}" = true ]; } && [ -z "${NO_COLOR:-}" ]; then
   RED=$'\033[31m'
@@ -29,16 +30,20 @@ trap cleanup EXIT INT TERM
 
 pass() { PASSES=$((PASSES + 1)); printf '%sPASS:%s %s\n' "$GREEN" "$RESET" "$*"; }
 fail() { FAILURES=$((FAILURES + 1)); printf '%sFAIL:%s %s\n' "$RED" "$RESET" "$*" >&2; }
+skip() { SKIPS=$((SKIPS + 1)); printf '%sSKIP:%s %s\n' "$GRAY" "$RESET" "$*"; }
 test_case() { printf '%sTEST %s:%s %s\n' "$GRAY" "$1" "$RESET" "$2"; }
 summary() {
   echo '---------------------'
-  printf '%sPASS:%s %d  %sFAIL:%s %d\n' "$GREEN" "$RESET" "$PASSES" "$RED" "$RESET" "$FAILURES"
+  printf '%sPASS:%s %d  %sFAIL:%s %d  %sSKIP:%s %d\n' \
+    "$GREEN" "$RESET" "$PASSES" "$RED" "$RESET" "$FAILURES" "$GRAY" "$RESET" "$SKIPS"
 }
 
 for command in Xvfb xset mktemp; do
   command -v "$command" >/dev/null 2>&1 || { echo "missing required command: $command" >&2; exit 1; }
 done
 [ -x "$ROOT/src/dzen2" ] || { echo "src/dzen2 is not built" >&2; exit 1; }
+[ -x "$ROOT/tests/blocked_signal_exec" ] || { echo "tests/blocked_signal_exec is not built" >&2; exit 1; }
+[ -x "$ROOT/tests/high_fd_exec" ] || { echo "tests/high_fd_exec is not built" >&2; exit 1; }
 
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/dzen-signals.XXXXXX")
 for display_number in $(seq 200 599); do
@@ -125,6 +130,91 @@ test_case 07 'ordinary exit:N preserves the requested status'
 "$ROOT/src/dzen2" -p -e 'onstart=exit:9' < /dev/null >"$TEST_TMP/ordinary-exit.out" 2>"$TEST_TMP/dzen.err" &
 DZEN_PID=$!
 wait_status 9
+
+test_case 08 'onexit exec does not inherit ignored SIGTERM'
+ONEXIT_PID_FILE="$TEST_TMP/onexit-pid"
+ONEXIT_MARKER="$TEST_TMP/onexit-after-signal"
+ONEXIT_SCRIPT="$TEST_TMP/onexit-signal.sh"
+{
+  echo '#!/bin/sh'
+  printf "printf '%%s\\n' \"\$\$\" > '%s'\n" "$ONEXIT_PID_FILE"
+  echo 'kill -TERM $$'
+  printf "touch '%s'\n" "$ONEXIT_MARKER"
+} >"$ONEXIT_SCRIPT"
+chmod +x "$ONEXIT_SCRIPT"
+start_dzen "$TEST_TMP/onexit-signal.out" -e "onexit=exec:exec $ONEXIT_SCRIPT"
+kill -TERM "$DZEN_PID"
+wait_status 143
+for _ in $(seq 1 100); do
+  [ -s "$ONEXIT_PID_FILE" ] && break
+  sleep .02
+done
+if [ ! -s "$ONEXIT_PID_FILE" ]; then
+  fail "onexit exec command did not start"
+else
+  ONEXIT_PID=$(cat "$ONEXIT_PID_FILE")
+  for _ in $(seq 1 100); do
+    kill -0 "$ONEXIT_PID" 2>/dev/null || break
+    sleep .02
+  done
+  if kill -0 "$ONEXIT_PID" 2>/dev/null; then
+    fail "onexit exec command did not terminate"
+  elif [ -e "$ONEXIT_MARKER" ]; then
+    fail "onexit exec command inherited an ignored SIGTERM"
+  else
+    pass "onexit exec resets SIGTERM to the default disposition"
+  fi
+fi
+
+test_case 09 'X connection and signal pipe work above FD_SETSIZE'
+"$ROOT/tests/high_fd_exec" "$ROOT/src/dzen2" -p < /dev/null >"$TEST_TMP/high-fd.out" 2>"$TEST_TMP/high-fd.err" &
+DZEN_PID=$!
+sleep .15
+if ! kill -0 "$DZEN_PID" 2>/dev/null; then
+  set +e
+  wait "$DZEN_PID"
+  HIGH_FD_STATUS=$?
+  set -e
+  DZEN_PID=
+  if [ "$HIGH_FD_STATUS" -eq 77 ]; then
+    skip "the environment could not reserve descriptors through FD_SETSIZE"
+  else
+    fail "high-fd dzen exited early with status $HIGH_FD_STATUS"
+  fi
+else
+  kill -TERM "$DZEN_PID"
+  wait_status 143
+fi
+
+test_case 10 'inherited blocked SIGTERM is enabled by the dispatcher'
+"$ROOT/tests/blocked_signal_exec" "$ROOT/src/dzen2" -p < /dev/null >"$TEST_TMP/blocked-term.out" 2>"$TEST_TMP/blocked-term.err" &
+DZEN_PID=$!
+sleep .15
+if kill -0 "$DZEN_PID" 2>/dev/null; then
+  kill -TERM "$DZEN_PID"
+  wait_status 143
+else
+  fail "dzen with inherited blocked SIGTERM exited before the test signal"
+  DZEN_PID=
+fi
+
+test_case 11 'X connection loss does not leave dzen in a poll busy-loop'
+start_dzen "$TEST_TMP/x-disconnect.out"
+kill "$XVFB_PID"
+wait "$XVFB_PID" 2>/dev/null || true
+XVFB_PID=
+for _ in $(seq 1 100); do
+  kill -0 "$DZEN_PID" 2>/dev/null || break
+  sleep .02
+done
+if kill -0 "$DZEN_PID" 2>/dev/null; then
+  fail "dzen remained running after the X connection closed"
+  kill -TERM "$DZEN_PID"
+  wait "$DZEN_PID" 2>/dev/null || true
+  DZEN_PID=
+else
+  wait_status 1
+fi
 
 summary
 if [ "$FAILURES" -ne 0 ]; then exit 1; fi

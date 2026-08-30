@@ -20,8 +20,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <poll.h>
 #include <signal.h>
-#include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -841,13 +841,17 @@ static enum ExitReason process_pending_signals(void) {
 }
 
 static enum ExitReason event_loop(void) {
-    int             xfd, signal_fd, max_fd, ret, dr = 0;
+    enum { POLL_X, POLL_SIGNAL, POLL_STDIN, POLL_FD_COUNT };
+    int             ret, dr = 0;
     enum ExitReason exit_reason;
-    fd_set          rmask;
+    struct pollfd   fds[POLL_FD_COUNT];
 
-    xfd       = ConnectionNumber(dzen.dpy);
-    signal_fd = signal_dispatch_fd(&signal_dispatch);
-    max_fd    = xfd > signal_fd ? xfd : signal_fd;
+    fds[POLL_X].fd          = ConnectionNumber(dzen.dpy);
+    fds[POLL_X].events      = POLLIN;
+    fds[POLL_SIGNAL].fd     = signal_dispatch_fd(&signal_dispatch);
+    fds[POLL_SIGNAL].events = POLLIN;
+    fds[POLL_STDIN].fd      = STDIN_FILENO;
+    fds[POLL_STDIN].events  = POLLIN;
     for (;;) {
         exit_reason = process_pending_signals();
         if (exit_reason != EXIT_REASON_NORMAL)
@@ -855,37 +859,38 @@ static enum ExitReason event_loop(void) {
         if (!dzen.running)
             return EXIT_REASON_NORMAL;
 
-        FD_ZERO(&rmask);
-        FD_SET(xfd, &rmask);
-        FD_SET(signal_fd, &rmask);
-        if (dr != -2)
-            FD_SET(STDIN_FILENO, &rmask);
-
         while (XPending(dzen.dpy))
             handle_xev();
         if (!dzen.running)
             return EXIT_REASON_NORMAL;
 
-        ret = select(max_fd + 1, &rmask, NULL, NULL, NULL);
+        fds[POLL_STDIN].fd = dr == -2 ? -1 : STDIN_FILENO;
+        ret                = poll(fds, POLL_FD_COUNT, -1);
         if (ret < 0) {
             if (errno == EINTR)
                 continue;
-            eprint("dzen: select failed: %s\n", strerror(errno));
+            eprint("dzen: poll failed: %s\n", strerror(errno));
         }
         if (ret > 0) {
-            if (FD_ISSET(signal_fd, &rmask)) {
+            if (fds[POLL_X].revents & (POLLERR | POLLHUP | POLLNVAL))
+                eprint("dzen: X connection polling failed\n");
+            if (fds[POLL_SIGNAL].revents & (POLLERR | POLLHUP | POLLNVAL))
+                eprint("dzen: signal pipe polling failed\n");
+            if (fds[POLL_STDIN].revents & (POLLERR | POLLNVAL))
+                eprint("dzen: stdin polling failed\n");
+            if (fds[POLL_SIGNAL].revents & POLLIN) {
                 exit_reason = process_pending_signals();
                 if (exit_reason != EXIT_REASON_NORMAL)
                     return exit_reason;
             }
-            if (dr != -2 && FD_ISSET(STDIN_FILENO, &rmask)) {
+            if (dr != -2 && (fds[POLL_STDIN].revents & (POLLIN | POLLHUP))) {
                 dr = read_stdin();
                 if (dr == -1)
                     return EXIT_REASON_NORMAL;
                 if (dr != -3)
                     handle_newl();
             }
-            if (FD_ISSET(xfd, &rmask))
+            if (fds[POLL_X].revents & POLLIN)
                 handle_xev();
         }
     }
@@ -1266,7 +1271,14 @@ int main(int argc, char *argv[]) {
     /* main loop */
     exit_reason = event_loop();
 
-    signal_dispatch_shutdown(&signal_dispatch);
+    {
+        unsigned int pending = signal_dispatch_shutdown(&signal_dispatch);
+
+        if (pending & SIGNAL_DISPATCH_TERM)
+            exit_reason = EXIT_REASON_SIGTERM;
+        else if ((pending & SIGNAL_DISPATCH_ALRM) && exit_reason != EXIT_REASON_SIGTERM)
+            exit_reason = EXIT_REASON_TIMEOUT;
+    }
     do_action(onexit);
     clean_up();
 

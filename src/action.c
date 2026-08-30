@@ -92,12 +92,12 @@ static void add_handler(long evid, int hpos, handlerf *hcb) {
     item = head;
     while (item) {
         if (item->id == evid) {
-            if (hpos < MAXACTIONS) {
+            if (hpos >= 0 && hpos < MAXACTIONS) {
                 free_action(item->action[hpos]);
                 item->action[hpos]          = emalloc(sizeof(As));
                 item->action[hpos]->handler = hcb;
                 /* Initialize all options to NULL */
-                for (int k = 0; k < MAXOPTIONS; k++) {
+                for (int k = 0; k <= MAXOPTIONS; k++) {
                     item->action[hpos]->options[k] = NULL;
                 }
             }
@@ -113,7 +113,7 @@ static void add_option(long evid, int hpos, int opos, char *opt) {
     item = head;
     while (item) {
         if (item->id == evid) {
-            if (opos < MAXOPTIONS) {
+            if (hpos >= 0 && hpos < MAXACTIONS && opos >= 0 && opos < MAXOPTIONS && item->action[hpos]) {
                 item->action[hpos]->options[opos]     = estrdup(opt);
                 item->action[hpos]->options[opos + 1] = NULL;
             }
@@ -148,7 +148,7 @@ void do_action(long evid) {
     }
 
     if (item) {
-        for (i = 0; item->action[i]->handler; i++) {
+        for (i = 0; i < MAXACTIONS && item->action[i] && item->action[i]->handler; i++) {
             item->action[i]->handler(item->action[i]->options);
         }
     }

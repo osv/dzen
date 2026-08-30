@@ -42,6 +42,7 @@ EXTRA_DIST = \
 noinst_HEADERS = tests/unit/test_common.h
 
 UNIT_TESTS = \
+  tests/unit/action_test \
   tests/unit/layout_test \
   tests/unit/signal_dispatch_test \
   tests/unit/text_buffer_test
@@ -52,6 +53,15 @@ TEST_HELPERS = \
 
 check_PROGRAMS = $(UNIT_TESTS) $(TEST_HELPERS)
 TESTS = $(UNIT_TESTS)
+
+tests_unit_action_test_SOURCES = \
+  tests/unit/action_test.c \
+  src/action.c \
+  src/action.h \
+  src/text_buffer.c \
+  src/text_buffer.h
+tests_unit_action_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
+tests_unit_action_test_LDADD = $(X11_LIBS)
 
 tests_unit_layout_test_SOURCES = \
   tests/unit/layout_test.c \
@@ -91,7 +101,7 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test test-unit test-layout test-signal-dispatch test-text-buffer \
+.PHONY: test test-unit test-action test-layout test-signal-dispatch test-text-buffer \
   test-signals test-visual test-visual-xft test-visual-core test-nonxft \
   test-xinerama test-xrandr update-man
 
@@ -99,6 +109,9 @@ test: check
 
 test-unit: $(UNIT_TESTS)
 	@set -e; for test_program in $(UNIT_TESTS); do ./$$test_program; done
+
+test-action: tests/unit/action_test
+	./tests/unit/action_test
 
 test-layout: tests/unit/layout_test
 	./tests/unit/layout_test

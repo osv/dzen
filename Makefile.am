@@ -7,7 +7,7 @@ if ENABLE_GADGETS
 endif
 
 bin_SCRIPTS = dzen2-help
-CLEANFILES = $(bin_SCRIPTS)
+CLEANFILES = $(bin_SCRIPTS) .x11-test.lock
 dist_doc_DATA = README.dzen README.md
 
 dist_man_MANS = dzen2.1
@@ -108,6 +108,9 @@ TEST_ENV = \
   DZEN2_TEST_BUILD_ROOT="$(abs_top_builddir)" \
   DZEN2_TEST_BINARY="$(abs_top_builddir)/src/dzen2"
 
+X11_TEST_LOCK = $(abs_top_builddir)/.x11-test.lock
+X11_TEST_RUN = flock "$(X11_TEST_LOCK)"
+
 do_subst = sed -e 's,[@]bindir[@],$(bindir),g' \
             -e 's,[@]docdir[@],$(docdir),g'
 
@@ -140,7 +143,7 @@ test-text-buffer: tests/unit/text_buffer_test
 	./tests/unit/text_buffer_test
 
 test-signals: all $(TEST_HELPERS)
-	@$(TEST_ENV) $(top_srcdir)/tests/integration/signals/test.sh
+	@$(TEST_ENV) $(X11_TEST_RUN) $(top_srcdir)/tests/integration/signals/test.sh
 
 test-compare-metric:
 	@$(TEST_ENV) $(top_srcdir)/tests/integration/test_compare_metric.sh
@@ -149,11 +152,11 @@ if HAVE_XFT
 test-visual: test-visual-xft
 
 test-visual-xft: all
-	@$(TEST_ENV) $(top_srcdir)/tests/integration/visual/runner.sh \
+	@$(TEST_ENV) $(X11_TEST_RUN) $(top_srcdir)/tests/integration/visual/runner.sh \
 		$(abs_top_srcdir)/tests/integration/visual/xft/cases.md
 
 test-visual-borders: all
-	@$(TEST_ENV) $(top_srcdir)/tests/integration/visual/runner.sh \
+	@$(TEST_ENV) $(X11_TEST_RUN) $(top_srcdir)/tests/integration/visual/runner.sh \
 		$(abs_top_srcdir)/tests/integration/visual/borders/cases.md
 
 test-visual-core:
@@ -171,7 +174,7 @@ test-visual-borders:
 	@exit 1
 
 test-visual-core: all
-	@$(TEST_ENV) $(top_srcdir)/tests/integration/visual/runner.sh \
+	@$(TEST_ENV) $(X11_TEST_RUN) $(top_srcdir)/tests/integration/visual/runner.sh \
 		$(abs_top_srcdir)/tests/integration/visual/core-font/cases.md
 endif
 
@@ -179,7 +182,7 @@ test-nonxft: test-visual-core
 
 if HAVE_XINERAMA
 test-xinerama: all
-	@$(TEST_ENV) $(top_srcdir)/tests/integration/xinerama/test.sh
+	@$(TEST_ENV) $(X11_TEST_RUN) $(top_srcdir)/tests/integration/xinerama/test.sh
 else
 test-xinerama:
 	@echo "test-xinerama requires a build configured with --enable-xinerama" >&2
@@ -189,7 +192,7 @@ endif
 if HAVE_XRANDR
 if HAVE_XFT
 test-xrandr: all
-	@$(TEST_ENV) $(top_srcdir)/tests/integration/xrandr/test.sh
+	@$(TEST_ENV) $(X11_TEST_RUN) $(top_srcdir)/tests/integration/xrandr/test.sh
 else
 test-xrandr:
 	@echo "test-xrandr requires a build configured with --enable-xrandr and --enable-xft" >&2

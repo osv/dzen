@@ -26,6 +26,10 @@ typedef struct {
 typedef struct {
     LayoutRect title;
     LayoutRect slave;
+    LayoutRect outer;
+    LayoutRect collapsed_outer;
+    LayoutRect title_local;
+    LayoutRect slave_local;
     int        title_right;
     int        menu_entry_width;
     int        menu_last_width;

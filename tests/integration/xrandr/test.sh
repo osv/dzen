@@ -184,6 +184,25 @@ assert_window_geometry() {
   assert_eq "$label x" "$X" "$expected_x"; assert_eq "$label y" "$Y" "$expected_y"
   assert_eq "$label width" "$WIDTH" "$expected_w"; assert_eq "$label height" "$HEIGHT" "$expected_h"
 }
+window_map_state() { xwininfo -id "$1" 2>/dev/null | awk -F: '/Map State:/ { sub(/^[[:space:]]+/, "", $2); print $2 }'; }
+wait_id_state() {
+  local id=$1 expected=$2 actual= _
+  for _ in $(seq 1 60); do actual=$(window_map_state "$id"); [ "$actual" = "$expected" ] && return 0; sleep .05; done
+  return 1
+}
+assert_id_geometry() {
+  local label=$1 id=$2 expected_x=$3 expected_y=$4 expected_w=$5 expected_h=$6 X= Y= WIDTH= HEIGHT=
+  eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)"
+  assert_eq "$label x" "$X" "$expected_x"; assert_eq "$label y" "$Y" "$expected_y"
+  assert_eq "$label width" "$WIDTH" "$expected_w"; assert_eq "$label height" "$HEIGHT" "$expected_h"
+}
+pid_window_count() { xdotool search --pid "$DZEN_PID" 2>/dev/null | awk 'NF { count++ } END { print count + 0 }'; }
+slave_window() { xdotool search --name '^dzen slave$' 2>/dev/null | tail -1; }
+title_window() {
+  local slave_hex
+  slave_hex=$(printf '0x%x' "$1")
+  xwininfo -id "$WIN" -children 2>/dev/null | awk -v slave="$slave_hex" '$1 ~ /^0x/ && tolower($1) != tolower(slave) { print $1; exit }'
+}
 start() {
   cleanup_dzen; WIN=
   printf 'xrandr title\nitem one\nitem two\n' | "$DZEN2_BINARY" "$@" -fn "$TEST_FONT" -bg "$BAR_BG" -fg "$BAR_FG" -p 30 >"$TMPDIR_XRANDR/dzen.stdout" 2>"$TMPDIR_XRANDR/dzen.stderr" &
@@ -204,31 +223,6 @@ capture() {
   if [ ! -f "$expected" ]; then fail "missing expected screenshot $expected (review actual, then run with UPDATE_XRANDR_EXPECTED=1)"; return; fi
   metric=$(compare -metric AE "$expected" "$actual" "$diff" 2>&1 || true); metric=${metric%% *}
   if [ "$metric" = 0 ]; then rm -f "$diff"; pass "screenshot $name.png"; else fail "screenshot $name differs by $metric pixels (see $diff)"; fi
-}
-pid_window_geometry_count() {
-  local expected_x=$1 expected_y=$2 expected_w=$3 expected_h=$4 id X Y WIDTH HEIGHT count=0
-  while read -r id; do
-    X= Y= WIDTH= HEIGHT=
-    eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)"
-    if [ "$X" = "$expected_x" ] && [ "$Y" = "$expected_y" ] && [ "$WIDTH" = "$expected_w" ] && [ "$HEIGHT" = "$expected_h" ]; then count=$((count + 1)); fi
-  done < <(xdotool search --pid "$DZEN_PID" 2>/dev/null)
-  printf '%s\n' "$count"
-}
-assert_pid_window_geometry() {
-  local label=$1 count
-  count=$(pid_window_geometry_count "$2" "$3" "$4" "$5")
-  if [ "$count" -ge 1 ]; then pass "$label"; else fail "$label geometry $2,$3 ${4}x${5} not found"; fi
-}
-assert_slave_geometry() {
-  local label=$1 expected_x=$2 expected_y=$3 expected_w=$4 expected_h=$5 id X= Y= WIDTH= HEIGHT=
-  id=$(xdotool search --name '^dzen slave$' 2>/dev/null | tail -1)
-  if [ -z "$id" ]; then fail "$label: slave window not found"; return; fi
-  eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)"
-  if [ "$X" = "$expected_x" ] && [ "$Y" = "$expected_y" ] && [ "$WIDTH" = "$expected_w" ] && [ "$HEIGHT" = "$expected_h" ]; then
-    pass "$label"
-  else
-    fail "$label expected $expected_x,$expected_y ${expected_w}x${expected_h}; got $X,$Y ${WIDTH}x${HEIGHT}"
-  fi
 }
 run_rejected() {
   local label=$1; shift
@@ -376,17 +370,71 @@ xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${S
 wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "menu geometry did not settle"
 SLAVE_W=$((BAR_W + 73)); SLAVE_X=$((BAR_X + (BAR_W - SLAVE_W) / 2))
 test_case 11 "vertical menu layout" 11-dummy-vertical-menu.png
-if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v -e onstart=uncollapse -h "$BAR_H"; then
-  assert_pid_window_geometry "vertical title has independent width" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
-  assert_slave_geometry "vertical slave has independent width/height" "$SLAVE_X" "$((BAR_Y + BAR_H))" "$SLAVE_W" "$((2 * BAR_H))"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v \
+    -e 'onstart=uncollapse;sigusr1=collapse;sigusr2=uncollapse' -h "$BAR_H"; then
+  SLAVE_WIN=$(slave_window); TITLE_WIN=$(title_window "$SLAVE_WIN")
+  assert_eq "vertical PID-associated top-level count" "$(pid_window_count)" 1
+  assert_window_geometry "vertical expanded outer" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"
+  assert_id_geometry "vertical title child" "$TITLE_WIN" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
+  assert_id_geometry "vertical slave child" "$SLAVE_WIN" "$SLAVE_X" "$((BAR_Y + BAR_H))" "$SLAVE_W" "$((2 * BAR_H))"
+  if kill -USR1 "$DZEN_PID" && wait_window_geometry "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"; then
+    pass "collapse shrinks outer to title"
+  else fail "collapse shrinks outer to title"; fi
+  if wait_id_state "$SLAVE_WIN" IsUnMapped; then pass "collapse unmaps slave child"; else fail "collapse unmaps slave child"; fi
+  if kill -USR2 "$DZEN_PID" && wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"; then
+    pass "uncollapse expands outer to union"
+  else fail "uncollapse expands outer to union"; fi
+  if wait_id_state "$SLAVE_WIN" IsViewable; then pass "uncollapse maps slave child"; else fail "uncollapse maps slave child"; fi
   capture 11-dummy-vertical-menu
 else fail "vertical menu starts"; fi
 test_case 12 "horizontal menu layout" 12-dummy-horizontal-menu.png
-if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m h -e onstart=uncollapse -h "$BAR_H"; then
-  assert_pid_window_geometry "horizontal title has independent width" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
-  assert_slave_geometry "horizontal menu parent geometry" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m h \
+    -e 'onstart=uncollapse;sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
+  SLAVE_WIN=$(slave_window); TITLE_WIN=$(title_window "$SLAVE_WIN")
+  assert_eq "horizontal PID-associated top-level count" "$(pid_window_count)" 1
+  assert_window_geometry "horizontal outer wraps slave" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
+  assert_id_geometry "horizontal title child" "$TITLE_WIN" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
+  assert_id_geometry "horizontal slave child" "$SLAVE_WIN" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
+  if wait_id_state "$TITLE_WIN" IsUnMapped; then pass "horizontal title child remains unmapped"; else fail "horizontal title child remains unmapped"; fi
   capture 12-dummy-horizontal-menu
+  if kill -USR1 "$DZEN_PID" && wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" 1; then
+    pass "horizontal hide shrinks outer"
+  else fail "horizontal hide shrinks outer"; fi
+  if kill -USR2 "$DZEN_PID" && wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"; then
+    pass "horizontal unhide restores outer"
+  else fail "horizontal unhide restores outer"; fi
 else fail "horizontal menu starts"; fi
+
+test_case 12a "pointer transitions across outer children"
+xdotool mousemove "$((SCREEN_W - 10))" "$((SCREEN_H - 10))"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v -h "$BAR_H"; then
+  xdotool mousemove "$((BAR_X + 10))" "$((BAR_Y + 10))"
+  if wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"; then
+    pass "entering title uncollapses through child event"
+  else fail "entering title uncollapses through child event"; fi
+  xdotool mousemove "$((SLAVE_X + 10))" "$((BAR_Y + BAR_H + 10))"
+  if wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"; then
+    pass "title-to-slave transition stays expanded"
+  else fail "title-to-slave transition stays expanded"; fi
+  xdotool mousemove "$((SLAVE_X + SLAVE_W + 20))" "$((BAR_Y + 10))"
+  if wait_window_geometry "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"; then
+    pass "leaving slave collapses without outer crossing action"
+  else fail "leaving slave collapses without outer crossing action"; fi
+else fail "pointer-transition menu starts"; fi
+
+test_case 12b "slave-name compatibility and outer metadata"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -w "$BAR_W" -l 1 -slave-name stage2-slave -dock -h "$BAR_H"; then
+  NAMED_SLAVE=$(xdotool search --name '^stage2-slave$' 2>/dev/null | tail -1)
+  if [ -n "$NAMED_SLAVE" ]; then pass "-slave-name finds internal slave child"; else fail "-slave-name finds internal slave child"; fi
+  assert_eq "metadata PID-associated window count" "$(pid_window_count)" 1
+  OUTER_METADATA=$(xprop -id "$WIN" WM_CLASS WM_NAME _NET_WM_PID _NET_WM_WINDOW_TYPE 2>/dev/null || true)
+  assert_match "outer owns WM class" "$OUTER_METADATA" 'WM_CLASS.*dzen2.*dzen'
+  assert_match "outer owns title name" "$OUTER_METADATA" 'WM_NAME.*dzen title'
+  assert_match "outer owns PID" "$OUTER_METADATA" '_NET_WM_PID.*[0-9]'
+  assert_match "outer owns dock type" "$OUTER_METADATA" '_NET_WM_WINDOW_TYPE_DOCK'
+  CHILD_PID=$(xprop -id "$NAMED_SLAVE" _NET_WM_PID 2>/dev/null || true)
+  assert_match "slave child has no PID metadata" "$CHILD_PID" 'not found'
+else fail "slave-name metadata menu starts"; fi
 
 # With no monitor selector, dzen follows the root framebuffer. Expanding the
 # framebuffer must resize the existing full-width title without recreating it.

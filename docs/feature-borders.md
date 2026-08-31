@@ -22,18 +22,21 @@ the border interface.
 
 ## Current behavior
 
-In vertical menu mode, dzen creates two root children:
+Stage 2 presents one root child to X11 clients, window managers, and
+compositors:
 
-- `dzen title` is a top-level, single-line window.
-- `dzen slave` is a second top-level window containing one child window per
-  visible line.
+- `dzen outer` owns WM class/name/PID, dock state, struts, stacking, and
+  application visibility.
+- The unnamed title content and named slave content are children of outer.
+- The slave contains one child window per visible line.
 
 The slave is normally unmapped until `uncollapse` runs. Moving between title and
-slave drives the default collapse/grab behavior. Both top-level windows use
-override-redirect unless `-dock` is active.
+slave drives the default collapse/grab behavior. Only outer uses
+override-redirect unless `-dock` is active. Content children retain the legacy
+input masks, while outer deliberately has no pointer-crossing/input mask.
 
-Horizontal menu mode differs: the unused title remains unmapped and the
-top-level slave contains one child per horizontal item.
+Horizontal menu mode differs: outer wraps the slave, the unused title remains
+unmapped, and the slave contains one child per horizontal item.
 
 `src/layout.c` resolves screen-relative title and slave rectangles. If `-tw`
 and `-w` differ, the smaller/larger slave rectangle is centered relative to the
@@ -44,10 +47,10 @@ stacking, dynamic title expansion, and XRandR mapping preservation now also go
 through that module. `main.c`, `action.c`, and `draw.c` retain policy and
 rendering intent without directly mutating the existing windows.
 
-XRandR integration case 11, **vertical menu layout**, is the legacy baseline.
-Its `11-dummy-vertical-menu.png` reference captures a centered narrow title
-above a wider slave, and the test separately asserts the exact geometry of both
-top-level windows.
+XRandR integration case 11, **vertical menu layout**, remains the pixel
+baseline. Its `11-dummy-vertical-menu.png` reference captures a centered narrow
+title above a wider slave, while topology assertions now verify their absolute
+geometry as children of the single outer window.
 
 ## Target window model
 
@@ -177,16 +180,25 @@ and XRandR suites, and the core-font visual suite passes in a separate non-XFT
 build. XRandR reports 104 passes and one expected rotation skip; case 11 retains
 both geometries and its reference pixels.
 
-### Stage 2: introduce the outer window
+### Stage 2: introduce the outer window (complete)
 
-- Extend pure layout types to resolve outer and content-local rectangles.
-- Create one root child and reparent/create title and slave beneath it.
-- Move WM/EWMH metadata and mapping state to the outer window.
-- Adapt collapse, horizontal mode, expansion, output changes, and event routing.
-- Update the legacy XRandR topology assertions for one outer top-level window
-  and its children. Review the old and new case 11 screenshots before replacing
-  its expected image; pixel changes must be expected consequences of the new
-  hierarchy, while zero-border content geometry remains unchanged.
+- Pure layout types resolve absolute content, expanded/collapsed outer, and
+  content-local rectangles.
+- Creation directly builds `root -> outer -> title/slave -> lines`; no reparent
+  transition is needed.
+- WM/EWMH metadata, struts, stacking, output visibility, and reconnect state
+  belong to outer. The internal slave keeps `-slave-name` compatibility.
+- Collapse, hide, horizontal mode, dynamic expansion, output changes, and
+  pointer routing operate through the unified surface without changing content
+  coordinates.
+- XRandR topology and mapping tests cover the hierarchy and transitions. The
+  existing case 11 and 12 golden screenshots remain pixel-identical and were
+  not replaced.
+
+Stage 3 therefore starts with a stable outer geometry/background surface. Its
+`ParentRelative` background already exposes root-identical pixels in uncovered
+areas around asymmetric content; static border insets can replace those areas
+without another hierarchy migration.
 
 ### Stage 3: static borders
 
@@ -245,3 +257,6 @@ both geometries and its reference pixels.
   semantics.
 - 2026-08-31: Add a dedicated border visual suite and retain XRandR case 11,
   updating its expected topology/screenshot only after old-versus-new review.
+- 2026-08-31: Complete Stage 2 with a directly-created outer hierarchy and a
+  `ParentRelative` outer surface. Existing XRandR menu golden images remain
+  pixel-identical, so no expected images were updated.

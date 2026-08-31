@@ -932,6 +932,7 @@ int main(int argc, char *argv[]) {
     windows_initialize_layout(&current_layout, layout_request.horizontal_menu);
 
     windows_create(use_ewmh_dock, &current_layout);
+    windows_set_output_available(output_connected);
     update_docking_struts(output_connected);
 
     if ((!has_output_name() || output_connected) && !dzen.slave_win.ishmenu)

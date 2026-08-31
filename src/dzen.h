@@ -144,6 +144,7 @@ struct DZEN {
     unsigned long norm[ColLast]; /* Array holding normal fg/bg colors */
 
     /* Window structures */
+    Window        outer_win; /* The only root child and WM-facing application surface */
     TWIN          title_win; /* Title window (always visible, single line) */
     SWIN          slave_win; /* Slave window (optional multi-line menu) */
 

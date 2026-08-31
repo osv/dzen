@@ -22,6 +22,19 @@ static int clamp_position(int position, int origin, int extent, int object_exten
     return position;
 }
 
+static LayoutRect rect_union(const LayoutRect *left, const LayoutRect *right) {
+    LayoutRect result;
+    int right_edge  = left->x + left->width > right->x + right->width ? left->x + left->width : right->x + right->width;
+    int bottom_edge = left->y + left->height > right->y + right->height ? left->y + left->height
+                                                                        : right->y + right->height;
+
+    result.x      = left->x < right->x ? left->x : right->x;
+    result.y      = left->y < right->y ? left->y : right->y;
+    result.width  = right_edge - result.x;
+    result.height = bottom_edge - result.y;
+    return result;
+}
+
 void layout_resolve(const LayoutRequest *request, const XRectangle *target, ResolvedLayout *result) {
     int title_width;
     int slave_width;
@@ -75,6 +88,23 @@ void layout_resolve(const LayoutRequest *request, const XRectangle *target, Reso
     result->slave.y      = slave_y;
     result->slave.width  = slave_width;
     result->slave.height = request->horizontal_menu ? request->line_height : request->max_lines * request->line_height;
+
+    result->collapsed_outer = result->title;
+    if (!request->max_lines)
+        result->outer = result->title;
+    else if (request->horizontal_menu)
+        result->outer = result->slave;
+    else
+        result->outer = rect_union(&result->title, &result->slave);
+
+    result->title_local.x      = result->title.x - result->outer.x;
+    result->title_local.y      = result->title.y - result->outer.y;
+    result->title_local.width  = result->title.width;
+    result->title_local.height = result->title.height;
+    result->slave_local.x      = result->slave.x - result->outer.x;
+    result->slave_local.y      = result->slave.y - result->outer.y;
+    result->slave_local.width  = result->slave.width;
+    result->slave_local.height = result->slave.height;
 
     if (request->horizontal_menu && request->max_lines > 0) {
         result->menu_entry_width = slave_width / request->max_lines;

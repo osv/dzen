@@ -20,6 +20,7 @@ void windows_resize_expanded_title(int width, int x);
 void windows_remember_and_unmap(void);
 void windows_remember_slave_and_unmap(void);
 void windows_restore_mapping(Bool horizontal_menu);
+void windows_set_output_available(Bool available);
 void windows_update_docking_struts(const ResolvedLayout *layout, const XRectangle *target, const XRectangle *root,
                                    Bool dock_active);
 

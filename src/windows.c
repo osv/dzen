@@ -61,6 +61,12 @@ static void place_surface(Bool slave_mapped, Bool title_hidden) {
                           title_hidden && dzen.slave_win.ishmenu ? 1 : active_layout.slave.height);
 }
 
+static void clear_hidden_title(void) {
+    XClearArea(dzen.dpy, dzen.outer_win, active_layout.title.x - active_layout.outer.x,
+               active_layout.title.y - active_layout.outer.y, active_layout.title.width, active_layout.title.height,
+               False);
+}
+
 static int slave_drawable_width(const ResolvedLayout *layout, Bool horizontal_menu) {
     return horizontal_menu ? layout->menu_last_width : layout->slave.width;
 }
@@ -206,8 +212,10 @@ void windows_map_slave(void) {
     XMapWindow(dzen.dpy, dzen.slave_win.win);
     for (i = 0; i < dzen.slave_win.max_lines; i++)
         XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
-    if (dzen.title_win.ishidden && !dzen.slave_win.ishmenu)
+    if (dzen.title_win.ishidden && !dzen.slave_win.ishmenu) {
         XUnmapWindow(dzen.dpy, dzen.title_win.win);
+        clear_hidden_title();
+    }
     if (outer_mapping_enabled)
         XMapRaised(dzen.dpy, dzen.outer_win);
 }
@@ -234,6 +242,8 @@ void windows_set_title_hidden(Bool horizontal_menu, Bool hidden) {
             XUnmapWindow(dzen.dpy, dzen.title_win.win);
         else
             XMapWindow(dzen.dpy, dzen.title_win.win);
+        if (hidden)
+            clear_hidden_title();
     }
 }
 

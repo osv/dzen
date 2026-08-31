@@ -885,6 +885,7 @@ int parse_non_drawing_commands(const char *text) {
             XSetBackground(dzen.dpy, dzen.gc, dzen.norm[ColBG]);
             XSetForeground(dzen.dpy, dzen.rgc, dzen.norm[ColBG]);
             XSetBackground(dzen.dpy, dzen.rgc, dzen.norm[ColFG]);
+            windows_normal_background_changed();
         }
         return 0;
     }

@@ -243,10 +243,10 @@ detect_imagemagick
 
 # Setup display
 if [ "$USE_VIRTUAL_DISPLAY" = true ]; then
-    test_require_commands xwd xdotool base64 Xvfb xset seq stat || exit 1
+    test_require_commands xwd xdotool xwininfo xprop base64 Xvfb xset seq stat || exit 1
     start_virtual_display
 else
-    test_require_commands xwd xdotool base64 xset || exit 1
+    test_require_commands xwd xdotool xwininfo xprop base64 xset || exit 1
     [ -n "${DISPLAY:-}" ] || { echo "DISPLAY is not set" >&2; exit 1; }
     xset q >/dev/null 2>&1 || { echo "Cannot connect to DISPLAY=$DISPLAY" >&2; exit 1; }
     echo "Running tests on native X11 display: $DISPLAY"
@@ -334,9 +334,49 @@ run_test() {
   local expected_screenshot=""
   local check_num=0
 
+  check_geometry() {
+    local id=$1 expected=$2 label=$3 geometry actual
+    geometry=$(xdotool getwindowgeometry --shell "$id")
+    actual=$(printf '%s\n' "$geometry" | awk -F= '/^(X|Y|WIDTH|HEIGHT)=/ { value[$1]=$2 } END { print value["X"] "," value["Y"] "," value["WIDTH"] "," value["HEIGHT"] }')
+    check_num=$((check_num + 1))
+    if [ "$actual" = "$expected" ]; then
+      echo -en "$check_num: $label geometry ${GREEN}Pass. ${NC}"
+    else
+      echo -e "\n${RED}$check_num: $label geometry: expected $expected, got $actual.${NC}"
+      all_tests_passed=false
+    fi
+  }
+
+  content_window_id() {
+    local kind=$1 child name
+    while read -r child; do
+      [ -n "$child" ] || continue
+      name=$(xprop -id "$child" WM_NAME 2>/dev/null || true)
+      if [ "$kind" = slave ] && [[ $name == *'dzen slave'* ]]; then echo "$child"; return; fi
+      if [ "$kind" = title ] && [[ $name != *'dzen slave'* ]]; then echo "$child"; return; fi
+    done < <(xwininfo -id "$window_id" -children | awk '/^[[:space:]]+0x[0-9a-f]+ / { print $1 }')
+  }
+
   for step in "${steps[@]}"; do
     IFS='|' read -r action params <<< "$step"
     case "$action" in
+      'geometry')
+        check_geometry "$window_id" "$params" Outer
+        ;;
+      'title_geometry')
+        local title_id
+        title_id=$(content_window_id title)
+        check_geometry "$title_id" "$params" Title
+        ;;
+      'slave_geometry')
+        local slave_id
+        slave_id=$(content_window_id slave)
+        check_geometry "$slave_id" "$params" Slave
+        ;;
+      'click')
+        xdotool click "$params"
+        sleep 0.1
+        ;;
       'mouse')
         IFS=',' read -r x y <<< "$params"
         xdotool mousemove --window "$window_id" "$x" "$y"
@@ -360,6 +400,16 @@ run_test() {
           all_tests_passed=false
         else
           echo -en "$check_num: Click button ${button} and check output ${GREEN}Pass. ${NC}"
+        fi
+        ;;
+      'check_no_output')
+        check_num=$((check_num + 1))
+        app_output=$(cat "$app_output_path")
+        if [ -z "$app_output" ]; then
+          echo -en "$check_num: No action output ${GREEN}Pass. ${NC}"
+        else
+          echo -e "\n${RED}$check_num: Expected no action output, got '${app_output}'.${NC}"
+          all_tests_passed=false
         fi
         ;;
       'crop')
@@ -574,11 +624,26 @@ run_tests() {
       '### Mouse: '*)
         steps+=("mouse|${line#'### Mouse: '}")
         ;;
+      '### Click: '*)
+        steps+=("click|${line#'### Click: '}")
+        ;;
+      '### Geometry: '*)
+        steps+=("geometry|${line#'### Geometry: '}")
+        ;;
+      '### Title geometry: '*)
+        steps+=("title_geometry|${line#'### Title geometry: '}")
+        ;;
+      '### Slave geometry: '*)
+        steps+=("slave_geometry|${line#'### Slave geometry: '}")
+        ;;
       '### Press key: '*)
         steps+=("presskey|${line#'### Press key: '}")
         ;;
       '### Click and check output: '*)
         steps+=("click_and_check|${line#'### Click and check output: '}")
+        ;;
+      '### Check no output')
+        steps+=("check_no_output|")
         ;;
       '![reference](./'*)
         expected_screenshot="${line#'![reference](./'}"

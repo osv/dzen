@@ -200,7 +200,7 @@ Stage 3 therefore starts with a stable outer geometry/background surface. Its
 areas around asymmetric content; static border insets can replace those areas
 without another hierarchy migration.
 
-### Stage 3: static borders
+### Stage 3: static borders (complete)
 
 - Add border state and strict parsing for the single `-b` option.
 - Allocate the border color through the existing color cache.
@@ -215,6 +215,12 @@ without another hierarchy migration.
   and a centered narrow title in the dedicated suite. Expose a focused make
   target such as `make test-visual-borders`.
 - Update the man page and help text.
+
+Stage 3 adds strict, atomically replacing `-b` state, inherited or explicit
+cached X11 colors, inset-aware safe layout, bordered collapse/hide/menu and
+dock behavior, and XRandR state preservation.  A dedicated XFT border suite
+covers pixels, exact outer/content geometry, actions, and background
+inheritance.  Existing general visual golden images remain unchanged.
 
 ### Stage 4: dynamic borders
 
@@ -260,3 +266,9 @@ without another hierarchy migration.
 - 2026-08-31: Complete Stage 2 with a directly-created outer hierarchy and a
   `ParentRelative` outer surface. Existing XRandR menu golden images remain
   pixel-identical, so no expected images were updated.
+- 2026-08-31: Complete Stage 3 with static `-b` borders. Implicit widths reserve
+  horizontal insets, explicit content widths remain unchanged, oversized
+  surfaces pin to the target origin and use normal X11 clipping, dock struts
+  use the bordered collapsed outer, and all-zero widths retain
+  `ParentRelative` even when a color was supplied. Dynamic `^border(...)`
+  remains Stage 4 work.

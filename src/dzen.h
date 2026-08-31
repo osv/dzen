@@ -6,6 +6,7 @@
 
 #include "../config.h"
 #include "font.h"
+#include "border.h"
 #include "text_buffer.h"
 #include "util.h"
 
@@ -142,6 +143,8 @@ struct DZEN {
 
     /* Default colors for foreground and background */
     unsigned long norm[ColLast]; /* Array holding normal fg/bg colors */
+    BorderSpec    border;
+    unsigned long border_pixel;
 
     /* Window structures */
     Window        outer_win; /* The only root child and WM-facing application surface */

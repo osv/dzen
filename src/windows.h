@@ -23,5 +23,6 @@ void windows_restore_mapping(Bool horizontal_menu);
 void windows_set_output_available(Bool available);
 void windows_update_docking_struts(const ResolvedLayout *layout, const XRectangle *target, const XRectangle *root,
                                    Bool dock_active);
+void windows_normal_background_changed(void);
 
 #endif

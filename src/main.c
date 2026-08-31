@@ -64,6 +64,7 @@ static void destroy_text_state(void) {
     text_buffer_destroy(&dzen.title_win.name);
     text_buffer_destroy(&dzen.slave_win.name);
     text_buffer_destroy(&output_name);
+    border_spec_destroy(&dzen.border);
     line_reader_destroy(&stdin_reader);
 }
 
@@ -271,7 +272,8 @@ static void handle_xrandr_event(XEvent *event) {
     }
 
     current_target = target;
-    layout_resolve(&layout_request, &target, &next);
+    if (!layout_resolve(&layout_request, &target, &next))
+        eprint("dzen: border/content geometry exceeds safe X11 dimensions\n");
     apply_layout(&next);
     if (has_output_name() && !was_connected)
         restore_window_mapping();
@@ -649,6 +651,7 @@ int main(int argc, char *argv[]) {
     dzen.tsupdate            = 0;
     dzen.line_height         = 0;
     dzen.title_win.expand    = noexpand;
+    border_spec_init(&dzen.border);
 
     /* Connect to X server */
     x_connect();
@@ -656,7 +659,12 @@ int main(int argc, char *argv[]) {
 
     /* cmdline args */
     for (i = 1; i < argc; i++)
-        if (!strncmp(argv[i], "-l", 3)) {
+        if (!strcmp(argv[i], "-b")) {
+            if (++i >= argc)
+                eprint("dzen: -b requires a border specification\n");
+            if (!border_spec_parse(&dzen.border, argv[i]))
+                eprint("dzen: invalid border specification '%s'\n", argv[i]);
+        } else if (!strncmp(argv[i], "-l", 3)) {
             if (++i < argc) {
                 dzen.slave_win.max_lines = atoi(argv[i]);
                 if (dzen.slave_win.max_lines)
@@ -813,7 +821,8 @@ int main(int argc, char *argv[]) {
         } else
             eprint("usage: dzen2 [-v] [-p [seconds]] [-m [v|h]] [-ta <l|c|r>] [-sa <l|c|r>]\n"
                    "             [-x <pixel>] [-y <pixel>] [-w <pixel>] [-h <pixel>] [-tw <pixel>] [-u]\n"
-                   "             [-e <string>] [-l <lines>]  [-fn <font>] [-bg <color>] [-fg <color>]\n"
+                   "             [-e <string>] [-l <lines>] [-b <widths[,color]>] [-fn <font>]\n"
+                   "             [-bg <color>] [-fg <color>]\n"
                    "             [-geometry <geometry string>] [-expand <left|right>] [-dock]\n"
                    "             [-title-name <string>] [-slave-name <string>]\n"
 #ifdef HAVE_XINERAMA
@@ -927,7 +936,9 @@ int main(int argc, char *argv[]) {
     layout_request.max_lines       = dzen.slave_win.max_lines;
     layout_request.expand          = dzen.title_win.expand;
     layout_request.horizontal_menu = dzen.slave_win.ishmenu;
-    layout_resolve(&layout_request, &current_target, &current_layout);
+    layout_request.border          = dzen.border.widths;
+    if (!layout_resolve(&layout_request, &current_target, &current_layout))
+        eprint("dzen: border/content geometry exceeds safe X11 dimensions\n");
     layout_initialized = True;
     windows_initialize_layout(&current_layout, layout_request.horizontal_menu);
 

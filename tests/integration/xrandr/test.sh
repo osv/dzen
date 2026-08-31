@@ -257,6 +257,11 @@ assert_match "-lm lists active output $OUTPUT" "$LM_OUTPUT" "(^|[[:space:]])$OUT
 run_rejected "unknown output" -output __dzen_nonexistent_output__
 run_rejected "-output/-xs conflict (output first)" -output "$OUTPUT" -xs 1
 run_rejected "-output/-xs conflict (xs first)" -xs 1 -output "$OUTPUT"
+run_rejected "border missing argument" -b
+run_rejected "border empty field" -b '1,,red'
+run_rejected "border three-width form" -b '1,2,3'
+run_rejected "border numeric overflow" -b '999999999999999999999999999999'
+run_rejected "border invalid X11 color" -b '2,__not_an_x11_color__'
 
 test_case 02 "initial output placement" 02-dummy-initial.png
 if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -h "$BAR_H" -w "$BAR_W"; then
@@ -508,5 +513,46 @@ if [ -n "$SECONDARY" ]; then
   xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$SECONDARY" --off \
     --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore primary after unrelated-output test"
 fi
+
+wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "border-case output restoration did not settle"
+test_case 16 "border clamping and state across disconnect/reconnect"
+if start -output "$OUTPUT" -x -1 -y -1 -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v \
+    -b '3,7,9,11,#406080' -e 'onstart=uncollapse;sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
+  BORDER_X=$((SCREEN_W - SLAVE_W - 11 - 7)); BORDER_Y=$((SCREEN_H - 3 * BAR_H - 3 - 9))
+  BORDER_W=$((SLAVE_W + 11 + 7)); BORDER_H=$((3 * BAR_H + 3 + 9))
+  BORDER_WIN=$WIN; BORDER_SLAVE=$(slave_window); BORDER_TITLE=$(title_window "$BORDER_SLAVE")
+  assert_window_geometry "bordered negative-anchor clamp" "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$BORDER_H"
+  assert_id_geometry "bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
+    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
+  if kill -USR1 "$DZEN_PID" && wait_window_geometry "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$BORDER_H"; then
+    pass "expanded vertical hide preserves bordered outer"
+  else fail "expanded vertical hide preserves bordered outer"; fi
+  if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "expanded vertical hide unmaps title child"; else fail "expanded vertical hide unmaps title child"; fi
+  assert_id_geometry "hidden bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
+    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" 1
+  if xrandr --output "$OUTPUT" --off >/dev/null 2>&1; then
+    wait_window_state IsUnMapped || fail "bordered hidden surface disconnects"
+    if xrandr --fb "${ALT_W}x${ALT_H}" --output "$OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos 0x0 >/dev/null 2>&1; then
+      wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+0+0" || fail "bordered reconnect output did not settle"
+      if wait_window_state IsViewable; then pass "bordered hidden surface reconnects"; else fail "bordered hidden surface reconnects"; fi
+      assert_eq "bordered reconnect keeps outer window" "$WIN" "$BORDER_WIN"
+      assert_window_geometry "bordered reconnect clamp" "$((ALT_W - BORDER_W))" "$BORDER_Y" "$BORDER_W" "$BORDER_H"
+      assert_id_geometry "bordered reconnect keeps hidden title" "$BORDER_TITLE" "$((ALT_W - BAR_W - 7))" \
+        "$((ALT_H - BAR_H - 9))" "$BAR_W" 1
+      if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "bordered reconnect keeps title hidden"; else fail "bordered reconnect keeps title hidden"; fi
+      if wait_id_state "$BORDER_SLAVE" IsViewable; then pass "bordered reconnect keeps expanded slave"; else fail "bordered reconnect keeps expanded slave"; fi
+      kill -USR2 "$DZEN_PID" || fail "unhide bordered title after reconnect"
+    else fail "reconnect bordered output"; fi
+  else skip "dummy DDX cannot disconnect output for border state test"; fi
+else fail "bordered menu starts"; fi
+
+xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore output for bordered dock"
+wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "bordered dock output did not settle"
+test_case 16b "dock strut includes static borders"
+if start -output "$OUTPUT" -dock -y 0 -h "$BAR_H" -b '3,7,9,11,#406080'; then
+  BORDER_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+  assert_match "bordered dock exact collapsed strut" "$BORDER_STRUT" \
+    '= 0, 0, 40, 0, 0, 0, 0, 0, 0, 1023, 0, 0$'
+else fail "bordered dock starts"; fi
 
 cleanup_dzen; summary; exit "$FAILURES"

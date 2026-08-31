@@ -328,8 +328,14 @@ run_test() {
 
   check_geometry() {
     local id=$1 expected=$2 label=$3 geometry actual
-    geometry=$(xdotool getwindowgeometry --shell "$id")
-    actual=$(printf '%s\n' "$geometry" | awk -F= '/^(X|Y|WIDTH|HEIGHT)=/ { value[$1]=$2 } END { print value["X"] "," value["Y"] "," value["WIDTH"] "," value["HEIGHT"] }')
+    geometry=$(LC_ALL=C xwininfo -id "$id" 2>/dev/null)
+    actual=$(printf '%s\n' "$geometry" | awk -F: '
+      /Absolute upper-left X:/ { x = $2 + 0 }
+      /Absolute upper-left Y:/ { y = $2 + 0 }
+      /^[[:space:]]*Width:/ { width = $2 + 0 }
+      /^[[:space:]]*Height:/ { height = $2 + 0 }
+      END { print x "," y "," width "," height }
+    ')
     check_num=$((check_num + 1))
     if [ "$actual" = "$expected" ]; then
       echo -en "$check_num: $label geometry ${GREEN}Pass. ${NC}"

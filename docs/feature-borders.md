@@ -39,8 +39,10 @@ top-level slave contains one child per horizontal item.
 and `-w` differ, the smaller/larger slave rectangle is centered relative to the
 title where screen bounds permit. The first refactor slice moved creation,
 destruction, drawable resizing, initial WM metadata, and layout application to
-`src/windows.c`. Mapping policy and docking struts remain in `main.c`, while
-`action.c` and `draw.c` still issue some X window operations directly.
+`src/windows.c`. Mapping policy, docking struts, action-driven visibility and
+stacking, dynamic title expansion, and XRandR mapping preservation now also go
+through that module. `main.c`, `action.c`, and `draw.c` retain policy and
+rendering intent without directly mutating the existing windows.
 
 XRandR integration case 11, **vertical menu layout**, is the legacy baseline.
 Its `11-dummy-vertical-menu.png` reference captures a centered narrow title
@@ -156,19 +158,24 @@ old and new screenshots must be reviewed together. Its expected image and
 topology assertions may then be updated only for understood consequences of
 the new hierarchy; unrelated pixel or positioning changes are regressions.
 
-### Stage 1: isolate window management (in progress)
+### Stage 1: isolate window management (complete)
 
-- Completed: move X11 window creation/destruction, drawable resizing, initial
-  WM metadata, and layout geometry application from `main.c` into
-  `src/windows.c` and `src/windows.h`.
-- Remaining: move mapping helpers and docking struts out of `main.c`.
-- Route direct window mutations in `action.c` and `draw.c` through the module
-  where doing so establishes a useful abstraction for the future outer window.
-- Do not change the X11 hierarchy or pixels in this stage.
+- Window creation/destruction, drawable resizing, initial WM metadata, layout
+  application, mapping, mapped-state queries, visibility, stacking, dynamic
+  title expansion, docking struts, and XRandR mapping preservation are isolated
+  in `src/windows.c` and `src/windows.h`.
+- The X11 hierarchy and rendered pixels remain unchanged.
 
-Validation after the first slice: `make check` passes the unit, signal, XFT
-visual, Xinerama, and XRandR suites. XRandR reports 104 passes and one expected
-rotation skip; case 11 retains both geometries and its reference pixels.
+Before Stage 2, the remaining prerequisites are to define outer/content-local
+layout rectangles, decide how the outer window represents expanded versus
+collapsed geometry, and audit event routing and compatibility of the two
+existing top-level window names. The Stage 0 XRandR case 11 geometry and image
+remain the baseline for validating the conversion.
+
+Stage 1 validation: `make check` passes the unit, signal, XFT visual, Xinerama,
+and XRandR suites, and the core-font visual suite passes in a separate non-XFT
+build. XRandR reports 104 passes and one expected rotation skip; case 11 retains
+both geometries and its reference pixels.
 
 ### Stage 2: introduce the outer window
 
@@ -210,13 +217,15 @@ rotation skip; case 11 retains both geometries and its reference pixels.
   parent; test title-to-slave and slave-to-outside transitions.
 - An override-redirect parent with mapped children must preserve stacking,
   pointer grabs, keyboard grabs, and visibility semantics.
-- `^p()` expansion currently resizes/moves the title directly from `draw.c` and
-  must be routed through layout/window management before the container lands.
-- XRandR reconnect state currently remembers title and slave mapping separately;
-  the target model needs outer visibility plus expanded/collapsed state.
+- `^p()` expansion is routed through window management but still resizes/moves
+  the title content directly; Stage 2 must make it resize the outer surface too.
+- XRandR reconnect state is isolated in window management but still remembers
+  title and slave mapping separately; the target model needs outer visibility
+  plus expanded/collapsed state.
 - Pixmaps remain content-sized. Do not accidentally include border widths in
   text alignment or clickable-area calculations.
-- EWMH dock struts currently live on the title and are based on its rectangle.
+- EWMH dock struts are managed centrally but currently live on the title and are
+  based on its rectangle.
 - XFT and core-font builds must both compile and pass their respective visual
   suites.
 

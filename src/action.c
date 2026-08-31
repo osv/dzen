@@ -6,6 +6,7 @@
 
 #include "dzen.h"
 #include "action.h"
+#include "windows.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -264,31 +265,28 @@ int a_exit(char *opt[]) {
 int a_collapse(char *opt[]) {
     (void)opt;
     if (!dzen.slave_win.ishmenu && dzen.slave_win.max_lines && !dzen.slave_win.issticky) {
-        XUnmapWindow(dzen.dpy, dzen.slave_win.win);
+        windows_unmap_slave();
     }
     return 0;
 }
 
 int a_uncollapse(char *opt[]) {
-    int i;
     (void)opt;
     if (!dzen.slave_win.ishmenu && dzen.slave_win.max_lines && !dzen.slave_win.issticky) {
-        XMapRaised(dzen.dpy, dzen.slave_win.win);
-        for (i = 0; i < dzen.slave_win.max_lines; i++)
-            XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
+        windows_map_slave();
     }
     return 0;
 }
 
 int a_togglecollapse(char *opt[]) {
-    XWindowAttributes wa;
+    Bool mapped;
     (void)opt;
 
     if (!dzen.slave_win.max_lines)
         return 0;
-    if (!XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &wa))
+    if (!windows_slave_is_mapped(&mapped))
         return 1;
-    if (wa.map_state == IsUnmapped)
+    if (!mapped)
         a_uncollapse(NULL);
     else
         a_collapse(NULL);
@@ -360,11 +358,7 @@ int a_hide(char *opt[]) {
     (void)opt;
 
     if (!dzen.title_win.ishidden) {
-        if (!dzen.slave_win.ishmenu)
-            XResizeWindow(dzen.dpy, dzen.title_win.win, dzen.title_win.width, 1);
-        else
-            XResizeWindow(dzen.dpy, dzen.slave_win.win, dzen.title_win.width, 1);
-
+        windows_set_title_hidden(dzen.slave_win.ishmenu, True);
         dzen.title_win.ishidden = True;
     }
     return 0;
@@ -373,11 +367,7 @@ int a_hide(char *opt[]) {
 int a_unhide(char *opt[]) {
     (void)opt;
     if (dzen.title_win.ishidden) {
-        if (!dzen.slave_win.ishmenu)
-            XResizeWindow(dzen.dpy, dzen.title_win.win, dzen.title_win.width, dzen.line_height);
-        else
-            XResizeWindow(dzen.dpy, dzen.slave_win.win, dzen.title_win.width, dzen.line_height);
-
+        windows_set_title_hidden(dzen.slave_win.ishmenu, False);
         dzen.title_win.ishidden = False;
     }
     return 0;
@@ -470,19 +460,13 @@ int a_menuexec(char *opt[]) {
 
 int a_raise(char *opt[]) {
     (void)opt;
-    XRaiseWindow(dzen.dpy, dzen.title_win.win);
-
-    if (dzen.slave_win.max_lines)
-        XRaiseWindow(dzen.dpy, dzen.slave_win.win);
+    windows_raise_all();
     return 0;
 }
 
 int a_lower(char *opt[]) {
     (void)opt;
-    XLowerWindow(dzen.dpy, dzen.title_win.win);
-
-    if (dzen.slave_win.max_lines)
-        XLowerWindow(dzen.dpy, dzen.slave_win.win);
+    windows_lower_all();
     return 0;
 }
 

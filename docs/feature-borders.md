@@ -82,6 +82,25 @@ the bordered title bounds. It must not retain a blank slave-sized area. In
 horizontal menu mode, the outer window wraps the slave content and the unused
 title child stays unmapped.
 
+Strict hide uses the following mapping and geometry matrix; hidden content
+children retain their normal dimensions rather than being resized to one
+pixel:
+
+| Mode before `hide` | Hidden title | Hidden slave | Hidden outer |
+| --- | --- | --- | --- |
+| Title only | Unmapped | Absent | Unmapped, bordered title geometry retained |
+| Collapsed vertical | Unmapped | Unmapped | Unmapped, bordered title geometry retained |
+| Expanded vertical | Unmapped | Mapped | Mapped around the bordered slave bounds |
+| Horizontal | Unmapped | Unmapped | Unmapped, bordered slave geometry retained |
+
+`unhide` preserves collapse state: it restores the bordered title for a
+collapsed vertical surface, the title/slave union for an expanded vertical
+surface, and the bordered slave for a horizontal menu. A hidden dock publishes
+neither `_NET_WM_STRUT` nor `_NET_WM_STRUT_PARTIAL`; unhide restores both from
+the current bordered collapsed geometry. XRandR relayout and reconnect preserve
+the same hidden and collapsed/expanded states without replacing outer's XID or
+WM metadata.
+
 ## Border interface
 
 Borders use one command-line option with CSS-like width expansion and an
@@ -222,6 +241,13 @@ dock behavior, and XRandR state preservation.  A dedicated XFT border suite
 covers pixels, exact outer/content geometry, actions, and background
 inheritance.  Existing general visual golden images remain unchanged.
 
+The Stage 3 follow-up removes the inherited one-pixel hide geometry. Window
+management now synchronizes outer/title/slave mapping and geometry from output
+availability, title hidden state, and slave mapping state. Expanded vertical
+menus retain only the bordered slave surface; title-only, collapsed vertical,
+and horizontal surfaces fully unmap. Dock struts follow strict hide and XRandR
+reconnect without recreating the outer window.
+
 ### Stage 4: dynamic borders
 
 - Implement `^border(...)` with the same grammar and validation as `-b` through
@@ -272,3 +298,6 @@ inheritance.  Existing general visual golden images remain unchanged.
   use the bordered collapsed outer, and all-zero widths retain
   `ParentRelative` even when a color was supplied. Dynamic `^border(...)`
   remains Stage 4 work.
+- 2026-08-31: Make `hide` strict: remove one-pixel content resizing, fully
+  unmap title-only/collapsed/horizontal surfaces, keep only an expanded
+  vertical slave visible, and suppress dock struts until `unhide`.

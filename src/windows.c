@@ -9,9 +9,13 @@
 #define HOST_NAME_MAX 255
 #endif
 
-static Bool           outer_mapped_before_disconnect = True;
-static Bool           outer_mapping_enabled          = True;
+static Bool           outer_mapping_enabled = True;
 static ResolvedLayout active_layout;
+static Bool           docking_struts_enabled;
+static Bool           docking_layout_valid;
+static ResolvedLayout docking_layout;
+static XRectangle     docking_target;
+static XRectangle     docking_root;
 
 static Bool           window_is_mapped(Window window, Bool *mapped) {
     XWindowAttributes attributes;
@@ -27,16 +31,17 @@ static LayoutRect visible_outer(Bool slave_mapped, Bool title_hidden) {
 
     if (dzen.slave_win.ishmenu) {
         result = active_layout.outer;
-        if (title_hidden) {
-            result.y      = active_layout.slave.y - (int)active_layout.border.top;
-            result.height = active_layout.border.top + 1 + active_layout.border.bottom;
-        }
     } else if (dzen.slave_win.max_lines && slave_mapped) {
-        result = active_layout.outer;
+        if (title_hidden) {
+            result.x      = active_layout.slave.x - (int)active_layout.border.left;
+            result.y      = active_layout.slave.y - (int)active_layout.border.top;
+            result.width  = active_layout.slave.width + active_layout.border.left + active_layout.border.right;
+            result.height = active_layout.slave.height + active_layout.border.top + active_layout.border.bottom;
+        } else {
+            result = active_layout.outer;
+        }
     } else {
         result = active_layout.collapsed_outer;
-        if (title_hidden)
-            result.height = active_layout.border.top + 1 + active_layout.border.bottom;
     }
     return result;
 }
@@ -55,16 +60,42 @@ static void place_surface(Bool slave_mapped, Bool title_hidden) {
 
     XMoveResizeWindow(dzen.dpy, dzen.outer_win, outer.x, outer.y, outer.width, outer.height);
     XMoveResizeWindow(dzen.dpy, dzen.title_win.win, title_x, title_y, active_layout.title.width,
-                      title_hidden && !dzen.slave_win.ishmenu ? 1 : active_layout.title.height);
+                      active_layout.title.height);
     if (dzen.slave_win.max_lines)
         XMoveResizeWindow(dzen.dpy, dzen.slave_win.win, slave_x, slave_y, active_layout.slave.width,
-                          title_hidden && dzen.slave_win.ishmenu ? 1 : active_layout.slave.height);
+                          active_layout.slave.height);
 }
 
-static void clear_hidden_title(void) {
-    XClearArea(dzen.dpy, dzen.outer_win, active_layout.title.x - active_layout.outer.x,
-               active_layout.title.y - active_layout.outer.y, active_layout.title.width, active_layout.title.height,
-               False);
+static void sync_surface(void) {
+    Bool slave_mapped = False;
+    Bool outer_visible;
+
+    if (dzen.slave_win.max_lines)
+        window_is_mapped(dzen.slave_win.win, &slave_mapped);
+
+    if (dzen.slave_win.ishmenu) {
+        if (dzen.title_win.ishidden) {
+            XUnmapWindow(dzen.dpy, dzen.slave_win.win);
+            slave_mapped = False;
+        } else {
+            XMapWindow(dzen.dpy, dzen.slave_win.win);
+            slave_mapped = True;
+        }
+        XUnmapWindow(dzen.dpy, dzen.title_win.win);
+        outer_visible = !dzen.title_win.ishidden;
+    } else {
+        if (dzen.title_win.ishidden)
+            XUnmapWindow(dzen.dpy, dzen.title_win.win);
+        else
+            XMapWindow(dzen.dpy, dzen.title_win.win);
+        outer_visible = !dzen.title_win.ishidden || slave_mapped;
+    }
+
+    place_surface(slave_mapped, dzen.title_win.ishidden);
+    if (outer_mapping_enabled && outer_visible)
+        XMapRaised(dzen.dpy, dzen.outer_win);
+    else
+        XUnmapWindow(dzen.dpy, dzen.outer_win);
 }
 
 static int slave_drawable_width(const ResolvedLayout *layout, Bool horizontal_menu) {
@@ -168,17 +199,13 @@ void windows_initialize_layout(const ResolvedLayout *layout, Bool horizontal_men
     set_layout_fields(layout, horizontal_menu, True);
 }
 
-void windows_apply_layout(const ResolvedLayout *old_layout, const ResolvedLayout *new_layout, Bool horizontal_menu,
-                          Bool title_hidden) {
-    int  i;
-    Bool slave_mapped = False;
+void windows_apply_layout(const ResolvedLayout *old_layout, const ResolvedLayout *new_layout, Bool horizontal_menu) {
+    int i;
 
     resize_drawables(old_layout, new_layout, horizontal_menu);
     active_layout = *new_layout;
     set_layout_fields(new_layout, horizontal_menu, False);
-    if (dzen.slave_win.max_lines)
-        windows_slave_is_mapped(&slave_mapped);
-    place_surface(slave_mapped, title_hidden);
+    sync_surface();
     if (!dzen.slave_win.max_lines)
         return;
     for (i = 0; i < dzen.slave_win.max_lines; i++) {
@@ -194,57 +221,33 @@ void windows_apply_layout(const ResolvedLayout *old_layout, const ResolvedLayout
 }
 
 void windows_map_title(void) {
-    place_surface(False, dzen.title_win.ishidden);
-    XMapWindow(dzen.dpy, dzen.title_win.win);
-    if (outer_mapping_enabled)
-        XMapRaised(dzen.dpy, dzen.outer_win);
+    sync_surface();
     XSync(dzen.dpy, False);
-}
-
-void windows_unmap_title(void) {
-    XUnmapWindow(dzen.dpy, dzen.outer_win);
 }
 
 void windows_map_slave(void) {
     int i;
 
-    place_surface(True, dzen.title_win.ishidden);
     XMapWindow(dzen.dpy, dzen.slave_win.win);
     for (i = 0; i < dzen.slave_win.max_lines; i++)
         XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
-    if (dzen.title_win.ishidden && !dzen.slave_win.ishmenu) {
-        XUnmapWindow(dzen.dpy, dzen.title_win.win);
-        clear_hidden_title();
-    }
-    if (outer_mapping_enabled)
-        XMapRaised(dzen.dpy, dzen.outer_win);
+    sync_surface();
 }
 
 void windows_unmap_slave(void) {
     XUnmapWindow(dzen.dpy, dzen.slave_win.win);
-    place_surface(False, dzen.title_win.ishidden);
-    if (dzen.title_win.ishidden && !dzen.slave_win.ishmenu)
-        XMapWindow(dzen.dpy, dzen.title_win.win);
+    sync_surface();
 }
 
 Bool windows_slave_is_mapped(Bool *mapped) {
     return window_is_mapped(dzen.slave_win.win, mapped);
 }
 
-void windows_set_title_hidden(Bool horizontal_menu, Bool hidden) {
-    Bool slave_mapped = horizontal_menu;
-
-    if (!horizontal_menu && dzen.slave_win.max_lines)
-        windows_slave_is_mapped(&slave_mapped);
-    place_surface(slave_mapped, hidden);
-    if (!horizontal_menu && slave_mapped) {
-        if (hidden)
-            XUnmapWindow(dzen.dpy, dzen.title_win.win);
-        else
-            XMapWindow(dzen.dpy, dzen.title_win.win);
-        if (hidden)
-            clear_hidden_title();
-    }
+void windows_set_title_hidden(void) {
+    sync_surface();
+    windows_update_docking_struts(docking_layout_valid ? &docking_layout : NULL,
+                                  docking_layout_valid ? &docking_target : NULL,
+                                  docking_layout_valid ? &docking_root : NULL, docking_struts_enabled);
 }
 
 void windows_raise_all(void) {
@@ -256,8 +259,6 @@ void windows_lower_all(void) {
 }
 
 void windows_resize_expanded_title(int width, int x) {
-    Bool slave_mapped = False;
-
     active_layout.title.x               = x;
     active_layout.title.width           = width;
     active_layout.title_right           = x + width;
@@ -283,43 +284,22 @@ void windows_resize_expanded_title(int width, int x) {
         active_layout.outer.width  = right_edge - left_edge + active_layout.border.left + active_layout.border.right;
         active_layout.outer.height = bottom_edge - top_edge + active_layout.border.top + active_layout.border.bottom;
     }
-    if (dzen.slave_win.max_lines)
-        windows_slave_is_mapped(&slave_mapped);
-    place_surface(slave_mapped, dzen.title_win.ishidden);
+    sync_surface();
 }
 
 void windows_remember_and_unmap(void) {
-    window_is_mapped(dzen.outer_win, &outer_mapped_before_disconnect);
     outer_mapping_enabled = False;
-    windows_unmap_title();
+    sync_surface();
 }
 
-void windows_remember_slave_and_unmap(void) {
-    int i;
-
-    outer_mapped_before_disconnect = True;
-    outer_mapping_enabled          = False;
-    if (dzen.slave_win.ishmenu) {
-        XMapWindow(dzen.dpy, dzen.slave_win.win);
-        for (i = 0; i < dzen.slave_win.max_lines; i++)
-            XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
-    } else {
-        XMapWindow(dzen.dpy, dzen.title_win.win);
-    }
-    windows_unmap_title();
-}
-
-void windows_restore_mapping(Bool horizontal_menu) {
-    (void)horizontal_menu;
+void windows_restore_mapping(void) {
     outer_mapping_enabled = True;
-    if (outer_mapped_before_disconnect)
-        XMapRaised(dzen.dpy, dzen.outer_win);
+    sync_surface();
 }
 
 void windows_set_output_available(Bool available) {
     outer_mapping_enabled = available;
-    if (!available)
-        XUnmapWindow(dzen.dpy, dzen.outer_win);
+    sync_surface();
 }
 
 void windows_update_docking_struts(const ResolvedLayout *layout, const XRectangle *target, const XRectangle *root,
@@ -330,7 +310,15 @@ void windows_update_docking_struts(const ResolvedLayout *layout, const XRectangl
     unsigned long partial[12]  = { 0 };
     unsigned long strut[4]     = { 0 };
 
-    if (!dock_active || layout == NULL || target == NULL || root == NULL) {
+    docking_struts_enabled = dock_active;
+    if (layout != NULL && target != NULL && root != NULL) {
+        docking_layout       = *layout;
+        docking_target       = *target;
+        docking_root         = *root;
+        docking_layout_valid = True;
+    }
+
+    if (!dock_active || dzen.title_win.ishidden || layout == NULL || target == NULL || root == NULL) {
         XDeleteProperty(dzen.dpy, dzen.outer_win, partial_atom);
         XDeleteProperty(dzen.dpy, dzen.outer_win, strut_atom);
         return;
@@ -383,6 +371,16 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
     else
         wa.background_pixmap = ParentRelative;
 
+    /*
+     * root
+     * `-- outer          the only top-level / WM-facing window
+     *     |-- title      content child
+     *     `-- slave      content child
+     *         `-- lines
+     *
+     * Only outer owns the WM class/name/PID, _NET_WM_WINDOW_TYPE_DOCK,
+     * _NET_WM_STRUT, _NET_WM_STRUT_PARTIAL, and all other WM-facing properties.
+     */
     dzen.outer_win = XCreateWindow(
         dzen.dpy, root, layout->outer.x, layout->outer.y, layout->outer.width, layout->outer.height, 0,
         DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent, DefaultVisual(dzen.dpy, dzen.screen),

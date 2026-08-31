@@ -224,7 +224,7 @@ static void apply_layout(const ResolvedLayout *next) {
         return;
     }
 
-    windows_apply_layout(&old, next, layout_request.horizontal_menu, dzen.title_win.ishidden);
+    windows_apply_layout(&old, next, layout_request.horizontal_menu);
     current_layout = *next;
 
     update_docking_struts(output_connected || !has_output_name());
@@ -239,7 +239,7 @@ static void remember_and_unmap_windows(void) {
 }
 
 static void restore_window_mapping(void) {
-    windows_restore_mapping(layout_request.horizontal_menu);
+    windows_restore_mapping();
     update_docking_struts(True);
 }
 
@@ -964,7 +964,7 @@ int main(int argc, char *argv[]) {
     do_action(onstart);
 
     if (has_output_name() && !output_connected) {
-        windows_remember_slave_and_unmap();
+        windows_remember_and_unmap();
         update_docking_struts(False);
     }
 

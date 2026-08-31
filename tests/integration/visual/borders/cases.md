@@ -69,7 +69,12 @@ second slave line
 
 ### Click: 2
 ### Press key: h
-### Geometry: 44,44,312,102
+### Geometry: 44,74,312,72
+### Title geometry: 100,50,200,30
+### Slave geometry: 50,80,300,60
+### Outer mapping: IsViewable
+### Title mapping: IsUnMapped
+### Slave mapping: IsViewable
 
 ![reference](./expected/04-vertical-hidden.png)
 
@@ -99,15 +104,75 @@ three
 ![reference](./expected/05-horizontal.png)
 
 ### Press key: h
-### Geometry: 19,37,318,13
-
-![reference](./expected/05-horizontal-hidden.png)
+### Geometry: 19,37,318,42
+### Slave geometry: 30,40,300,30
+### Outer mapping: IsUnMapped
+### Title mapping: IsUnMapped
+### Slave mapping: IsUnMapped
 
 ### Press key: u
 ### Geometry: 19,37,318,42
 ### Slave geometry: 30,40,300,30
+### Outer mapping: IsViewable
+### Title mapping: IsUnMapped
+### Slave mapping: IsViewable
 
 ![reference](./expected/05-horizontal.png)
+
+## Test: 05a-title-only-strict-hide
+
+### Args: -x 30 -y 40 -w 300 -h 30 -bg '#151515' -fg white -b '3,7,9,11,#b08020' -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
+
+### Pipe data
+
+```
+title only
+```
+
+### Geometry: 19,37,318,42
+### Title geometry: 30,40,300,30
+### Outer mapping: IsViewable
+### Title mapping: IsViewable
+
+### Press key: h
+### Geometry: 19,37,318,42
+### Title geometry: 30,40,300,30
+### Outer mapping: IsUnMapped
+### Title mapping: IsUnMapped
+
+### Press key: u
+### Outer mapping: IsViewable
+### Title mapping: IsViewable
+
+## Test: 05b-collapsed-vertical-strict-hide
+
+### Args: -x 30 -y 40 -l 2 -w 300 -h 30 -bg '#151515' -fg white -b '3,7,9,11,#b08020' -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
+
+### Pipe data
+
+```
+collapsed title
+one
+two
+```
+
+### Geometry: 19,37,318,42
+### Title geometry: 30,40,300,30
+### Slave geometry: 30,70,300,60
+### Slave mapping: IsUnMapped
+
+### Press key: h
+### Geometry: 19,37,318,42
+### Title geometry: 30,40,300,30
+### Slave geometry: 30,70,300,60
+### Outer mapping: IsUnMapped
+### Title mapping: IsUnMapped
+### Slave mapping: IsUnMapped
+
+### Press key: u
+### Outer mapping: IsViewable
+### Title mapping: IsViewable
+### Slave mapping: IsUnMapped
 
 ## Test: 06-inherited-normbg
 

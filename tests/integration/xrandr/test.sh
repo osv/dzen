@@ -20,6 +20,8 @@ TEST_DIR=$SCRIPT_DIR
 ACTUAL=$BUILD_ROOT/tests/integration/xrandr/actual; EXPECTED=$TEST_DIR/expected; DIFFS=$BUILD_ROOT/tests/integration/xrandr/diffs
 mkdir -p "$ACTUAL" "$EXPECTED" "$DIFFS"
 XORG_PID= DZEN_PID= TMPDIR_XRANDR= WIN=
+COMPARE_CMD=()
+CAPTURE_CMD=()
 FAILURES=0; PASSES=0; SKIPS=0
 
 pass() { PASSES=$((PASSES + 1)); echo "${GREEN}PASS:${RESET} $*"; }
@@ -61,7 +63,18 @@ trap cleanup EXIT INT TERM
 assert_eq() { if [ "$2" = "$3" ]; then pass "$1 = $3"; else fail "$1 expected $3, got $2"; fi; }
 assert_match() { if printf '%s\n' "$2" | grep -Eq "$3"; then pass "$1"; else fail "$1 (got: $2)"; fi; }
 
-if ! test_require_commands Xorg xrandr xdotool xwininfo xprop import compare awk grep mktemp stat fc-match seq; then
+if command -v magick >/dev/null 2>&1 && magick -version 2>/dev/null | head -1 | grep -q 'ImageMagick 7'; then
+  COMPARE_CMD=(magick compare)
+  CAPTURE_CMD=(magick import)
+elif command -v compare >/dev/null 2>&1 && command -v import >/dev/null 2>&1; then
+  COMPARE_CMD=(compare)
+  CAPTURE_CMD=(import)
+else
+  fail "ImageMagick 6 (compare/import) or ImageMagick 7 (magick) is required"
+  summary
+  exit 1
+fi
+if ! test_require_commands Xorg xrandr xdotool xwininfo xprop awk grep mktemp stat fc-match seq; then
   summary
   exit 1
 fi
@@ -217,12 +230,22 @@ start() {
   return 1
 }
 capture() {
-  local name=$1 actual=$ACTUAL/$1.png expected=$EXPECTED/$1.png diff=$DIFFS/$1.png metric
-  if ! import -window root "$actual" 2>/dev/null; then fail "capture $name.png"; return; fi
+  local name=$1 actual=$ACTUAL/$1.png expected=$EXPECTED/$1.png diff=$DIFFS/$1.png metric raw_metric compare_status
+  if ! "${CAPTURE_CMD[@]}" -window root "$actual" 2>/dev/null; then fail "capture $name.png"; return; fi
   if [ "${UPDATE_XRANDR_EXPECTED:-0}" = 1 ]; then cp "$actual" "$expected"; rm -f "$diff"; pass "updated expected $name.png"; return; fi
   if [ ! -f "$expected" ]; then fail "missing expected screenshot $expected (review actual, then run with UPDATE_XRANDR_EXPECTED=1)"; return; fi
-  metric=$(compare -metric AE "$expected" "$actual" "$diff" 2>&1 || true); metric=${metric%% *}
-  if [ "$metric" = 0 ]; then rm -f "$diff"; pass "screenshot $name.png"; else fail "screenshot $name differs by $metric pixels (see $diff)"; fi
+  raw_metric=$("${COMPARE_CMD[@]}" -metric AE "$expected" "$actual" "$diff" 2>&1)
+  compare_status=$?
+  if [ "$compare_status" -gt 1 ] || ! metric=$(test_parse_ae_metric "$raw_metric"); then
+    fail "ImageMagick comparison for $name.png failed (status $compare_status): ${raw_metric:-<empty>}"
+  elif { [ "$compare_status" -eq 0 ] && [ "$metric" -ne 0 ]; } ||
+       { [ "$compare_status" -eq 1 ] && [ "$metric" -eq 0 ]; }; then
+    fail "ImageMagick comparison for $name.png returned inconsistent status and AE metric ($compare_status, $metric)"
+  elif [ "$metric" = 0 ]; then
+    rm -f "$diff"; pass "screenshot $name.png"
+  else
+    fail "screenshot $name differs by $metric pixels (see $diff)"
+  fi
 }
 run_rejected() {
   local label=$1; shift

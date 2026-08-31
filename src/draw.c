@@ -8,6 +8,7 @@
 #include "action.h"
 #include "font.h"
 #include "util.h"
+#include "windows.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -715,11 +716,10 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                 /* grow left end */
                 int new_x = dzen.title_win.x_right_corner - i > dzen.title_win.x ? dzen.title_win.x_right_corner - i
                                                                                  : dzen.title_win.x;
-                XMoveResizeWindow(dzen.dpy, dzen.title_win.win, new_x, dzen.title_win.y, ctx.current_x,
-                                  dzen.line_height);
+                windows_resize_expanded_title(ctx.current_x, new_x);
                 break;
             case right:
-                XResizeWindow(dzen.dpy, dzen.title_win.win, ctx.current_x, dzen.line_height);
+                windows_resize_expanded_title(ctx.current_x, dzen.title_win.x);
                 break;
             }
 

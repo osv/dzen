@@ -9,7 +9,10 @@
 #define HOST_NAME_MAX 255
 #endif
 
-static int slave_drawable_width(const ResolvedLayout *layout, Bool horizontal_menu) {
+static Bool title_mapped_before_disconnect = True;
+static Bool slave_mapped_before_disconnect;
+
+static int  slave_drawable_width(const ResolvedLayout *layout, Bool horizontal_menu) {
     return horizontal_menu ? layout->menu_last_width : layout->slave.width;
 }
 
@@ -133,6 +136,132 @@ void windows_apply_layout(const ResolvedLayout *old_layout, const ResolvedLayout
                               dzen.line_height);
         }
     }
+}
+
+void windows_map_title(void) {
+    XMapRaised(dzen.dpy, dzen.title_win.win);
+    XSync(dzen.dpy, False);
+}
+
+void windows_unmap_title(void) {
+    XUnmapWindow(dzen.dpy, dzen.title_win.win);
+}
+
+void windows_map_slave(void) {
+    int i;
+
+    XMapRaised(dzen.dpy, dzen.slave_win.win);
+    for (i = 0; i < dzen.slave_win.max_lines; i++)
+        XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
+}
+
+void windows_unmap_slave(void) {
+    XUnmapWindow(dzen.dpy, dzen.slave_win.win);
+}
+
+Bool windows_slave_is_mapped(Bool *mapped) {
+    XWindowAttributes attributes;
+
+    if (!XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &attributes))
+        return False;
+    *mapped = attributes.map_state != IsUnmapped;
+    return True;
+}
+
+void windows_set_title_hidden(Bool horizontal_menu, Bool hidden) {
+    Window window = horizontal_menu ? dzen.slave_win.win : dzen.title_win.win;
+
+    XResizeWindow(dzen.dpy, window, dzen.title_win.width, hidden ? 1 : dzen.line_height);
+}
+
+void windows_raise_all(void) {
+    XRaiseWindow(dzen.dpy, dzen.title_win.win);
+    if (dzen.slave_win.max_lines)
+        XRaiseWindow(dzen.dpy, dzen.slave_win.win);
+}
+
+void windows_lower_all(void) {
+    XLowerWindow(dzen.dpy, dzen.title_win.win);
+    if (dzen.slave_win.max_lines)
+        XLowerWindow(dzen.dpy, dzen.slave_win.win);
+}
+
+void windows_resize_expanded_title(int width, int x) {
+    if (dzen.title_win.expand == left)
+        XMoveResizeWindow(dzen.dpy, dzen.title_win.win, x, dzen.title_win.y, width, dzen.line_height);
+    else
+        XResizeWindow(dzen.dpy, dzen.title_win.win, width, dzen.line_height);
+}
+
+void windows_remember_and_unmap(void) {
+    Bool mapped;
+
+    if (dzen.slave_win.max_lines && windows_slave_is_mapped(&mapped))
+        slave_mapped_before_disconnect = mapped;
+    {
+        XWindowAttributes attributes;
+        if (XGetWindowAttributes(dzen.dpy, dzen.title_win.win, &attributes))
+            title_mapped_before_disconnect = attributes.map_state != IsUnmapped;
+    }
+    windows_unmap_title();
+    if (dzen.slave_win.max_lines)
+        windows_unmap_slave();
+}
+
+void windows_remember_slave_and_unmap(void) {
+    Bool mapped;
+
+    if (dzen.slave_win.max_lines && windows_slave_is_mapped(&mapped))
+        slave_mapped_before_disconnect = mapped;
+    windows_unmap_title();
+    if (dzen.slave_win.max_lines)
+        windows_unmap_slave();
+}
+
+void windows_restore_mapping(Bool horizontal_menu) {
+    if (horizontal_menu) {
+        windows_map_slave();
+        return;
+    }
+    if (title_mapped_before_disconnect)
+        XMapRaised(dzen.dpy, dzen.title_win.win);
+    if (slave_mapped_before_disconnect)
+        windows_map_slave();
+}
+
+void windows_update_docking_struts(const ResolvedLayout *layout, const XRectangle *target, const XRectangle *root,
+                                   Bool dock_active) {
+    Atom          partial_atom = XInternAtom(dzen.dpy, "_NET_WM_STRUT_PARTIAL", False);
+    Atom          strut_atom   = XInternAtom(dzen.dpy, "_NET_WM_STRUT", False);
+    Atom          cardinal     = XInternAtom(dzen.dpy, "CARDINAL", False);
+    unsigned long partial[12]  = { 0 };
+    unsigned long strut[4]     = { 0 };
+
+    if (!dock_active || layout == NULL || target == NULL || root == NULL) {
+        XDeleteProperty(dzen.dpy, dzen.title_win.win, partial_atom);
+        XDeleteProperty(dzen.dpy, dzen.title_win.win, strut_atom);
+        return;
+    }
+
+    if (layout->title.y == target->y) {
+        partial[2] = target->y + layout->title.height;
+        partial[8] = layout->title.x;
+        partial[9] = layout->title.x + layout->title.width - 1;
+        strut[2]   = partial[2];
+    } else if (layout->title.y + layout->title.height == target->y + target->height) {
+        partial[3]  = root->height - (target->y + target->height) + layout->title.height;
+        partial[10] = layout->title.x;
+        partial[11] = layout->title.x + layout->title.width - 1;
+        strut[3]    = partial[3];
+    } else {
+        XDeleteProperty(dzen.dpy, dzen.title_win.win, partial_atom);
+        XDeleteProperty(dzen.dpy, dzen.title_win.win, strut_atom);
+        return;
+    }
+
+    XChangeProperty(dzen.dpy, dzen.title_win.win, partial_atom, cardinal, 32, PropModeReplace, (unsigned char *)partial,
+                    12);
+    XChangeProperty(dzen.dpy, dzen.title_win.win, strut_atom, cardinal, 32, PropModeReplace, (unsigned char *)strut, 4);
 }
 
 void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {

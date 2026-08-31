@@ -39,8 +39,6 @@ static Bool           layout_initialized;
 static Bool           xinescreen_explicit;
 static Bool           list_outputs;
 static int            use_ewmh_dock;
-static Bool           title_mapped_before_disconnect = True;
-static Bool           slave_mapped_before_disconnect;
 static LineReader     stdin_reader;
 static SignalDispatch signal_dispatch;
 
@@ -235,32 +233,12 @@ static void apply_layout(const ResolvedLayout *next) {
 }
 
 static void remember_and_unmap_windows(void) {
-    XWindowAttributes attributes;
-
-    if (XGetWindowAttributes(dzen.dpy, dzen.title_win.win, &attributes))
-        title_mapped_before_disconnect = attributes.map_state != IsUnmapped;
-    if (dzen.slave_win.max_lines && XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &attributes))
-        slave_mapped_before_disconnect = attributes.map_state != IsUnmapped;
-
-    XUnmapWindow(dzen.dpy, dzen.title_win.win);
-    if (dzen.slave_win.max_lines)
-        XUnmapWindow(dzen.dpy, dzen.slave_win.win);
+    windows_remember_and_unmap();
     update_docking_struts(False);
 }
 
 static void restore_window_mapping(void) {
-    int i;
-
-    if (layout_request.horizontal_menu) {
-        XMapRaised(dzen.dpy, dzen.slave_win.win);
-        for (i = 0; i < dzen.slave_win.max_lines; i++)
-            XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
-    } else {
-        if (title_mapped_before_disconnect)
-            XMapRaised(dzen.dpy, dzen.title_win.win);
-        if (slave_mapped_before_disconnect)
-            XMapRaised(dzen.dpy, dzen.slave_win.win);
-    }
+    windows_restore_mapping(layout_request.horizontal_menu);
     update_docking_struts(True);
 }
 
@@ -300,39 +278,15 @@ static void handle_xrandr_event(XEvent *event) {
 }
 
 static void update_docking_struts(Bool enabled) {
-    Atom          partial_atom = XInternAtom(dzen.dpy, "_NET_WM_STRUT_PARTIAL", False);
-    Atom          strut_atom   = XInternAtom(dzen.dpy, "_NET_WM_STRUT", False);
-    Atom          cardinal     = XInternAtom(dzen.dpy, "CARDINAL", False);
-    unsigned long partial[12]  = { 0 };
-    unsigned long strut[4]     = { 0 };
-    XRectangle    root;
+    XRectangle root;
 
     if (!enabled || !use_ewmh_dock || !layout_initialized) {
-        XDeleteProperty(dzen.dpy, dzen.title_win.win, partial_atom);
-        XDeleteProperty(dzen.dpy, dzen.title_win.win, strut_atom);
+        windows_update_docking_struts(NULL, NULL, NULL, False);
         return;
     }
 
     query_root_geometry(&root);
-    if (current_layout.title.y == current_target.y) {
-        partial[2] = current_target.y + current_layout.title.height;
-        partial[8] = current_layout.title.x;
-        partial[9] = current_layout.title.x + current_layout.title.width - 1;
-        strut[2]   = partial[2];
-    } else if (current_layout.title.y + current_layout.title.height == current_target.y + current_target.height) {
-        partial[3]  = root.height - (current_target.y + current_target.height) + current_layout.title.height;
-        partial[10] = current_layout.title.x;
-        partial[11] = current_layout.title.x + current_layout.title.width - 1;
-        strut[3]    = partial[3];
-    } else {
-        XDeleteProperty(dzen.dpy, dzen.title_win.win, partial_atom);
-        XDeleteProperty(dzen.dpy, dzen.title_win.win, strut_atom);
-        return;
-    }
-
-    XChangeProperty(dzen.dpy, dzen.title_win.win, partial_atom, cardinal, 32, PropModeReplace, (unsigned char *)partial,
-                    12);
-    XChangeProperty(dzen.dpy, dzen.title_win.win, strut_atom, cardinal, 32, PropModeReplace, (unsigned char *)strut, 4);
+    windows_update_docking_struts(&current_layout, &current_target, &root, True);
 }
 
 static void x_connect(void) {
@@ -370,11 +324,6 @@ static void x_read_resources(void) {
         }
         XrmDestroyDatabase(xdb);
     }
-}
-
-static void x_map_window(Window win) {
-    XMapRaised(dzen.dpy, win);
-    XSync(dzen.dpy, False);
 }
 
 static void x_redraw(Window w) {
@@ -539,26 +488,26 @@ static void handle_xev(void) {
 }
 
 static void handle_newl(void) {
-    XWindowAttributes wa;
+    Bool slave_mapped = False;
 
     if (dzen.slave_win.max_lines && (dzen.slave_win.tcnt > last_cnt)) {
         do_action(onnewinput);
 
-        if (XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &wa), wa.map_state != IsUnmapped
-                                                                         /* autoscroll and redraw only if  we're
-                                                                          * currently viewing the last line of input
-                                                                          */
-                                                                         &&
-                                                                         (dzen.slave_win.last_line_vis == last_cnt)) {
+        windows_slave_is_mapped(&slave_mapped);
+        if (slave_mapped
+            /* autoscroll and redraw only if  we're
+             * currently viewing the last line of input
+             */
+            && (dzen.slave_win.last_line_vis == last_cnt)) {
             dzen.slave_win.first_line_vis = 0;
             dzen.slave_win.last_line_vis  = 0;
             x_draw_body();
         }
         /* needed for a_scrollhome */
-        else if (wa.map_state != IsUnmapped && dzen.slave_win.last_line_vis == dzen.slave_win.max_lines)
+        else if (slave_mapped && dzen.slave_win.last_line_vis == dzen.slave_win.max_lines)
             x_draw_body();
         /* forget state if window was unmapped */
-        else if (wa.map_state == IsUnmapped || !dzen.slave_win.last_line_vis) {
+        else if (!slave_mapped || !dzen.slave_win.last_line_vis) {
             dzen.slave_win.first_line_vis = 0;
             dzen.slave_win.last_line_vis  = 0;
             x_draw_body();
@@ -986,11 +935,9 @@ int main(int argc, char *argv[]) {
     update_docking_struts(output_connected);
 
     if ((!has_output_name() || output_connected) && !dzen.slave_win.ishmenu)
-        x_map_window(dzen.title_win.win);
+        windows_map_title();
     else if (!has_output_name() || output_connected) {
-        XMapRaised(dzen.dpy, dzen.slave_win.win);
-        for (i = 0; i < dzen.slave_win.max_lines; i++)
-            XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
+        windows_map_slave();
     }
 
     if (fnpre.length)
@@ -1005,12 +952,7 @@ int main(int argc, char *argv[]) {
     do_action(onstart);
 
     if (has_output_name() && !output_connected) {
-        XWindowAttributes attributes;
-        if (dzen.slave_win.max_lines && XGetWindowAttributes(dzen.dpy, dzen.slave_win.win, &attributes))
-            slave_mapped_before_disconnect = attributes.map_state != IsUnmapped;
-        XUnmapWindow(dzen.dpy, dzen.title_win.win);
-        if (dzen.slave_win.max_lines)
-            XUnmapWindow(dzen.dpy, dzen.slave_win.win);
+        windows_remember_slave_and_unmap();
         update_docking_struts(False);
     }
 

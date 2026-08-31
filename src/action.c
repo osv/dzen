@@ -358,8 +358,8 @@ int a_hide(char *opt[]) {
     (void)opt;
 
     if (!dzen.title_win.ishidden) {
-        windows_set_title_hidden(dzen.slave_win.ishmenu, True);
         dzen.title_win.ishidden = True;
+        windows_set_title_hidden();
     }
     return 0;
 }
@@ -367,8 +367,8 @@ int a_hide(char *opt[]) {
 int a_unhide(char *opt[]) {
     (void)opt;
     if (dzen.title_win.ishidden) {
-        windows_set_title_hidden(dzen.slave_win.ishmenu, False);
         dzen.title_win.ishidden = False;
+        windows_set_title_hidden();
     }
     return 0;
 }

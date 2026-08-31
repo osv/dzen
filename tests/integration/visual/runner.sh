@@ -347,6 +347,18 @@ run_test() {
     fi
   }
 
+  check_mapping() {
+    local id=$1 expected=$2 label=$3 actual
+    actual=$(xwininfo -id "$id" 2>/dev/null | awk -F: '/Map State:/ { sub(/^[[:space:]]+/, "", $2); print $2 }')
+    check_num=$((check_num + 1))
+    if [ "$actual" = "$expected" ]; then
+      echo -en "$check_num: $label mapping ${GREEN}Pass. ${NC}"
+    else
+      echo -e "\n${RED}$check_num: $label mapping: expected $expected, got $actual.${NC}"
+      all_tests_passed=false
+    fi
+  }
+
   content_window_id() {
     local kind=$1 child name
     while read -r child; do
@@ -372,6 +384,19 @@ run_test() {
         local slave_id
         slave_id=$(content_window_id slave)
         check_geometry "$slave_id" "$params" Slave
+        ;;
+      'outer_mapping')
+        check_mapping "$window_id" "$params" Outer
+        ;;
+      'title_mapping')
+        local title_id
+        title_id=$(content_window_id title)
+        check_mapping "$title_id" "$params" Title
+        ;;
+      'slave_mapping')
+        local slave_id
+        slave_id=$(content_window_id slave)
+        check_mapping "$slave_id" "$params" Slave
         ;;
       'click')
         xdotool click "$params"
@@ -635,6 +660,15 @@ run_tests() {
         ;;
       '### Slave geometry: '*)
         steps+=("slave_geometry|${line#'### Slave geometry: '}")
+        ;;
+      '### Outer mapping: '*)
+        steps+=("outer_mapping|${line#'### Outer mapping: '}")
+        ;;
+      '### Title mapping: '*)
+        steps+=("title_mapping|${line#'### Title mapping: '}")
+        ;;
+      '### Slave mapping: '*)
+        steps+=("slave_mapping|${line#'### Slave mapping: '}")
         ;;
       '### Press key: '*)
         steps+=("presskey|${line#'### Press key: '}")

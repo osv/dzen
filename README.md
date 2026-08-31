@@ -29,6 +29,7 @@ Main differences between the original and this fork of `dzen2`:
 * `-p` with argument n persist for n seconds,
   only when the mouse is not over the window (like popup or tooltip).
 * Change the mouse pointer when hovering over the action area.
+* Fixed upstream `hide` leaving a mapped strip one pixel high.
 
 Features
 ========
@@ -342,9 +343,9 @@ Supported actions:
     stick               stick slave window
     unstick             unstick slave window
     togglestick         toggle sticky state
-    hide                hide title window
-    unhide              unhide title window
-    togglehide          toggle hide state
+    hide                strictly hide the title surface
+    unhide              restore the hidden surface
+    togglehide          toggle strict hide state
     raise               raise window to view (above all others)
     lower               lower window (behind all others)
     scrollhome          show head of input
@@ -357,6 +358,14 @@ Supported actions:
                         only needed with specific windowmanagers, such as fluxbox
     ungrabmouse         release mouse
                         only needed with specific windowmanagers, such as fluxbox
+
+`hide` leaves no one-pixel mapped strip.  With an expanded vertical slave it
+hides the title but keeps the slave visible inside a resized outer surface.
+With no slave or a collapsed vertical slave it unmaps the complete surface.
+For a horizontal menu it unmaps the complete horizontal surface.  `unhide`
+restores the same expanded or collapsed state that was active before `hide`.
+After a complete unmap, pointer actions such as `entertitle=unhide` cannot
+reveal the surface; use an external signal or an already active key grab.
 
 
     Note:   If no events/actions are specified dzen defaults to:
@@ -412,9 +421,9 @@ Horizontal menu:
 All actions beginning with "menu" work on the selected menu entry.
 
 Note:   Menu mode only makes sense if `-l <n>` is specified!
-        Horizontal menus have no title window, so all actions
-        affecting the title window will be silently discarded
-        in this mode.
+        Horizontal menus do not display title content.  Title-only
+        actions are otherwise ignored, but `hide`, `unhide`, and
+        `togglehide` control the complete horizontal surface.
 
 
 (4) Option `-u`, Simultaneous updates

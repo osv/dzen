@@ -402,13 +402,38 @@ if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l
   assert_id_geometry "horizontal slave child" "$SLAVE_WIN" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
   if wait_id_state "$TITLE_WIN" IsUnMapped; then pass "horizontal title child remains unmapped"; else fail "horizontal title child remains unmapped"; fi
   capture 12-dummy-horizontal-menu
-  if kill -USR1 "$DZEN_PID" && wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" 1; then
-    pass "horizontal hide shrinks outer"
-  else fail "horizontal hide shrinks outer"; fi
-  if kill -USR2 "$DZEN_PID" && wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"; then
+  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then
+    pass "horizontal hide unmaps outer"
+  else fail "horizontal hide unmaps outer"; fi
+  if wait_id_state "$SLAVE_WIN" IsUnMapped; then pass "horizontal hide unmaps slave child"; else fail "horizontal hide unmaps slave child"; fi
+  assert_id_geometry "horizontal hidden slave keeps geometry" "$SLAVE_WIN" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
+  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable &&
+      wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"; then
     pass "horizontal unhide restores outer"
   else fail "horizontal unhide restores outer"; fi
+  if wait_id_state "$SLAVE_WIN" IsViewable; then pass "horizontal unhide maps slave child"; else fail "horizontal unhide maps slave child"; fi
 else fail "horizontal menu starts"; fi
+
+test_case 12c "strict hide for title-only and collapsed vertical surfaces"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -w "$BAR_W" \
+    -e 'sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
+  TITLE_ONLY=$(xwininfo -id "$WIN" -children 2>/dev/null | awk '$1 ~ /^0x/ { print $1; exit }')
+  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then pass "title-only hide unmaps outer"; else fail "title-only hide unmaps outer"; fi
+  if wait_id_state "$TITLE_ONLY" IsUnMapped; then pass "title-only hide unmaps title child"; else fail "title-only hide unmaps title child"; fi
+  assert_id_geometry "hidden title-only child keeps geometry" "$TITLE_ONLY" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
+  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable; then pass "title-only unhide maps outer"; else fail "title-only unhide maps outer"; fi
+else fail "title-only strict-hide surface starts"; fi
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -w "$BAR_W" -l 2 \
+    -e 'sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
+  COLLAPSED_SLAVE=$(slave_window); COLLAPSED_TITLE=$(title_window "$COLLAPSED_SLAVE")
+  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then pass "collapsed vertical hide unmaps outer"; else fail "collapsed vertical hide unmaps outer"; fi
+  if wait_id_state "$COLLAPSED_TITLE" IsUnMapped; then pass "collapsed vertical hide unmaps title"; else fail "collapsed vertical hide unmaps title"; fi
+  if wait_id_state "$COLLAPSED_SLAVE" IsUnMapped; then pass "collapsed vertical hide keeps slave unmapped"; else fail "collapsed vertical hide keeps slave unmapped"; fi
+  assert_id_geometry "hidden collapsed title keeps geometry" "$COLLAPSED_TITLE" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
+  assert_id_geometry "hidden collapsed slave keeps geometry" "$COLLAPSED_SLAVE" "$BAR_X" "$((BAR_Y + BAR_H))" "$BAR_W" "$((2 * BAR_H))"
+  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable; then pass "collapsed vertical unhide maps outer"; else fail "collapsed vertical unhide maps outer"; fi
+  if wait_id_state "$COLLAPSED_SLAVE" IsUnMapped; then pass "collapsed vertical unhide preserves collapse"; else fail "collapsed vertical unhide preserves collapse"; fi
+else fail "collapsed vertical strict-hide surface starts"; fi
 
 test_case 12a "pointer transitions across outer children"
 xdotool mousemove "$((SCREEN_W - 10))" "$((SCREEN_H - 10))"
@@ -524,21 +549,22 @@ if start -output "$OUTPUT" -x -1 -y -1 -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v \
   assert_window_geometry "bordered negative-anchor clamp" "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$BORDER_H"
   assert_id_geometry "bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
     "$((SCREEN_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
-  if kill -USR1 "$DZEN_PID" && wait_window_geometry "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$BORDER_H"; then
-    pass "expanded vertical hide preserves bordered outer"
-  else fail "expanded vertical hide preserves bordered outer"; fi
+  if kill -USR1 "$DZEN_PID" &&
+      wait_window_geometry "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$((2 * BAR_H + 3 + 9))"; then
+    pass "expanded vertical hide wraps bordered slave"
+  else fail "expanded vertical hide wraps bordered slave"; fi
   if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "expanded vertical hide unmaps title child"; else fail "expanded vertical hide unmaps title child"; fi
   assert_id_geometry "hidden bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
-    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" 1
+    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
   if xrandr --output "$OUTPUT" --off >/dev/null 2>&1; then
     wait_window_state IsUnMapped || fail "bordered hidden surface disconnects"
     if xrandr --fb "${ALT_W}x${ALT_H}" --output "$OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos 0x0 >/dev/null 2>&1; then
       wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+0+0" || fail "bordered reconnect output did not settle"
       if wait_window_state IsViewable; then pass "bordered hidden surface reconnects"; else fail "bordered hidden surface reconnects"; fi
       assert_eq "bordered reconnect keeps outer window" "$WIN" "$BORDER_WIN"
-      assert_window_geometry "bordered reconnect clamp" "$((ALT_W - BORDER_W))" "$BORDER_Y" "$BORDER_W" "$BORDER_H"
+      assert_window_geometry "bordered reconnect clamp" "$((ALT_W - BORDER_W))" "$BORDER_Y" "$BORDER_W" "$((2 * BAR_H + 3 + 9))"
       assert_id_geometry "bordered reconnect keeps hidden title" "$BORDER_TITLE" "$((ALT_W - BAR_W - 7))" \
-        "$((ALT_H - BAR_H - 9))" "$BAR_W" 1
+        "$((ALT_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
       if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "bordered reconnect keeps title hidden"; else fail "bordered reconnect keeps title hidden"; fi
       if wait_id_state "$BORDER_SLAVE" IsViewable; then pass "bordered reconnect keeps expanded slave"; else fail "bordered reconnect keeps expanded slave"; fi
       kill -USR2 "$DZEN_PID" || fail "unhide bordered title after reconnect"
@@ -548,11 +574,32 @@ else fail "bordered menu starts"; fi
 
 xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore output for bordered dock"
 wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "bordered dock output did not settle"
-test_case 16b "dock strut includes static borders"
-if start -output "$OUTPUT" -dock -y 0 -h "$BAR_H" -b '3,7,9,11,#406080'; then
+test_case 16b "dock strut includes static borders and follows strict hide"
+if start -output "$OUTPUT" -dock -y 0 -h "$BAR_H" -b '3,7,9,11,#406080' \
+    -e 'sigusr1=hide;sigusr2=unhide'; then
   BORDER_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+  BORDER_LEGACY_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT 2>/dev/null || true)
   assert_match "bordered dock exact collapsed strut" "$BORDER_STRUT" \
     '= 0, 0, 40, 0, 0, 0, 0, 0, 0, 1023, 0, 0$'
+  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then pass "hidden dock unmaps outer"; else fail "hidden dock unmaps outer"; fi
+  HIDDEN_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+  assert_match "hidden dock removes partial strut" "$HIDDEN_STRUT" 'not found'
+  HIDDEN_LEGACY_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT 2>/dev/null || true)
+  assert_match "hidden dock removes legacy strut" "$HIDDEN_LEGACY_STRUT" 'not found'
+  if xrandr --output "$OUTPUT" --off >/dev/null 2>&1; then
+    wait_window_state IsUnMapped || fail "fully hidden dock disconnects"
+    if xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1; then
+      wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "hidden dock reconnect output did not settle"
+      if wait_window_state IsUnMapped; then pass "fully hidden dock remains unmapped after reconnect"; else fail "fully hidden dock remains unmapped after reconnect"; fi
+      RECONNECTED_HIDDEN_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+      assert_match "hidden dock reconnect does not restore strut" "$RECONNECTED_HIDDEN_STRUT" 'not found'
+    else fail "reconnect fully hidden dock output"; fi
+  else skip "dummy DDX cannot disconnect fully hidden dock output"; fi
+  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable; then pass "dock unhide maps outer"; else fail "dock unhide maps outer"; fi
+  RESTORED_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+  assert_eq "dock unhide restores exact bordered strut" "$RESTORED_STRUT" "$BORDER_STRUT"
+  RESTORED_LEGACY_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT 2>/dev/null || true)
+  assert_eq "dock unhide restores exact legacy strut" "$RESTORED_LEGACY_STRUT" "$BORDER_LEGACY_STRUT"
 else fail "bordered dock starts"; fi
 
 cleanup_dzen; summary; exit "$FAILURES"

@@ -74,10 +74,10 @@ Bool windows_slave_is_mapped(Bool *mapped) {
     return True;
 }
 
-void windows_set_title_hidden(Bool horizontal_menu, Bool hidden) {
+void windows_set_title_hidden(void) {
     hidden_resize_calls++;
-    hidden_horizontal_menu = horizontal_menu;
-    hidden_value           = hidden;
+    hidden_horizontal_menu = dzen.slave_win.ishmenu;
+    hidden_value           = dzen.title_win.ishidden;
 }
 
 void windows_raise_all(void) {

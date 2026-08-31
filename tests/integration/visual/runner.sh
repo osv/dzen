@@ -351,6 +351,18 @@ run_test() {
     fi
   }
 
+  check_dock_strut() {
+    local expected=$1 actual
+    actual=$(xprop -id "$window_id" _NET_WM_STRUT_PARTIAL 2>/dev/null | sed -n 's/^[^=]*= *//p' | tr -d ' ')
+    check_num=$((check_num + 1))
+    if [ "$actual" = "$expected" ]; then
+      echo -en "$check_num: Dock strut ${GREEN}Pass. ${NC}"
+    else
+      echo -e "\n${RED}$check_num: Dock strut: expected $expected, got ${actual:-<missing>}.${NC}"
+      all_tests_passed=false
+    fi
+  }
+
   content_window_id() {
     local kind=$1 child name
     while read -r child; do
@@ -389,6 +401,9 @@ run_test() {
         local slave_id
         slave_id=$(content_window_id slave)
         check_mapping "$slave_id" "$params" Slave
+        ;;
+      'dock_strut')
+        check_dock_strut "$params"
         ;;
       'click')
         xdotool click "$params"
@@ -672,6 +687,9 @@ run_tests() {
         ;;
       '### Slave mapping: '*)
         steps+=("slave_mapping|${line#'### Slave mapping: '}")
+        ;;
+      '### Dock strut: '*)
+        steps+=("dock_strut|${line#'### Dock strut: '}")
         ;;
       '### Press key: '*)
         steps+=("presskey|${line#'### Press key: '}")

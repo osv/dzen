@@ -468,6 +468,16 @@ void windows_normal_background_changed(void) {
     XClearWindow(dzen.dpy, dzen.outer_win);
 }
 
+void windows_set_outer_background(Bool visible, unsigned long pixel) {
+    if (dzen.outer_win == None)
+        return;
+    if (visible)
+        XSetWindowBackground(dzen.dpy, dzen.outer_win, pixel);
+    else
+        XSetWindowBackgroundPixmap(dzen.dpy, dzen.outer_win, ParentRelative);
+    XClearWindow(dzen.dpy, dzen.outer_win);
+}
+
 void windows_destroy(void) {
     int i;
 

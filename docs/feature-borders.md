@@ -140,9 +140,9 @@ relayout path are ready:
 `^border(...)` replaces all four widths and the color mode atomically. Omitting
 the color switches back to inherited `normbg`; it does not retain an earlier
 explicit border color. The update applies to the current window immediately and
-causes one relayout/redraw. `^border(0)` disables visible borders. Supporting
-this command is part of the planned feature unless implementation complexity or
-parser ambiguity discovered during Stage 4 warrants a documented user decision.
+causes one relayout/redraw. `^border(0)` disables visible borders. Invalid
+updates are consumed as control lines and silently leave the previous state
+unchanged.
 
 ## Geometry and behavior requirements
 
@@ -248,12 +248,19 @@ menus retain only the bordered slave surface; title-only, collapsed vertical,
 and horizontal surfaces fully unmap. Dock struts follow strict hide and XRandR
 reconnect without recreating the outer window.
 
-### Stage 4: dynamic borders
+### Stage 4: dynamic borders (complete)
 
 - Implement `^border(...)` with the same grammar and validation as `-b` through
   the shared border-state and relayout path.
 - Test width, inherited/explicit color, collapse-state, invalid commands, and
   repeated-update behavior in the dedicated border visual suite.
+
+Stage 4 adds the line-level `^border(...)` command. Updates are parsed and
+validated in temporary state, including cached X11 color allocation and safe
+layout resolution, before the border, layout request, geometry, mapping state,
+dock struts, and outer background are changed together. A missing color always
+restores `normbg` inheritance. Invalid syntax, colors, or dimensions consume the
+control line but leave the running process and its prior state unchanged.
 
 ## Risks and audit checklist
 
@@ -296,8 +303,10 @@ reconnect without recreating the outer window.
   horizontal insets, explicit content widths remain unchanged, oversized
   surfaces pin to the target origin and use normal X11 clipping, dock struts
   use the bordered collapsed outer, and all-zero widths retain
-  `ParentRelative` even when a color was supplied. Dynamic `^border(...)`
-  remains Stage 4 work.
+  `ParentRelative` even when a color was supplied.
 - 2026-08-31: Make `hide` strict: remove one-pixel content resizing, fully
   unmap title-only/collapsed/horizontal surfaces, keep only an expanded
   vertical slave visible, and suppress dock struts until `unhide`.
+- 2026-09-01: Complete Stage 4 with atomic runtime `^border(...)` replacement,
+  inherited/explicit background switching, safe silent rejection, and dynamic
+  geometry/mapping coverage in the dedicated border suite.

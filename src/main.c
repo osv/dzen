@@ -291,6 +291,41 @@ static void update_docking_struts(Bool enabled) {
     windows_update_docking_struts(&current_layout, &current_target, &root, True);
 }
 
+void apply_border_spec(const char *text) {
+    BorderSpec     replacement;
+    BorderSpec     old;
+    LayoutRequest  next_request;
+    ResolvedLayout next_layout;
+    long           pixel;
+
+    border_spec_init(&replacement);
+    if (!border_spec_parse(&replacement, text)) {
+        border_spec_destroy(&replacement);
+        return;
+    }
+
+    pixel = replacement.color_explicit ? get_color(replacement.color) : (long)dzen.norm[ColBG];
+    if (pixel == -1)
+        goto rejected;
+
+    next_request        = layout_request;
+    next_request.border = replacement.widths;
+    if (!layout_resolve(&next_request, &current_target, &next_layout))
+        goto rejected;
+
+    old               = dzen.border;
+    dzen.border       = replacement;
+    layout_request    = next_request;
+    dzen.border_pixel = (unsigned long)pixel;
+    apply_layout(&next_layout);
+    windows_set_outer_background(border_spec_visible(&dzen.border), dzen.border_pixel);
+    border_spec_destroy(&old);
+    return;
+
+rejected:
+    border_spec_destroy(&replacement);
+}
+
 static void x_connect(void) {
     dzen.dpy = XOpenDisplay(0);
     if (!dzen.dpy)

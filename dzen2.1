@@ -131,7 +131,7 @@ driver.
 See \[dq](5) In\-text formating language\[dq].
 .EE
 .PP
-Static outer borders use one, two, or four comma\-separated
+Outer borders use one, two, or four comma\-separated
 non\-negative pixel widths.
 One width applies to every side; two widths mean vertical,horizontal;
 four widths mean top,right,bottom,left.
@@ -155,8 +155,14 @@ Border widths are outside the content: explicit \f[CR]\-w\f[R] and
 unchanged.
 With an implicit width, dzen subtracts the left and right borders so the
 complete outer surface still fills the selected monitor.
-\f[CR]\-b 0\f[R] disables visible borders; in\-text
-\f[CR]\[ha]border(...)\f[R] changes are not supported yet.
+\f[CR]\[ha]border(...)\f[R] uses the same grammar as \f[CR]\-b\f[R]
+when it is the only command on an input line.
+It atomically replaces all widths and the color mode, immediately updates
+geometry and dock struts, and is not added to title or slave content.
+Omitting the color switches back to inherited
+\f[CR]\[ha]normbg(...)\f[R]; \f[CR]\[ha]border(0)\f[R] disables the border.
+Malformed specifications, invalid colors, and unsafe dimensions are silently
+ignored without changing the current border or terminating dzen.
 .SH Monitor selection
 Without a monitor selector, dzen uses the root\-window geometry and
 follows XRandR changes to its size.
@@ -599,6 +605,11 @@ Left Center Right
                    used when \[ha]bg()). You might want to use \[ha]tw()
                    and \[ha]cs() after. This command must be the first
                    and only command per line.
+
+\[ha]border(SPEC)      Atomically replace the outer border using the same
+                   1/2/4\-width and optional\-color grammar as \-b. This
+                   command must be the first and only command per line;
+                   invalid updates are silently ignored.
 
 \[ha]normfn(FONT)      Set the normal font.
 

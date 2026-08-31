@@ -113,7 +113,7 @@ XRandR tests require XFT, DejaVu Sans Mono, Xorg, and the dummy video driver.
 
     See ^fg(#6fbf47)"(5) In-text formating language".
 
-Static outer borders use one, two, or four comma-separated non-negative pixel
+Outer borders use one, two, or four comma-separated non-negative pixel
 widths.  One width applies to every side; two widths mean vertical,horizontal;
 four widths mean top,right,bottom,left.  An optional final field selects an
 independent X11 color:
@@ -131,7 +131,13 @@ specification.  Border widths are outside the content: explicit `-w` and `-tw`
 sizes and content-local clickable coordinates are unchanged.  With an implicit
 width, dzen subtracts the left and right borders so the complete outer surface
 still fills the selected monitor.  `-b 0` disables visible borders; in-text
-`^^border(...)` changes are not supported yet.
+`^^border(...)` uses the same grammar as `-b` when it is the only command on an
+input line.  It atomically replaces all widths and the color mode, immediately
+updates geometry and dock struts, and is not added to title or slave content.
+Omitting the color switches back to inherited `^^normbg(...)`; `^^border(0)`
+disables the border.  Malformed specifications, invalid colors, and unsafe
+dimensions are silently ignored without changing the current border or
+terminating dzen.
 
 
 ^fg(#6fbf47)Monitor selection
@@ -584,6 +590,11 @@ Currently the following commands are supported:
                        used when ^^bg()). You might want to use ^^tw()
                        and ^^cs() after. This command must be the first
                        and only command per line.
+
+    ^^border(SPEC)      Atomically replace the outer border using the same
+                       1/2/4-width and optional-color grammar as -b. This
+                       command must be the first and only command per line;
+                       invalid updates are silently ignored.
 
     ^^normfn(FONT)      Set the normal font.
 

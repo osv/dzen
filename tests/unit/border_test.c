@@ -67,6 +67,15 @@ int main(void) {
     check_widths(&spec, 7, 7, 7, 7);
     CHECK(!spec.color_explicit && spec.color == NULL);
 
+    CHECK(border_spec_parse(&spec, "9,#abcdef"));
+    CHECK(spec.color_explicit && strcmp(spec.color, "#abcdef") == 0);
+    CHECK(border_spec_parse(&spec, "5,6"));
+    check_widths(&spec, 5, 6, 5, 6);
+    CHECK(!spec.color_explicit && spec.color == NULL);
+
+    CHECK(border_spec_parse(&spec, "3,4,blue"));
+    check_rejected_unchanged(&spec, "broken");
+
     border_spec_destroy(&spec);
     puts("border tests passed");
     return EXIT_SUCCESS;

@@ -199,6 +199,7 @@ extern void parse_line(const char *text, int linenr, int align, int reverse);
 extern void parse_line_text(const char *text, TextBuffer *output);
 extern void drawheader(const char *text);
 extern void redrawheader(void);
+extern void apply_border_spec(const char *text);
 extern void drawbody(char *text);
 extern void draw_cleanup(void);
 

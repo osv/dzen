@@ -89,6 +89,7 @@ Running dzen
 
     -fg     foreground color
     -bg     background color
+    -b      static outer border widths and optional color, see below
     -fn     font
     -ta     alignment of title window content
             l(eft), c(center), r(ight)
@@ -110,6 +111,26 @@ Running dzen
     -v      version information
 
     See "(5) In-text formating language".
+
+Static outer borders use one, two, or four comma-separated non-negative pixel
+widths.  One width applies to every side; two widths mean vertical,horizontal;
+four widths mean top,right,bottom,left.  An optional final field selects an
+independent X11 color:
+
+    -b 10
+    -b 11,14
+    -b 10,red
+    -b 10,8,red
+    -b 10,8,10,8,red
+
+Spaces around commas are accepted.  Without a color, the outer border follows
+the normal background (`-bg` and later `^normbg(...)` changes).  A supplied
+color does not follow `^normbg(...)`.  Repeating `-b` replaces the earlier
+specification.  Border widths are outside the content: explicit `-w` and `-tw`
+sizes and content-local clickable coordinates are unchanged.  With an implicit
+width, dzen subtracts the left and right borders so the complete outer surface
+still fills the selected monitor.  `-b 0` disables visible borders; in-text
+`^border(...)` changes are not supported yet.
 
 
 Monitor selection

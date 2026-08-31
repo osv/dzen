@@ -105,6 +105,7 @@ driver.
 .EX
 \-fg     foreground color
 \-bg     background color
+\-b      static outer border widths and optional color, see below
 \-fn     font
 \-ta     alignment of title window content
         l(eft), c(center), r(ight)
@@ -127,6 +128,33 @@ driver.
 
 See \[dq](5) In\-text formating language\[dq].
 .EE
+.PP
+Static outer borders use one, two, or four comma\-separated
+non\-negative pixel widths.
+One width applies to every side; two widths mean vertical,horizontal;
+four widths mean top,right,bottom,left.
+An optional final field selects an independent X11 color:
+.IP
+.EX
+\-b 10
+\-b 11,14
+\-b 10,red
+\-b 10,8,red
+\-b 10,8,10,8,red
+.EE
+.PP
+Spaces around commas are accepted.
+Without a color, the outer border follows the normal background
+(\f[CR]\-bg\f[R] and later \f[CR]\[ha]normbg(...)\f[R] changes).
+A supplied color does not follow \f[CR]\[ha]normbg(...)\f[R].
+Repeating \f[CR]\-b\f[R] replaces the earlier specification.
+Border widths are outside the content: explicit \f[CR]\-w\f[R] and
+\f[CR]\-tw\f[R] sizes and content\-local clickable coordinates are
+unchanged.
+With an implicit width, dzen subtracts the left and right borders so the
+complete outer surface still fills the selected monitor.
+\f[CR]\-b 0\f[R] disables visible borders; in\-text
+\f[CR]\[ha]border(...)\f[R] changes are not supported yet.
 .SH Monitor selection
 Without a monitor selector, dzen uses the root\-window geometry and
 follows XRandR changes to its size.

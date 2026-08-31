@@ -27,14 +27,16 @@ static LayoutRect visible_outer(Bool slave_mapped, Bool title_hidden) {
 
     if (dzen.slave_win.ishmenu) {
         result = active_layout.outer;
-        if (title_hidden)
-            result.height = 1;
+        if (title_hidden) {
+            result.y      = active_layout.slave.y - (int)active_layout.border.top;
+            result.height = active_layout.border.top + 1 + active_layout.border.bottom;
+        }
     } else if (dzen.slave_win.max_lines && slave_mapped) {
         result = active_layout.outer;
     } else {
         result = active_layout.collapsed_outer;
         if (title_hidden)
-            result.height = 1;
+            result.height = active_layout.border.top + 1 + active_layout.border.bottom;
     }
     return result;
 }
@@ -204,6 +206,8 @@ void windows_map_slave(void) {
     XMapWindow(dzen.dpy, dzen.slave_win.win);
     for (i = 0; i < dzen.slave_win.max_lines; i++)
         XMapWindow(dzen.dpy, dzen.slave_win.line[i]);
+    if (dzen.title_win.ishidden && !dzen.slave_win.ishmenu)
+        XUnmapWindow(dzen.dpy, dzen.title_win.win);
     if (outer_mapping_enabled)
         XMapRaised(dzen.dpy, dzen.outer_win);
 }
@@ -211,6 +215,8 @@ void windows_map_slave(void) {
 void windows_unmap_slave(void) {
     XUnmapWindow(dzen.dpy, dzen.slave_win.win);
     place_surface(False, dzen.title_win.ishidden);
+    if (dzen.title_win.ishidden && !dzen.slave_win.ishmenu)
+        XMapWindow(dzen.dpy, dzen.title_win.win);
 }
 
 Bool windows_slave_is_mapped(Bool *mapped) {
@@ -223,6 +229,12 @@ void windows_set_title_hidden(Bool horizontal_menu, Bool hidden) {
     if (!horizontal_menu && dzen.slave_win.max_lines)
         windows_slave_is_mapped(&slave_mapped);
     place_surface(slave_mapped, hidden);
+    if (!horizontal_menu && slave_mapped) {
+        if (hidden)
+            XUnmapWindow(dzen.dpy, dzen.title_win.win);
+        else
+            XMapWindow(dzen.dpy, dzen.title_win.win);
+    }
 }
 
 void windows_raise_all(void) {
@@ -236,12 +248,16 @@ void windows_lower_all(void) {
 void windows_resize_expanded_title(int width, int x) {
     Bool slave_mapped = False;
 
-    active_layout.title.x         = x;
-    active_layout.title.width     = width;
-    active_layout.title_right     = x + width;
-    active_layout.collapsed_outer = active_layout.title;
+    active_layout.title.x               = x;
+    active_layout.title.width           = width;
+    active_layout.title_right           = x + width;
+    active_layout.collapsed_outer.x     = x - active_layout.border.left;
+    active_layout.collapsed_outer.y     = active_layout.title.y - active_layout.border.top;
+    active_layout.collapsed_outer.width = width + active_layout.border.left + active_layout.border.right;
+    active_layout.collapsed_outer.height =
+        active_layout.title.height + active_layout.border.top + active_layout.border.bottom;
     if (!dzen.slave_win.max_lines)
-        active_layout.outer = active_layout.title;
+        active_layout.outer = active_layout.collapsed_outer;
     else if (!dzen.slave_win.ishmenu) {
         int left_edge   = x < active_layout.slave.x ? x : active_layout.slave.x;
         int right_edge  = x + width > active_layout.slave.x + active_layout.slave.width
@@ -252,10 +268,10 @@ void windows_resize_expanded_title(int width, int x) {
                                   active_layout.slave.y + active_layout.slave.height
                               ? active_layout.title.y + active_layout.title.height
                               : active_layout.slave.y + active_layout.slave.height;
-        active_layout.outer.x      = left_edge;
-        active_layout.outer.y      = top_edge;
-        active_layout.outer.width  = right_edge - left_edge;
-        active_layout.outer.height = bottom_edge - top_edge;
+        active_layout.outer.x      = left_edge - active_layout.border.left;
+        active_layout.outer.y      = top_edge - active_layout.border.top;
+        active_layout.outer.width  = right_edge - left_edge + active_layout.border.left + active_layout.border.right;
+        active_layout.outer.height = bottom_edge - top_edge + active_layout.border.top + active_layout.border.bottom;
     }
     if (dzen.slave_win.max_lines)
         windows_slave_is_mapped(&slave_mapped);
@@ -310,15 +326,15 @@ void windows_update_docking_struts(const ResolvedLayout *layout, const XRectangl
         return;
     }
 
-    if (layout->title.y == target->y) {
-        partial[2] = target->y + layout->title.height;
-        partial[8] = layout->title.x;
-        partial[9] = layout->title.x + layout->title.width - 1;
+    if (layout->collapsed_outer.y == target->y) {
+        partial[2] = layout->collapsed_outer.y + layout->collapsed_outer.height;
+        partial[8] = layout->collapsed_outer.x;
+        partial[9] = layout->collapsed_outer.x + layout->collapsed_outer.width - 1;
         strut[2]   = partial[2];
-    } else if (layout->title.y + layout->title.height == target->y + target->height) {
-        partial[3]  = root->height - (target->y + target->height) + layout->title.height;
-        partial[10] = layout->title.x;
-        partial[11] = layout->title.x + layout->title.width - 1;
+    } else if (layout->collapsed_outer.y + layout->collapsed_outer.height == target->y + target->height) {
+        partial[3]  = root->height - layout->collapsed_outer.y;
+        partial[10] = layout->collapsed_outer.x;
+        partial[11] = layout->collapsed_outer.x + layout->collapsed_outer.width - 1;
         strut[3]    = partial[3];
     } else {
         XDeleteProperty(dzen.dpy, dzen.outer_win, partial_atom);
@@ -341,17 +357,26 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
         eprint("dzen: error, cannot allocate color '%s'\n", text_buffer_data(&dzen.bg));
     if ((dzen.norm[ColFG] = get_color(text_buffer_data(&dzen.fg))) == ~0lu)
         eprint("dzen: error, cannot allocate color '%s'\n", text_buffer_data(&dzen.fg));
+    if (dzen.border.color_explicit) {
+        if ((dzen.border_pixel = get_color(dzen.border.color)) == ~0lu)
+            eprint("dzen: error, cannot allocate border color '%s'\n", dzen.border.color);
+    } else {
+        dzen.border_pixel = dzen.norm[ColBG];
+    }
 
     create_gcs();
 
     wa.override_redirect = use_ewmh_dock ? 0 : 1;
-    wa.background_pixmap = ParentRelative;
     wa.event_mask        = 0;
+    if (border_spec_visible(&dzen.border))
+        wa.background_pixel = dzen.border_pixel;
+    else
+        wa.background_pixmap = ParentRelative;
 
-    dzen.outer_win        = XCreateWindow(dzen.dpy, root, layout->outer.x, layout->outer.y, layout->outer.width,
-                                          layout->outer.height, 0, DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent,
-                                          DefaultVisual(dzen.dpy, dzen.screen),
-                                          CWOverrideRedirect | CWBackPixmap | CWEventMask, &wa);
+    dzen.outer_win = XCreateWindow(
+        dzen.dpy, root, layout->outer.x, layout->outer.y, layout->outer.width, layout->outer.height, 0,
+        DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent, DefaultVisual(dzen.dpy, dzen.screen),
+        CWOverrideRedirect | (border_spec_visible(&dzen.border) ? CWBackPixel : CWBackPixmap) | CWEventMask, &wa);
     class_hint            = XAllocClassHint();
     class_hint->res_name  = "dzen2";
     class_hint->res_class = "dzen";
@@ -361,6 +386,7 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
     set_docking_ewmh_info(dzen.outer_win, use_ewmh_dock);
 
     wa.override_redirect = 0;
+    wa.background_pixmap = ParentRelative;
     wa.event_mask        = ExposureMask | ButtonReleaseMask | ButtonPressMask | ButtonMotionMask | EnterWindowMask |
                     LeaveWindowMask | KeyPressMask | PointerMotionMask;
 
@@ -424,6 +450,14 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
                               DefaultVisual(dzen.dpy, dzen.screen), CWBackPixmap | CWEventMask, &wa);
         }
     }
+}
+
+void windows_normal_background_changed(void) {
+    if (!border_spec_visible(&dzen.border) || dzen.border.color_explicit || dzen.outer_win == None)
+        return;
+    dzen.border_pixel = dzen.norm[ColBG];
+    XSetWindowBackground(dzen.dpy, dzen.outer_win, dzen.border_pixel);
+    XClearWindow(dzen.dpy, dzen.outer_win);
 }
 
 void windows_destroy(void) {

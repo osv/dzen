@@ -31,6 +31,9 @@ EXTRA_DIST = \
   tests/integration/visual/xft/cases.md \
   tests/integration/visual/xft/.gitignore \
   tests/integration/visual/xft/expected \
+  tests/integration/visual/borders/cases.md \
+  tests/integration/visual/borders/.gitignore \
+  tests/integration/visual/borders/expected \
   tests/integration/visual/core-font/cases.md \
   tests/integration/visual/core-font/.gitignore \
   tests/integration/visual/core-font/expected \
@@ -44,6 +47,7 @@ noinst_HEADERS = tests/unit/test_common.h
 
 UNIT_TESTS = \
   tests/unit/action_test \
+  tests/unit/border_test \
   tests/unit/layout_test \
   tests/unit/signal_dispatch_test \
   tests/unit/text_buffer_test
@@ -64,8 +68,16 @@ tests_unit_action_test_SOURCES = \
 tests_unit_action_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
 tests_unit_action_test_LDADD = $(X11_LIBS)
 
+tests_unit_border_test_SOURCES = \
+  tests/unit/border_test.c \
+  src/border.c \
+  src/border.h
+tests_unit_border_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
+tests_unit_border_test_LDADD = $(X11_LIBS)
+
 tests_unit_layout_test_SOURCES = \
   tests/unit/layout_test.c \
+  src/border.h \
   src/layout.c \
   src/layout.h
 tests_unit_layout_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
@@ -102,8 +114,8 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test test-unit test-action test-layout test-signal-dispatch test-text-buffer \
-  test-signals test-visual test-visual-xft test-visual-core test-nonxft \
+.PHONY: test test-unit test-action test-border test-layout test-signal-dispatch test-text-buffer \
+  test-signals test-visual test-visual-xft test-visual-borders test-visual-core test-nonxft \
   test-xinerama test-xrandr update-man
 
 test: check
@@ -113,6 +125,9 @@ test-unit: $(UNIT_TESTS)
 
 test-action: tests/unit/action_test
 	./tests/unit/action_test
+
+test-border: tests/unit/border_test
+	./tests/unit/border_test
 
 test-layout: tests/unit/layout_test
 	./tests/unit/layout_test
@@ -133,6 +148,10 @@ test-visual-xft: all
 	@$(TEST_ENV) $(top_srcdir)/tests/integration/visual/runner.sh \
 		$(abs_top_srcdir)/tests/integration/visual/xft/cases.md
 
+test-visual-borders: all
+	@$(TEST_ENV) $(top_srcdir)/tests/integration/visual/runner.sh \
+		$(abs_top_srcdir)/tests/integration/visual/borders/cases.md
+
 test-visual-core:
 	@echo "test-visual-core requires a build configured with --disable-xft" >&2
 	@exit 1
@@ -141,6 +160,10 @@ test-visual: test-visual-core
 
 test-visual-xft:
 	@echo "test-visual-xft requires a build configured with --enable-xft" >&2
+	@exit 1
+
+test-visual-borders:
+	@echo "test-visual-borders requires a build configured with --enable-xft" >&2
 	@exit 1
 
 test-visual-core: all
@@ -176,6 +199,10 @@ endif
 
 CHECK_LOCAL_TARGETS = test-signals test-visual
 
+if HAVE_XFT
+CHECK_LOCAL_TARGETS += test-visual-borders
+endif
+
 if HAVE_XINERAMA
 CHECK_LOCAL_TARGETS += test-xinerama
 endif
@@ -196,6 +223,8 @@ clean-local:
 	  tests/integration/visual/xft/diffs \
 	  tests/integration/visual/core-font/actual \
 	  tests/integration/visual/core-font/diffs \
+	  tests/integration/visual/borders/actual \
+	  tests/integration/visual/borders/diffs \
 	  tests/integration/xinerama/actual \
 	  tests/integration/xinerama/diffs \
 	  tests/integration/xrandr/actual \

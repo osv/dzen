@@ -16,6 +16,7 @@ EXTRA_DIST = \
   CREDITS \
   LICENSE \
   INSTALL \
+  docs/feature-borders.md \
   bitmaps \
   dzen2-help.in \
   tests/integration/test_common.sh \

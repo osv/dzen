@@ -25,6 +25,8 @@ dzen2_SOURCES = \
   text_buffer.h \
   util.c \
   util.h \
+  windows.c \
+  windows.h \
   xrandr.c \
   xrandr.h
 

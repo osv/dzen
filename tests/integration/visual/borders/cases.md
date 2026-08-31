@@ -74,6 +74,11 @@ second slave line
 ![reference](./expected/04-vertical-hidden.png)
 
 ### Press key: u
+### Geometry: 44,44,312,102
+### Title geometry: 100,50,200,30
+### Slave geometry: 50,80,300,60
+
+![reference](./expected/04-vertical-expanded.png)
 
 ## Test: 05-horizontal-and-hide
 
@@ -99,6 +104,10 @@ three
 ![reference](./expected/05-horizontal-hidden.png)
 
 ### Press key: u
+### Geometry: 19,37,318,42
+### Slave geometry: 30,40,300,30
+
+![reference](./expected/05-horizontal.png)
 
 ## Test: 06-inherited-normbg
 

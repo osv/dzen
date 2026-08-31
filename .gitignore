@@ -18,6 +18,7 @@ Makefile.in
 /compile
 /test-driver
 /dzen2-help
+/.x11-test.lock
 # Ignore directories created by build tools
 /build/
 /.libs/

@@ -20,6 +20,7 @@ EXTRA_DIST = \
   bitmaps \
   dzen2-help.in \
   tests/integration/test_common.sh \
+  tests/integration/test_compare_metric.sh \
   tests/integration/signals/test.sh \
   tests/integration/xinerama/test.sh \
   tests/integration/xinerama/.gitignore \
@@ -114,7 +115,7 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test test-unit test-action test-border test-layout test-signal-dispatch test-text-buffer \
+.PHONY: test test-unit test-action test-border test-layout test-signal-dispatch test-text-buffer test-compare-metric \
   test-signals test-visual test-visual-xft test-visual-borders test-visual-core test-nonxft \
   test-xinerama test-xrandr update-man
 
@@ -140,6 +141,9 @@ test-text-buffer: tests/unit/text_buffer_test
 
 test-signals: all $(TEST_HELPERS)
 	@$(TEST_ENV) $(top_srcdir)/tests/integration/signals/test.sh
+
+test-compare-metric:
+	@$(TEST_ENV) $(top_srcdir)/tests/integration/test_compare_metric.sh
 
 if HAVE_XFT
 test-visual: test-visual-xft
@@ -197,7 +201,7 @@ test-xrandr:
 	@exit 1
 endif
 
-CHECK_LOCAL_TARGETS = test-signals test-visual
+CHECK_LOCAL_TARGETS = test-compare-metric test-signals test-visual
 
 if HAVE_XFT
 CHECK_LOCAL_TARGETS += test-visual-borders

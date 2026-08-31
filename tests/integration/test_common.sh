@@ -45,6 +45,23 @@ test_require_commands() {
   return "$missing"
 }
 
+# Print the absolute error (AE) pixel count reported by ImageMagick.  HDRI
+# builds print a normalized value followed by the absolute count in
+# parentheses; non-HDRI builds print only the absolute count.
+test_parse_ae_metric() {
+  local output=$1
+
+  if [[ $output =~ ^[[:space:]]*([0-9]+)[[:space:]]*$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  if [[ $output =~ ^[[:space:]]*[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?[[:space:]]*\(([0-9]+)\)[[:space:]]*$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[3]}"
+    return 0
+  fi
+  return 1
+}
+
 test_find_free_display() {
   local display_number
 

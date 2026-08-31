@@ -69,14 +69,6 @@ detect_imagemagick() {
     exit 1
 }
 
-# Parse normalized compare output (handles both ImageMagick 6 and 7 formats)
-parse_compare_output() {
-    local output="$1"
-    # Extract first number before any parentheses or spaces
-    # Handles: "0", "123", "0 (0)", "123 (456)"
-    echo "$output" | sed 's/[[:space:]]*(.*//' | grep -o '^[0-9]*' | head -1
-}
-
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -478,10 +470,20 @@ run_test() {
         # Compare with the expected screenshot
         elif [ -f "$expected_screenshot_path" ]; then
           local diff_screenshot="$DIFF_DIR/${screenshot_filename}"
-          $COMPARE_CMD -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" "$diff_screenshot" 2> /dev/null || true
-          local raw_diff=$($COMPARE_CMD -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" null: 2>&1 || true)
-          diff=$(parse_compare_output "$raw_diff")
-          if (( diff > delta_threshold )); then
+          local raw_diff compare_status diff
+          raw_diff=$($COMPARE_CMD -metric AE -fuzz 5% \
+            "$actual_screenshot_path" "$expected_screenshot_path" "$diff_screenshot" 2>&1)
+          compare_status=$?
+          if (( compare_status > 1 )) || ! diff=$(test_parse_ae_metric "$raw_diff"); then
+            echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}ImageMagick comparison failed" \
+              "for \"$test_name\" (status $compare_status).${NC}"
+            echo -e "${RED} Output: ${raw_diff:-<empty>}${NC}\n"
+            all_tests_passed=false
+          elif (( (compare_status == 0 && diff != 0) || (compare_status == 1 && diff == 0) )); then
+            echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}ImageMagick returned inconsistent" \
+              "status and AE metric ($compare_status, $diff).${NC}\n"
+            all_tests_passed=false
+          elif (( diff > delta_threshold )); then
             echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}Difference in \"$test_name\" exceeds threshold! ($diff)${NC}"
             echo -e "${RED} See ./${diff_screenshot}${NC}\n"
             # Display images in Kitty terminal on error
@@ -490,6 +492,7 @@ run_test() {
             display_image_in_kitty "$diff_screenshot" "Difference: $diff_screenshot"
             all_tests_passed=false
           else
+            rm -f "$diff_screenshot"
             echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
             # Display actual image on success if requested
             if [ "$SHOW_IMAGES_ON_SUCCESS" = true ]; then

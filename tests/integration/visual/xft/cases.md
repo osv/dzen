@@ -618,3 +618,21 @@ Line 8
 The slave window must scroll down by one line.
 
 ![reference](./expected/19-scrollhome-key-down.png)
+
+## Test: 20 Escaped command marker
+
+Doubling `^` must render one literal command marker without parsing the text
+that follows it as an in-text command.
+
+### Args: -l 1 -e onstart=uncollapse -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+```
+Esc: ^^fg(red) literal
+^^^^ -> ^^ | ^fg(red)red
+```
+
+### Crop: 300x60+0+0
+
+![reference](./expected/20-escaped-command-marker.png)

@@ -150,7 +150,7 @@ test_announce \
     "      - compare captures with $(test_project_path "$EXPECTED_DIR")" \
     "      - write captures and differences below $(test_project_path "$ACTUAL_DIR") and $(test_project_path "$DIFF_DIR")"
 if [ "${UPDATE_VISUAL_EXPECTED:-0}" = 1 ]; then
-    test_announce '      - UPDATE_VISUAL_EXPECTED=1: replace expected screenshots with captures'
+    test_announce '      - UPDATE_VISUAL_EXPECTED=1: replace missing or mismatched expected screenshots'
 fi
 
 # Create directories
@@ -484,13 +484,8 @@ run_test() {
         else
           xwd -root | $CONVERT_CMD "xwd:-" -crop "${window_width}x${window_height}+${window_x}+${window_y}" +repage "$actual_screenshot_path"
         fi
-        if [ "${UPDATE_VISUAL_EXPECTED:-0}" = 1 ]; then
-          cp "$actual_screenshot_path" "$expected_screenshot_path"
-          rm -f "$DIFF_DIR/$screenshot_filename"
-          echo -en "$check_num: Screenshot ${GREEN}Updated.${NC} "
-        # Compare with the expected screenshot
-        elif [ -f "$expected_screenshot_path" ]; then
-          local diff_screenshot="$DIFF_DIR/${screenshot_filename}"
+        local diff_screenshot="$DIFF_DIR/${screenshot_filename}"
+        if [ -f "$expected_screenshot_path" ]; then
           local raw_diff compare_status diff
           raw_diff=$($COMPARE_CMD -metric AE -fuzz 5% \
             "$actual_screenshot_path" "$expected_screenshot_path" "$diff_screenshot" 2>&1)
@@ -505,22 +500,36 @@ run_test() {
               "status and AE metric ($compare_status, $diff).${NC}\n"
             all_tests_passed=false
           elif (( diff > delta_threshold )); then
-            echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}Difference in \"$test_name\" exceeds threshold! ($diff)${NC}"
-            echo -e "${RED} See ./${diff_screenshot}${NC}\n"
-            # Display images in Kitty terminal on error
-            display_image_in_kitty "$expected_screenshot_path" "Expected: $expected_screenshot_path"
-            display_image_in_kitty "$actual_screenshot_path" "Actual: $actual_screenshot_path"
-            display_image_in_kitty "$diff_screenshot" "Difference: $diff_screenshot"
-            all_tests_passed=false
+            if [ "${UPDATE_VISUAL_EXPECTED:-0}" = 1 ]; then
+              cp "$actual_screenshot_path" "$expected_screenshot_path"
+              rm -f "$diff_screenshot"
+              echo -en "$check_num: Screenshot ${GREEN}Updated.${NC} "
+            else
+              echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}Difference in \"$test_name\" exceeds threshold! ($diff)${NC}"
+              echo -e "${RED} See ./${diff_screenshot}${NC}\n"
+              # Display images in Kitty terminal on error
+              display_image_in_kitty "$expected_screenshot_path" "Expected: $expected_screenshot_path"
+              display_image_in_kitty "$actual_screenshot_path" "Actual: $actual_screenshot_path"
+              display_image_in_kitty "$diff_screenshot" "Difference: $diff_screenshot"
+              all_tests_passed=false
+            fi
           else
             rm -f "$diff_screenshot"
-            echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
+            if [ "${UPDATE_VISUAL_EXPECTED:-0}" = 1 ]; then
+              echo -en "$check_num: Screenshot ${GREEN}Unchanged.${NC} "
+            else
+              echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
+            fi
             # Display actual image on success if requested
             if [ "$SHOW_IMAGES_ON_SUCCESS" = true ]; then
               echo ""
               display_image_in_kitty "$actual_screenshot_path" "${GREEN}Actual (success)${NC}"
             fi
           fi
+        elif [ "${UPDATE_VISUAL_EXPECTED:-0}" = 1 ]; then
+          cp "$actual_screenshot_path" "$expected_screenshot_path"
+          rm -f "$diff_screenshot"
+          echo -en "$check_num: Screenshot ${GREEN}Created.${NC} "
         else
           echo -e "\n${RED}Subtest: $check_num: Error: Expected screenshot not found for $test_name at $expected_screenshot_path.${NC}"
           echo -e "${YELLOW}Run with UPDATE_VISUAL_EXPECTED=1 after reviewing the actual image.${NC}\n"

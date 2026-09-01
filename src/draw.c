@@ -678,7 +678,14 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
             ctx.buffer_pos  = 0;
             ctx.token       = -1;
             ctx.token_value = NULL;
-            next_pos        = get_token(ctx.input_ptr, ctx.token_value_buf, &ctx.token, &ctx.token_value);
+
+            if (ctx.input_ptr[1] == ESC_CHAR) {
+                ctx.text_buffer[ctx.buffer_pos++] = ESC_CHAR;
+                ctx.input_ptr += 2;
+                continue;
+            }
+
+            next_pos = get_token(ctx.input_ptr, ctx.token_value_buf, &ctx.token, &ctx.token_value);
             ctx.input_ptr += next_pos;
             if (ctx.token == leftalign) {
                 next_align = ALIGNLEFT;
@@ -694,9 +701,7 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                 break;
             }
 
-            /* ^^ escapes */
             if (next_pos == 0 && ctx.token == -1) {
-                /* Double escape - print the second ^ */
                 ctx.text_buffer[ctx.buffer_pos++] = *ctx.input_ptr++;
             }
             /* Continue loop - we've already advanced past the token */

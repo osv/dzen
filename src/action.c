@@ -328,6 +328,7 @@ static void scroll(int n) {
         dzen.slave_win.first_line_vis += n;
         dzen.slave_win.last_line_vis += n;
     }
+    dzen.slave_win.scroll_mode = dzen.slave_win.last_line_vis == dzen.slave_win.tcnt ? SCROLL_FOLLOW_END : SCROLL_FIXED;
 
     x_draw_body();
 }
@@ -476,6 +477,7 @@ int a_scrollhome(char *opt[]) {
         dzen.slave_win.first_line_vis = 0;
         dzen.slave_win.last_line_vis  = dzen.slave_win.tcnt < dzen.slave_win.max_lines ? dzen.slave_win.tcnt
                                                                                        : dzen.slave_win.max_lines;
+        dzen.slave_win.scroll_mode    = SCROLL_FIXED;
 
         x_draw_body();
     }
@@ -488,6 +490,7 @@ int a_scrollend(char *opt[]) {
         dzen.slave_win.first_line_vis =
             dzen.slave_win.tcnt > dzen.slave_win.max_lines ? dzen.slave_win.tcnt - dzen.slave_win.max_lines : 0;
         dzen.slave_win.last_line_vis = dzen.slave_win.tcnt;
+        dzen.slave_win.scroll_mode   = SCROLL_FOLLOW_END;
 
         x_draw_body();
     }

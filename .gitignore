@@ -61,6 +61,7 @@ TAGS
 
 # Automake test executables
 /tests/unit/action_test
+/tests/unit/border_test
 /tests/unit/layout_test
 /tests/unit/signal_dispatch_test
 /tests/unit/text_buffer_test

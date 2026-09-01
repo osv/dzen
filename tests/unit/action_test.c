@@ -131,7 +131,7 @@ static void test_option_limit(void) {
     free_event_list();
 }
 
-static void check_scroll_range(int count, int first, int last, int scroll_to_end) {
+static void check_scroll_range(int count, int first, int last, ScrollMode mode, int scroll_to_end) {
     dzen.slave_win.max_lines      = 5;
     dzen.slave_win.tcnt           = count;
     dzen.slave_win.first_line_vis = -1;
@@ -145,19 +145,46 @@ static void check_scroll_range(int count, int first, int last, int scroll_to_end
 
     CHECK(dzen.slave_win.first_line_vis == first);
     CHECK(dzen.slave_win.last_line_vis == last);
+    CHECK(dzen.slave_win.scroll_mode == mode);
     CHECK(draw_body_calls == 1);
 }
 
 static void test_scroll_endpoints(void) {
-    check_scroll_range(0, 0, 0, 0);
-    check_scroll_range(2, 0, 2, 0);
-    check_scroll_range(5, 0, 5, 0);
-    check_scroll_range(8, 0, 5, 0);
+    check_scroll_range(0, 0, 0, SCROLL_FIXED, 0);
+    check_scroll_range(2, 0, 2, SCROLL_FIXED, 0);
+    check_scroll_range(5, 0, 5, SCROLL_FIXED, 0);
+    check_scroll_range(8, 0, 5, SCROLL_FIXED, 0);
 
-    check_scroll_range(0, 0, 0, 1);
-    check_scroll_range(2, 0, 2, 1);
-    check_scroll_range(5, 0, 5, 1);
-    check_scroll_range(8, 3, 8, 1);
+    check_scroll_range(0, 0, 0, SCROLL_FOLLOW_END, 1);
+    check_scroll_range(2, 0, 2, SCROLL_FOLLOW_END, 1);
+    check_scroll_range(5, 0, 5, SCROLL_FOLLOW_END, 1);
+    check_scroll_range(8, 3, 8, SCROLL_FOLLOW_END, 1);
+}
+
+static void test_scroll_navigation_mode(void) {
+    char *one_line[] = { NULL };
+    char *to_end[]   = { "5", NULL };
+
+    dzen.slave_win.max_lines      = 5;
+    dzen.slave_win.tcnt           = 8;
+    dzen.slave_win.first_line_vis = 0;
+    dzen.slave_win.last_line_vis  = 5;
+    dzen.slave_win.scroll_mode    = SCROLL_FIXED;
+
+    a_scrolldown(one_line);
+    CHECK(dzen.slave_win.first_line_vis == 1);
+    CHECK(dzen.slave_win.last_line_vis == 6);
+    CHECK(dzen.slave_win.scroll_mode == SCROLL_FIXED);
+
+    a_scrolldown(to_end);
+    CHECK(dzen.slave_win.first_line_vis == 3);
+    CHECK(dzen.slave_win.last_line_vis == 8);
+    CHECK(dzen.slave_win.scroll_mode == SCROLL_FOLLOW_END);
+
+    a_scrollup(one_line);
+    CHECK(dzen.slave_win.first_line_vis == 2);
+    CHECK(dzen.slave_win.last_line_vis == 7);
+    CHECK(dzen.slave_win.scroll_mode == SCROLL_FIXED);
 }
 
 static void check_invalid_menu_selection(int first, int selected) {
@@ -314,6 +341,7 @@ int main(void) {
     test_action_limit();
     test_option_limit();
     test_scroll_endpoints();
+    test_scroll_navigation_mode();
     test_menu_selection();
     test_event_names_are_exact();
     test_collapse_operations();

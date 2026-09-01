@@ -588,3 +588,33 @@ Move mouse somewhere
 
 ### Dzen app is running?: no
 
+## Test: 19 Scroll home before input
+
+`scrollhome` from `onstart` must keep the slave window at the beginning when
+input arrives after startup.
+
+### Args: -l 5 -e 'onstart=uncollapse,scrollhome,grabkeys;key_Down=scrolldown' -ta l -sa l -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff'
+
+### Pipe data
+
+```
+Header
+Line 1
+Line 2
+Line 3
+Line 4
+Line 5
+Line 6
+Line 7
+Line 8
+```
+
+### Crop: 300x180+0+0
+
+![reference](./expected/19-scrollhome-onstart.png)
+
+### Press key: Down
+
+The slave window must scroll down by one line.
+
+![reference](./expected/19-scrollhome-key-down.png)

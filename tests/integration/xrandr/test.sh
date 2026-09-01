@@ -204,10 +204,17 @@ wait_id_state() {
   return 1
 }
 assert_id_geometry() {
-  local label=$1 id=$2 expected_x=$3 expected_y=$4 expected_w=$5 expected_h=$6 X= Y= WIDTH= HEIGHT=
-  eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)"
-  assert_eq "$label x" "$X" "$expected_x"; assert_eq "$label y" "$Y" "$expected_y"
-  assert_eq "$label width" "$WIDTH" "$expected_w"; assert_eq "$label height" "$HEIGHT" "$expected_h"
+  local label=$1 id=$2 expected_x=$3 expected_y=$4 expected_w=$5 expected_h=$6 geometry actual expected
+  geometry=$(LC_ALL=C xwininfo -id "$id" 2>/dev/null)
+  actual=$(printf '%s\n' "$geometry" | awk -F: '
+    /Absolute upper-left X:/ { x = $2 + 0 }
+    /Absolute upper-left Y:/ { y = $2 + 0 }
+    /^[[:space:]]*Width:/ { width = $2 + 0 }
+    /^[[:space:]]*Height:/ { height = $2 + 0 }
+    END { print x "," y "," width "," height }
+  ')
+  expected="$expected_x,$expected_y,$expected_w,$expected_h"
+  assert_eq "$label" "$actual" "$expected"
 }
 pid_window_count() { xdotool search --pid "$DZEN_PID" 2>/dev/null | awk 'NF { count++ } END { print count + 0 }'; }
 slave_window() { xdotool search --name '^dzen slave$' 2>/dev/null | tail -1; }

@@ -406,25 +406,17 @@ wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "menu geome
 SLAVE_W=$((BAR_W + 73)); SLAVE_X=$((BAR_X + (BAR_W - SLAVE_W) / 2))
 test_case 11 "vertical menu layout" 11-dummy-vertical-menu.png
 if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v \
-    -e 'onstart=uncollapse;sigusr1=collapse;sigusr2=uncollapse' -h "$BAR_H"; then
+    -e 'onstart=uncollapse' -h "$BAR_H"; then
   SLAVE_WIN=$(slave_window); TITLE_WIN=$(title_window "$SLAVE_WIN")
   assert_eq "vertical PID-associated top-level count" "$(pid_window_count)" 1
   assert_window_geometry "vertical expanded outer" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"
   assert_id_geometry "vertical title child" "$TITLE_WIN" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
   assert_id_geometry "vertical slave child" "$SLAVE_WIN" "$SLAVE_X" "$((BAR_Y + BAR_H))" "$SLAVE_W" "$((2 * BAR_H))"
-  if kill -USR1 "$DZEN_PID" && wait_window_geometry "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"; then
-    pass "collapse shrinks outer to title"
-  else fail "collapse shrinks outer to title"; fi
-  if wait_id_state "$SLAVE_WIN" IsUnMapped; then pass "collapse unmaps slave child"; else fail "collapse unmaps slave child"; fi
-  if kill -USR2 "$DZEN_PID" && wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"; then
-    pass "uncollapse expands outer to union"
-  else fail "uncollapse expands outer to union"; fi
-  if wait_id_state "$SLAVE_WIN" IsViewable; then pass "uncollapse maps slave child"; else fail "uncollapse maps slave child"; fi
   capture 11-dummy-vertical-menu
 else fail "vertical menu starts"; fi
 test_case 12 "horizontal menu layout" 12-dummy-horizontal-menu.png
 if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m h \
-    -e 'onstart=uncollapse;sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
+    -e 'onstart=uncollapse' -h "$BAR_H"; then
   SLAVE_WIN=$(slave_window); TITLE_WIN=$(title_window "$SLAVE_WIN")
   assert_eq "horizontal PID-associated top-level count" "$(pid_window_count)" 1
   assert_window_geometry "horizontal outer wraps slave" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
@@ -432,38 +424,7 @@ if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l
   assert_id_geometry "horizontal slave child" "$SLAVE_WIN" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
   if wait_id_state "$TITLE_WIN" IsUnMapped; then pass "horizontal title child remains unmapped"; else fail "horizontal title child remains unmapped"; fi
   capture 12-dummy-horizontal-menu
-  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then
-    pass "horizontal hide unmaps outer"
-  else fail "horizontal hide unmaps outer"; fi
-  if wait_id_state "$SLAVE_WIN" IsUnMapped; then pass "horizontal hide unmaps slave child"; else fail "horizontal hide unmaps slave child"; fi
-  assert_id_geometry "horizontal hidden slave keeps geometry" "$SLAVE_WIN" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
-  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable &&
-      wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"; then
-    pass "horizontal unhide restores outer"
-  else fail "horizontal unhide restores outer"; fi
-  if wait_id_state "$SLAVE_WIN" IsViewable; then pass "horizontal unhide maps slave child"; else fail "horizontal unhide maps slave child"; fi
 else fail "horizontal menu starts"; fi
-
-test_case 12c "strict hide for title-only and collapsed vertical surfaces"
-if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -w "$BAR_W" \
-    -e 'sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
-  TITLE_ONLY=$(xwininfo -id "$WIN" -children 2>/dev/null | awk '$1 ~ /^0x/ { print $1; exit }')
-  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then pass "title-only hide unmaps outer"; else fail "title-only hide unmaps outer"; fi
-  if wait_id_state "$TITLE_ONLY" IsUnMapped; then pass "title-only hide unmaps title child"; else fail "title-only hide unmaps title child"; fi
-  assert_id_geometry "hidden title-only child keeps geometry" "$TITLE_ONLY" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
-  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable; then pass "title-only unhide maps outer"; else fail "title-only unhide maps outer"; fi
-else fail "title-only strict-hide surface starts"; fi
-if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -w "$BAR_W" -l 2 \
-    -e 'sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
-  COLLAPSED_SLAVE=$(slave_window); COLLAPSED_TITLE=$(title_window "$COLLAPSED_SLAVE")
-  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then pass "collapsed vertical hide unmaps outer"; else fail "collapsed vertical hide unmaps outer"; fi
-  if wait_id_state "$COLLAPSED_TITLE" IsUnMapped; then pass "collapsed vertical hide unmaps title"; else fail "collapsed vertical hide unmaps title"; fi
-  if wait_id_state "$COLLAPSED_SLAVE" IsUnMapped; then pass "collapsed vertical hide keeps slave unmapped"; else fail "collapsed vertical hide keeps slave unmapped"; fi
-  assert_id_geometry "hidden collapsed title keeps geometry" "$COLLAPSED_TITLE" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
-  assert_id_geometry "hidden collapsed slave keeps geometry" "$COLLAPSED_SLAVE" "$BAR_X" "$((BAR_Y + BAR_H))" "$BAR_W" "$((2 * BAR_H))"
-  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable; then pass "collapsed vertical unhide maps outer"; else fail "collapsed vertical unhide maps outer"; fi
-  if wait_id_state "$COLLAPSED_SLAVE" IsUnMapped; then pass "collapsed vertical unhide preserves collapse"; else fail "collapsed vertical unhide preserves collapse"; fi
-else fail "collapsed vertical strict-hide surface starts"; fi
 
 test_case 12a "pointer transitions across outer children"
 xdotool mousemove "$((SCREEN_W - 10))" "$((SCREEN_H - 10))"

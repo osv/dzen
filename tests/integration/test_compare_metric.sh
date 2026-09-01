@@ -9,12 +9,17 @@ BUILD_ROOT=$(cd "${DZEN2_TEST_BUILD_ROOT:-$SOURCE_ROOT}" && pwd)
 
 failures=0
 
+test_announce \
+  'INFO: ImageMagick AE metric parser test plan:' \
+  '      - accept supported integer and HDRI metrics; reject malformed output'
+
 expect_metric() {
   local input=$1 expected=$2 actual
   if actual=$(test_parse_ae_metric "$input") && [ "$actual" = "$expected" ]; then
-    printf 'PASS: AE metric %q -> %s\n' "$input" "$actual"
+    printf '%sPASS:%s AE metric %q -> %s\n' "$GREEN" "$RESET" "$input" "$actual"
   else
-    printf 'FAIL: AE metric %q expected %s, got %s\n' "$input" "$expected" "${actual:-error}" >&2
+    printf '%sFAIL:%s AE metric %q expected %s, got %s\n' \
+      "$RED" "$RESET" "$input" "$expected" "${actual:-error}" >&2
     failures=$((failures + 1))
   fi
 }
@@ -22,10 +27,11 @@ expect_metric() {
 expect_rejected() {
   local input=$1 actual
   if actual=$(test_parse_ae_metric "$input"); then
-    printf 'FAIL: malformed AE metric %q was accepted as %s\n' "$input" "$actual" >&2
+    printf '%sFAIL:%s malformed AE metric %q was accepted as %s\n' \
+      "$RED" "$RESET" "$input" "$actual" >&2
     failures=$((failures + 1))
   else
-    printf 'PASS: rejected malformed AE metric %q\n' "$input"
+    printf '%sPASS:%s rejected malformed AE metric %q\n' "$GREEN" "$RESET" "$input"
   fi
 }
 

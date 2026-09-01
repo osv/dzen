@@ -7,6 +7,8 @@ bin_PROGRAMS = dzen2
 dzen2_SOURCES = \
   action.c \
   action.h \
+  border.c \
+  border.h \
   caches.c \
   draw.c \
   dzen.h \
@@ -25,6 +27,8 @@ dzen2_SOURCES = \
   text_buffer.h \
   util.c \
   util.h \
+  windows.c \
+  windows.h \
   xrandr.c \
   xrandr.h
 

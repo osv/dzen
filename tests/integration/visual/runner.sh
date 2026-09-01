@@ -69,14 +69,6 @@ detect_imagemagick() {
     exit 1
 }
 
-# Parse normalized compare output (handles both ImageMagick 6 and 7 formats)
-parse_compare_output() {
-    local output="$1"
-    # Extract first number before any parentheses or spaces
-    # Handles: "0", "123", "0 (0)", "123 (456)"
-    echo "$output" | sed 's/[[:space:]]*(.*//' | grep -o '^[0-9]*' | head -1
-}
-
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -243,10 +235,10 @@ detect_imagemagick
 
 # Setup display
 if [ "$USE_VIRTUAL_DISPLAY" = true ]; then
-    test_require_commands xwd xdotool base64 Xvfb xset seq stat || exit 1
+    test_require_commands xwd xdotool xwininfo xprop base64 Xvfb xset seq stat || exit 1
     start_virtual_display
 else
-    test_require_commands xwd xdotool base64 xset || exit 1
+    test_require_commands xwd xdotool xwininfo xprop base64 xset || exit 1
     [ -n "${DISPLAY:-}" ] || { echo "DISPLAY is not set" >&2; exit 1; }
     xset q >/dev/null 2>&1 || { echo "Cannot connect to DISPLAY=$DISPLAY" >&2; exit 1; }
     echo "Running tests on native X11 display: $DISPLAY"
@@ -334,9 +326,95 @@ run_test() {
   local expected_screenshot=""
   local check_num=0
 
+  check_geometry() {
+    local id=$1 expected=$2 label=$3 geometry actual
+    geometry=$(LC_ALL=C xwininfo -id "$id" 2>/dev/null)
+    actual=$(printf '%s\n' "$geometry" | awk -F: '
+      /Absolute upper-left X:/ { x = $2 + 0 }
+      /Absolute upper-left Y:/ { y = $2 + 0 }
+      /^[[:space:]]*Width:/ { width = $2 + 0 }
+      /^[[:space:]]*Height:/ { height = $2 + 0 }
+      END { print x "," y "," width "," height }
+    ')
+    check_num=$((check_num + 1))
+    if [ "$actual" = "$expected" ]; then
+      echo -en "$check_num: $label geometry ${GREEN}Pass. ${NC}"
+    else
+      echo -e "\n${RED}$check_num: $label geometry: expected $expected, got $actual.${NC}"
+      all_tests_passed=false
+    fi
+  }
+
+  check_mapping() {
+    local id=$1 expected=$2 label=$3 actual
+    actual=$(xwininfo -id "$id" 2>/dev/null | awk -F: '/Map State:/ { sub(/^[[:space:]]+/, "", $2); print $2 }')
+    check_num=$((check_num + 1))
+    if [ "$actual" = "$expected" ]; then
+      echo -en "$check_num: $label mapping ${GREEN}Pass. ${NC}"
+    else
+      echo -e "\n${RED}$check_num: $label mapping: expected $expected, got $actual.${NC}"
+      all_tests_passed=false
+    fi
+  }
+
+  check_dock_strut() {
+    local expected=$1 actual
+    actual=$(xprop -id "$window_id" _NET_WM_STRUT_PARTIAL 2>/dev/null | sed -n 's/^[^=]*= *//p' | tr -d ' ')
+    check_num=$((check_num + 1))
+    if [ "$actual" = "$expected" ]; then
+      echo -en "$check_num: Dock strut ${GREEN}Pass. ${NC}"
+    else
+      echo -e "\n${RED}$check_num: Dock strut: expected $expected, got ${actual:-<missing>}.${NC}"
+      all_tests_passed=false
+    fi
+  }
+
+  content_window_id() {
+    local kind=$1 child name
+    while read -r child; do
+      [ -n "$child" ] || continue
+      name=$(xprop -id "$child" WM_NAME 2>/dev/null || true)
+      if [ "$kind" = slave ] && [[ $name == *'dzen slave'* ]]; then echo "$child"; return; fi
+      if [ "$kind" = title ] && [[ $name != *'dzen slave'* ]]; then echo "$child"; return; fi
+    done < <(xwininfo -id "$window_id" -children | awk '/^[[:space:]]+0x[0-9a-f]+ / { print $1 }')
+  }
+
   for step in "${steps[@]}"; do
     IFS='|' read -r action params <<< "$step"
     case "$action" in
+      'geometry')
+        check_geometry "$window_id" "$params" Outer
+        ;;
+      'title_geometry')
+        local title_id
+        title_id=$(content_window_id title)
+        check_geometry "$title_id" "$params" Title
+        ;;
+      'slave_geometry')
+        local slave_id
+        slave_id=$(content_window_id slave)
+        check_geometry "$slave_id" "$params" Slave
+        ;;
+      'outer_mapping')
+        check_mapping "$window_id" "$params" Outer
+        ;;
+      'title_mapping')
+        local title_id
+        title_id=$(content_window_id title)
+        check_mapping "$title_id" "$params" Title
+        ;;
+      'slave_mapping')
+        local slave_id
+        slave_id=$(content_window_id slave)
+        check_mapping "$slave_id" "$params" Slave
+        ;;
+      'dock_strut')
+        check_dock_strut "$params"
+        ;;
+      'click')
+        xdotool click "$params"
+        sleep 0.1
+        ;;
       'mouse')
         IFS=',' read -r x y <<< "$params"
         xdotool mousemove --window "$window_id" "$x" "$y"
@@ -360,6 +438,16 @@ run_test() {
           all_tests_passed=false
         else
           echo -en "$check_num: Click button ${button} and check output ${GREEN}Pass. ${NC}"
+        fi
+        ;;
+      'check_no_output')
+        check_num=$((check_num + 1))
+        app_output=$(cat "$app_output_path")
+        if [ -z "$app_output" ]; then
+          echo -en "$check_num: No action output ${GREEN}Pass. ${NC}"
+        else
+          echo -e "\n${RED}$check_num: Expected no action output, got '${app_output}'.${NC}"
+          all_tests_passed=false
         fi
         ;;
       'crop')
@@ -403,10 +491,20 @@ run_test() {
         # Compare with the expected screenshot
         elif [ -f "$expected_screenshot_path" ]; then
           local diff_screenshot="$DIFF_DIR/${screenshot_filename}"
-          $COMPARE_CMD -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" "$diff_screenshot" 2> /dev/null || true
-          local raw_diff=$($COMPARE_CMD -metric AE -fuzz 5% "$actual_screenshot_path" "$expected_screenshot_path" null: 2>&1 || true)
-          diff=$(parse_compare_output "$raw_diff")
-          if (( diff > delta_threshold )); then
+          local raw_diff compare_status diff
+          raw_diff=$($COMPARE_CMD -metric AE -fuzz 5% \
+            "$actual_screenshot_path" "$expected_screenshot_path" "$diff_screenshot" 2>&1)
+          compare_status=$?
+          if (( compare_status > 1 )) || ! diff=$(test_parse_ae_metric "$raw_diff"); then
+            echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}ImageMagick comparison failed" \
+              "for \"$test_name\" (status $compare_status).${NC}"
+            echo -e "${RED} Output: ${raw_diff:-<empty>}${NC}\n"
+            all_tests_passed=false
+          elif (( (compare_status == 0 && diff != 0) || (compare_status == 1 && diff == 0) )); then
+            echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}ImageMagick returned inconsistent" \
+              "status and AE metric ($compare_status, $diff).${NC}\n"
+            all_tests_passed=false
+          elif (( diff > delta_threshold )); then
             echo -e "\n${RED}Subtest: $check_num: Error:\n${RED}Difference in \"$test_name\" exceeds threshold! ($diff)${NC}"
             echo -e "${RED} See ./${diff_screenshot}${NC}\n"
             # Display images in Kitty terminal on error
@@ -415,6 +513,7 @@ run_test() {
             display_image_in_kitty "$diff_screenshot" "Difference: $diff_screenshot"
             all_tests_passed=false
           else
+            rm -f "$diff_screenshot"
             echo -en "$check_num: Scr ${GREEN}Pass. ${NC}"
             # Display actual image on success if requested
             if [ "$SHOW_IMAGES_ON_SUCCESS" = true ]; then
@@ -574,11 +673,38 @@ run_tests() {
       '### Mouse: '*)
         steps+=("mouse|${line#'### Mouse: '}")
         ;;
+      '### Click: '*)
+        steps+=("click|${line#'### Click: '}")
+        ;;
+      '### Geometry: '*)
+        steps+=("geometry|${line#'### Geometry: '}")
+        ;;
+      '### Title geometry: '*)
+        steps+=("title_geometry|${line#'### Title geometry: '}")
+        ;;
+      '### Slave geometry: '*)
+        steps+=("slave_geometry|${line#'### Slave geometry: '}")
+        ;;
+      '### Outer mapping: '*)
+        steps+=("outer_mapping|${line#'### Outer mapping: '}")
+        ;;
+      '### Title mapping: '*)
+        steps+=("title_mapping|${line#'### Title mapping: '}")
+        ;;
+      '### Slave mapping: '*)
+        steps+=("slave_mapping|${line#'### Slave mapping: '}")
+        ;;
+      '### Dock strut: '*)
+        steps+=("dock_strut|${line#'### Dock strut: '}")
+        ;;
       '### Press key: '*)
         steps+=("presskey|${line#'### Press key: '}")
         ;;
       '### Click and check output: '*)
         steps+=("click_and_check|${line#'### Click and check output: '}")
+        ;;
+      '### Check no output')
+        steps+=("check_no_output|")
         ;;
       '![reference](./'*)
         expected_screenshot="${line#'![reference](./'}"

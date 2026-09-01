@@ -6,6 +6,7 @@
 
 #include "../config.h"
 #include "font.h"
+#include "border.h"
 #include "text_buffer.h"
 #include "util.h"
 
@@ -142,8 +143,11 @@ struct DZEN {
 
     /* Default colors for foreground and background */
     unsigned long norm[ColLast]; /* Array holding normal fg/bg colors */
+    BorderSpec    border;
+    unsigned long border_pixel;
 
     /* Window structures */
+    Window        outer_win; /* The only root child and WM-facing application surface */
     TWIN          title_win; /* Title window (always visible, single line) */
     SWIN          slave_win; /* Slave window (optional multi-line menu) */
 
@@ -195,6 +199,7 @@ extern void parse_line(const char *text, int linenr, int align, int reverse);
 extern void parse_line_text(const char *text, TextBuffer *output);
 extern void drawheader(const char *text);
 extern void redrawheader(void);
+extern void apply_border_spec(const char *text);
 extern void drawbody(char *text);
 extern void draw_cleanup(void);
 

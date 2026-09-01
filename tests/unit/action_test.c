@@ -1,6 +1,7 @@
 #include "action.h"
 #include "dzen.h"
 #include "test_common.h"
+#include "windows.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -8,13 +9,21 @@
 #include <string.h>
 #include <unistd.h>
 
-Dzen          dzen = { 0 };
-static int    draw_body_calls;
-static int    spawn_calls;
-static char   spawned_command[64];
-static Status window_attributes_status = True;
+Dzen        dzen = { 0 };
+static int  draw_body_calls;
+static int  spawn_calls;
+static char spawned_command[64];
+static Bool slave_query_status = True;
+static Bool slave_mapped;
+static int  map_slave_calls;
+static int  unmap_slave_calls;
+static int  hidden_resize_calls;
+static Bool hidden_horizontal_menu;
+static Bool hidden_value;
+static int  raise_all_calls;
+static int  lower_all_calls;
 
-void         *emalloc(unsigned int size) {
+void       *emalloc(unsigned int size) {
     void *result = malloc(size);
 
     CHECK(result != NULL);
@@ -50,11 +59,33 @@ void parse_line_text(const char *text, TextBuffer *output) {
     text_buffer_assign(output, text);
 }
 
-Status XGetWindowAttributes(Display *display, Window window, XWindowAttributes *attributes) {
-    (void)display;
-    (void)window;
-    (void)attributes;
-    return window_attributes_status;
+void windows_map_slave(void) {
+    map_slave_calls++;
+}
+
+void windows_unmap_slave(void) {
+    unmap_slave_calls++;
+}
+
+Bool windows_slave_is_mapped(Bool *mapped) {
+    if (!slave_query_status)
+        return False;
+    *mapped = slave_mapped;
+    return True;
+}
+
+void windows_set_title_hidden(void) {
+    hidden_resize_calls++;
+    hidden_horizontal_menu = dzen.slave_win.ishmenu;
+    hidden_value           = dzen.title_win.ishidden;
+}
+
+void windows_raise_all(void) {
+    raise_all_calls++;
+}
+
+void windows_lower_all(void) {
+    lower_all_calls++;
 }
 
 static void append_text(char *buffer, size_t capacity, const char *text) {
@@ -180,14 +211,58 @@ static void test_event_names_are_exact(void) {
     CHECK(get_ev_id("sigusr123") == -1);
 }
 
-static void test_togglecollapse_attribute_failure(void) {
-    dzen.slave_win.max_lines = 1;
-    window_attributes_status = False;
-    CHECK(a_togglecollapse(NULL) != 0);
-    window_attributes_status = True;
+static void reset_window_calls(void) {
+    map_slave_calls     = 0;
+    unmap_slave_calls   = 0;
+    hidden_resize_calls = 0;
+    raise_all_calls     = 0;
+    lower_all_calls     = 0;
 }
 
-static void test_hide_does_not_write_stdout(void) {
+static void test_collapse_operations(void) {
+    dzen.slave_win.max_lines = 2;
+    dzen.slave_win.ishmenu   = False;
+    dzen.slave_win.issticky  = False;
+    reset_window_calls();
+
+    CHECK(a_collapse(NULL) == 0);
+    CHECK(unmap_slave_calls == 1);
+    CHECK(map_slave_calls == 0);
+    CHECK(a_uncollapse(NULL) == 0);
+    CHECK(unmap_slave_calls == 1);
+    CHECK(map_slave_calls == 1);
+
+    dzen.slave_win.issticky = True;
+    CHECK(a_collapse(NULL) == 0);
+    CHECK(a_uncollapse(NULL) == 0);
+    CHECK(unmap_slave_calls == 1);
+    CHECK(map_slave_calls == 1);
+}
+
+static void test_togglecollapse(void) {
+    dzen.slave_win.max_lines = 1;
+    dzen.slave_win.ishmenu   = False;
+    dzen.slave_win.issticky  = False;
+    reset_window_calls();
+
+    slave_query_status = False;
+    CHECK(a_togglecollapse(NULL) != 0);
+    CHECK(map_slave_calls == 0);
+    CHECK(unmap_slave_calls == 0);
+
+    slave_query_status = True;
+    slave_mapped       = False;
+    CHECK(a_togglecollapse(NULL) == 0);
+    CHECK(map_slave_calls == 1);
+    CHECK(unmap_slave_calls == 0);
+
+    slave_mapped = True;
+    CHECK(a_togglecollapse(NULL) == 0);
+    CHECK(map_slave_calls == 1);
+    CHECK(unmap_slave_calls == 1);
+}
+
+static void test_hide_operations_are_idempotent(void) {
     FILE *capture = tmpfile();
     long  output_size;
     int   saved_stdout;
@@ -198,8 +273,24 @@ static void test_hide_does_not_write_stdout(void) {
     CHECK(fflush(stdout) == 0);
     CHECK(dup2(fileno(capture), STDOUT_FILENO) >= 0);
 
-    dzen.title_win.ishidden = True;
+    reset_window_calls();
+    dzen.slave_win.ishmenu  = False;
+    dzen.title_win.ishidden = False;
     CHECK(a_hide(NULL) == 0);
+    CHECK(a_hide(NULL) == 0);
+    CHECK(hidden_resize_calls == 1);
+    CHECK(hidden_horizontal_menu == False);
+    CHECK(hidden_value == True);
+    CHECK(a_unhide(NULL) == 0);
+    CHECK(a_unhide(NULL) == 0);
+    CHECK(hidden_resize_calls == 2);
+    CHECK(hidden_value == False);
+
+    dzen.slave_win.ishmenu  = True;
+    dzen.title_win.ishidden = False;
+    CHECK(a_hide(NULL) == 0);
+    CHECK(hidden_resize_calls == 3);
+    CHECK(hidden_horizontal_menu == True);
     CHECK(fflush(stdout) == 0);
     output_size = ftell(capture);
 
@@ -209,14 +300,26 @@ static void test_hide_does_not_write_stdout(void) {
     CHECK(output_size == 0);
 }
 
+static void test_raise_and_lower_operations(void) {
+    dzen.slave_win.max_lines = 2;
+    reset_window_calls();
+
+    CHECK(a_raise(NULL) == 0);
+    CHECK(a_lower(NULL) == 0);
+    CHECK(raise_all_calls == 1);
+    CHECK(lower_all_calls == 1);
+}
+
 int main(void) {
     test_action_limit();
     test_option_limit();
     test_scroll_endpoints();
     test_menu_selection();
     test_event_names_are_exact();
-    test_togglecollapse_attribute_failure();
-    test_hide_does_not_write_stdout();
+    test_collapse_operations();
+    test_togglecollapse();
+    test_hide_operations_are_idempotent();
+    test_raise_and_lower_operations();
     puts("action tests passed");
     return EXIT_SUCCESS;
 }

@@ -20,6 +20,8 @@ TEST_DIR=$SCRIPT_DIR
 ACTUAL=$BUILD_ROOT/tests/integration/xrandr/actual; EXPECTED=$TEST_DIR/expected; DIFFS=$BUILD_ROOT/tests/integration/xrandr/diffs
 mkdir -p "$ACTUAL" "$EXPECTED" "$DIFFS"
 XORG_PID= DZEN_PID= TMPDIR_XRANDR= WIN=
+COMPARE_CMD=()
+CAPTURE_CMD=()
 FAILURES=0; PASSES=0; SKIPS=0
 
 pass() { PASSES=$((PASSES + 1)); echo "${GREEN}PASS:${RESET} $*"; }
@@ -61,7 +63,18 @@ trap cleanup EXIT INT TERM
 assert_eq() { if [ "$2" = "$3" ]; then pass "$1 = $3"; else fail "$1 expected $3, got $2"; fi; }
 assert_match() { if printf '%s\n' "$2" | grep -Eq "$3"; then pass "$1"; else fail "$1 (got: $2)"; fi; }
 
-if ! test_require_commands Xorg xrandr xdotool xwininfo xprop import compare awk grep mktemp stat fc-match seq; then
+if command -v magick >/dev/null 2>&1 && magick -version 2>/dev/null | head -1 | grep -q 'ImageMagick 7'; then
+  COMPARE_CMD=(magick compare)
+  CAPTURE_CMD=(magick import)
+elif command -v compare >/dev/null 2>&1 && command -v import >/dev/null 2>&1; then
+  COMPARE_CMD=(compare)
+  CAPTURE_CMD=(import)
+else
+  fail "ImageMagick 6 (compare/import) or ImageMagick 7 (magick) is required"
+  summary
+  exit 1
+fi
+if ! test_require_commands Xorg xrandr xdotool xwininfo xprop awk grep mktemp stat fc-match seq; then
   summary
   exit 1
 fi
@@ -184,6 +197,32 @@ assert_window_geometry() {
   assert_eq "$label x" "$X" "$expected_x"; assert_eq "$label y" "$Y" "$expected_y"
   assert_eq "$label width" "$WIDTH" "$expected_w"; assert_eq "$label height" "$HEIGHT" "$expected_h"
 }
+window_map_state() { xwininfo -id "$1" 2>/dev/null | awk -F: '/Map State:/ { sub(/^[[:space:]]+/, "", $2); print $2 }'; }
+wait_id_state() {
+  local id=$1 expected=$2 actual= _
+  for _ in $(seq 1 60); do actual=$(window_map_state "$id"); [ "$actual" = "$expected" ] && return 0; sleep .05; done
+  return 1
+}
+assert_id_geometry() {
+  local label=$1 id=$2 expected_x=$3 expected_y=$4 expected_w=$5 expected_h=$6 geometry actual expected
+  geometry=$(LC_ALL=C xwininfo -id "$id" 2>/dev/null)
+  actual=$(printf '%s\n' "$geometry" | awk -F: '
+    /Absolute upper-left X:/ { x = $2 + 0 }
+    /Absolute upper-left Y:/ { y = $2 + 0 }
+    /^[[:space:]]*Width:/ { width = $2 + 0 }
+    /^[[:space:]]*Height:/ { height = $2 + 0 }
+    END { print x "," y "," width "," height }
+  ')
+  expected="$expected_x,$expected_y,$expected_w,$expected_h"
+  assert_eq "$label" "$actual" "$expected"
+}
+pid_window_count() { xdotool search --pid "$DZEN_PID" 2>/dev/null | awk 'NF { count++ } END { print count + 0 }'; }
+slave_window() { xdotool search --name '^dzen slave$' 2>/dev/null | tail -1; }
+title_window() {
+  local slave_hex
+  slave_hex=$(printf '0x%x' "$1")
+  xwininfo -id "$WIN" -children 2>/dev/null | awk -v slave="$slave_hex" '$1 ~ /^0x/ && tolower($1) != tolower(slave) { print $1; exit }'
+}
 start() {
   cleanup_dzen; WIN=
   printf 'xrandr title\nitem one\nitem two\n' | "$DZEN2_BINARY" "$@" -fn "$TEST_FONT" -bg "$BAR_BG" -fg "$BAR_FG" -p 30 >"$TMPDIR_XRANDR/dzen.stdout" 2>"$TMPDIR_XRANDR/dzen.stderr" &
@@ -198,36 +237,21 @@ start() {
   return 1
 }
 capture() {
-  local name=$1 actual=$ACTUAL/$1.png expected=$EXPECTED/$1.png diff=$DIFFS/$1.png metric
-  if ! import -window root "$actual" 2>/dev/null; then fail "capture $name.png"; return; fi
+  local name=$1 actual=$ACTUAL/$1.png expected=$EXPECTED/$1.png diff=$DIFFS/$1.png metric raw_metric compare_status
+  if ! "${CAPTURE_CMD[@]}" -window root "$actual" 2>/dev/null; then fail "capture $name.png"; return; fi
   if [ "${UPDATE_XRANDR_EXPECTED:-0}" = 1 ]; then cp "$actual" "$expected"; rm -f "$diff"; pass "updated expected $name.png"; return; fi
   if [ ! -f "$expected" ]; then fail "missing expected screenshot $expected (review actual, then run with UPDATE_XRANDR_EXPECTED=1)"; return; fi
-  metric=$(compare -metric AE "$expected" "$actual" "$diff" 2>&1 || true); metric=${metric%% *}
-  if [ "$metric" = 0 ]; then rm -f "$diff"; pass "screenshot $name.png"; else fail "screenshot $name differs by $metric pixels (see $diff)"; fi
-}
-pid_window_geometry_count() {
-  local expected_x=$1 expected_y=$2 expected_w=$3 expected_h=$4 id X Y WIDTH HEIGHT count=0
-  while read -r id; do
-    X= Y= WIDTH= HEIGHT=
-    eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)"
-    if [ "$X" = "$expected_x" ] && [ "$Y" = "$expected_y" ] && [ "$WIDTH" = "$expected_w" ] && [ "$HEIGHT" = "$expected_h" ]; then count=$((count + 1)); fi
-  done < <(xdotool search --pid "$DZEN_PID" 2>/dev/null)
-  printf '%s\n' "$count"
-}
-assert_pid_window_geometry() {
-  local label=$1 count
-  count=$(pid_window_geometry_count "$2" "$3" "$4" "$5")
-  if [ "$count" -ge 1 ]; then pass "$label"; else fail "$label geometry $2,$3 ${4}x${5} not found"; fi
-}
-assert_slave_geometry() {
-  local label=$1 expected_x=$2 expected_y=$3 expected_w=$4 expected_h=$5 id X= Y= WIDTH= HEIGHT=
-  id=$(xdotool search --name '^dzen slave$' 2>/dev/null | tail -1)
-  if [ -z "$id" ]; then fail "$label: slave window not found"; return; fi
-  eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)"
-  if [ "$X" = "$expected_x" ] && [ "$Y" = "$expected_y" ] && [ "$WIDTH" = "$expected_w" ] && [ "$HEIGHT" = "$expected_h" ]; then
-    pass "$label"
+  raw_metric=$("${COMPARE_CMD[@]}" -metric AE "$expected" "$actual" "$diff" 2>&1)
+  compare_status=$?
+  if [ "$compare_status" -gt 1 ] || ! metric=$(test_parse_ae_metric "$raw_metric"); then
+    fail "ImageMagick comparison for $name.png failed (status $compare_status): ${raw_metric:-<empty>}"
+  elif { [ "$compare_status" -eq 0 ] && [ "$metric" -ne 0 ]; } ||
+       { [ "$compare_status" -eq 1 ] && [ "$metric" -eq 0 ]; }; then
+    fail "ImageMagick comparison for $name.png returned inconsistent status and AE metric ($compare_status, $metric)"
+  elif [ "$metric" = 0 ]; then
+    rm -f "$diff"; pass "screenshot $name.png"
   else
-    fail "$label expected $expected_x,$expected_y ${expected_w}x${expected_h}; got $X,$Y ${WIDTH}x${HEIGHT}"
+    fail "screenshot $name differs by $metric pixels (see $diff)"
   fi
 }
 run_rejected() {
@@ -263,6 +287,11 @@ assert_match "-lm lists active output $OUTPUT" "$LM_OUTPUT" "(^|[[:space:]])$OUT
 run_rejected "unknown output" -output __dzen_nonexistent_output__
 run_rejected "-output/-xs conflict (output first)" -output "$OUTPUT" -xs 1
 run_rejected "-output/-xs conflict (xs first)" -xs 1 -output "$OUTPUT"
+run_rejected "border missing argument" -b
+run_rejected "border empty field" -b '1,,red'
+run_rejected "border three-width form" -b '1,2,3'
+run_rejected "border numeric overflow" -b '999999999999999999999999999999'
+run_rejected "border invalid X11 color" -b '2,__not_an_x11_color__'
 
 test_case 02 "initial output placement" 02-dummy-initial.png
 if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -h "$BAR_H" -w "$BAR_W"; then
@@ -376,17 +405,57 @@ xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${S
 wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "menu geometry did not settle"
 SLAVE_W=$((BAR_W + 73)); SLAVE_X=$((BAR_X + (BAR_W - SLAVE_W) / 2))
 test_case 11 "vertical menu layout" 11-dummy-vertical-menu.png
-if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v -e onstart=uncollapse -h "$BAR_H"; then
-  assert_pid_window_geometry "vertical title has independent width" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
-  assert_slave_geometry "vertical slave has independent width/height" "$SLAVE_X" "$((BAR_Y + BAR_H))" "$SLAVE_W" "$((2 * BAR_H))"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v \
+    -e 'onstart=uncollapse' -h "$BAR_H"; then
+  SLAVE_WIN=$(slave_window); TITLE_WIN=$(title_window "$SLAVE_WIN")
+  assert_eq "vertical PID-associated top-level count" "$(pid_window_count)" 1
+  assert_window_geometry "vertical expanded outer" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"
+  assert_id_geometry "vertical title child" "$TITLE_WIN" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
+  assert_id_geometry "vertical slave child" "$SLAVE_WIN" "$SLAVE_X" "$((BAR_Y + BAR_H))" "$SLAVE_W" "$((2 * BAR_H))"
   capture 11-dummy-vertical-menu
 else fail "vertical menu starts"; fi
 test_case 12 "horizontal menu layout" 12-dummy-horizontal-menu.png
-if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m h -e onstart=uncollapse -h "$BAR_H"; then
-  assert_pid_window_geometry "horizontal title has independent width" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
-  assert_slave_geometry "horizontal menu parent geometry" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m h \
+    -e 'onstart=uncollapse' -h "$BAR_H"; then
+  SLAVE_WIN=$(slave_window); TITLE_WIN=$(title_window "$SLAVE_WIN")
+  assert_eq "horizontal PID-associated top-level count" "$(pid_window_count)" 1
+  assert_window_geometry "horizontal outer wraps slave" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
+  assert_id_geometry "horizontal title child" "$TITLE_WIN" "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"
+  assert_id_geometry "horizontal slave child" "$SLAVE_WIN" "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$BAR_H"
+  if wait_id_state "$TITLE_WIN" IsUnMapped; then pass "horizontal title child remains unmapped"; else fail "horizontal title child remains unmapped"; fi
   capture 12-dummy-horizontal-menu
 else fail "horizontal menu starts"; fi
+
+test_case 12a "pointer transitions across outer children"
+xdotool mousemove "$((SCREEN_W - 10))" "$((SCREEN_H - 10))"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v -h "$BAR_H"; then
+  xdotool mousemove "$((BAR_X + 10))" "$((BAR_Y + 10))"
+  if wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"; then
+    pass "entering title uncollapses through child event"
+  else fail "entering title uncollapses through child event"; fi
+  xdotool mousemove "$((SLAVE_X + 10))" "$((BAR_Y + BAR_H + 10))"
+  if wait_window_geometry "$SLAVE_X" "$BAR_Y" "$SLAVE_W" "$((3 * BAR_H))"; then
+    pass "title-to-slave transition stays expanded"
+  else fail "title-to-slave transition stays expanded"; fi
+  xdotool mousemove "$((SLAVE_X + SLAVE_W + 20))" "$((BAR_Y + 10))"
+  if wait_window_geometry "$BAR_X" "$BAR_Y" "$BAR_W" "$BAR_H"; then
+    pass "leaving slave collapses without outer crossing action"
+  else fail "leaving slave collapses without outer crossing action"; fi
+else fail "pointer-transition menu starts"; fi
+
+test_case 12b "slave-name compatibility and outer metadata"
+if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -w "$BAR_W" -l 1 -slave-name stage2-slave -dock -h "$BAR_H"; then
+  NAMED_SLAVE=$(xdotool search --name '^stage2-slave$' 2>/dev/null | tail -1)
+  if [ -n "$NAMED_SLAVE" ]; then pass "-slave-name finds internal slave child"; else fail "-slave-name finds internal slave child"; fi
+  assert_eq "metadata PID-associated window count" "$(pid_window_count)" 1
+  OUTER_METADATA=$(xprop -id "$WIN" WM_CLASS WM_NAME _NET_WM_PID _NET_WM_WINDOW_TYPE 2>/dev/null || true)
+  assert_match "outer owns WM class" "$OUTER_METADATA" 'WM_CLASS.*dzen2.*dzen'
+  assert_match "outer owns title name" "$OUTER_METADATA" 'WM_NAME.*dzen title'
+  assert_match "outer owns PID" "$OUTER_METADATA" '_NET_WM_PID.*[0-9]'
+  assert_match "outer owns dock type" "$OUTER_METADATA" '_NET_WM_WINDOW_TYPE_DOCK'
+  CHILD_PID=$(xprop -id "$NAMED_SLAVE" _NET_WM_PID 2>/dev/null || true)
+  assert_match "slave child has no PID metadata" "$CHILD_PID" 'not found'
+else fail "slave-name metadata menu starts"; fi
 
 # With no monitor selector, dzen follows the root framebuffer. Expanding the
 # framebuffer must resize the existing full-width title without recreating it.
@@ -460,5 +529,68 @@ if [ -n "$SECONDARY" ]; then
   xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$SECONDARY" --off \
     --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore primary after unrelated-output test"
 fi
+
+wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "border-case output restoration did not settle"
+test_case 16 "border clamping and state across disconnect/reconnect"
+if start -output "$OUTPUT" -x -1 -y -1 -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v \
+    -b '3,7,9,11,#406080' -e 'onstart=uncollapse;sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
+  BORDER_X=$((SCREEN_W - SLAVE_W - 11 - 7)); BORDER_Y=$((SCREEN_H - 3 * BAR_H - 3 - 9))
+  BORDER_W=$((SLAVE_W + 11 + 7)); BORDER_H=$((3 * BAR_H + 3 + 9))
+  BORDER_WIN=$WIN; BORDER_SLAVE=$(slave_window); BORDER_TITLE=$(title_window "$BORDER_SLAVE")
+  assert_window_geometry "bordered negative-anchor clamp" "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$BORDER_H"
+  assert_id_geometry "bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
+    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
+  if kill -USR1 "$DZEN_PID" &&
+      wait_window_geometry "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$((2 * BAR_H + 3 + 9))"; then
+    pass "expanded vertical hide wraps bordered slave"
+  else fail "expanded vertical hide wraps bordered slave"; fi
+  if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "expanded vertical hide unmaps title child"; else fail "expanded vertical hide unmaps title child"; fi
+  assert_id_geometry "hidden bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
+    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
+  if xrandr --output "$OUTPUT" --off >/dev/null 2>&1; then
+    wait_window_state IsUnMapped || fail "bordered hidden surface disconnects"
+    if xrandr --fb "${ALT_W}x${ALT_H}" --output "$OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos 0x0 >/dev/null 2>&1; then
+      wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+0+0" || fail "bordered reconnect output did not settle"
+      if wait_window_state IsViewable; then pass "bordered hidden surface reconnects"; else fail "bordered hidden surface reconnects"; fi
+      assert_eq "bordered reconnect keeps outer window" "$WIN" "$BORDER_WIN"
+      assert_window_geometry "bordered reconnect clamp" "$((ALT_W - BORDER_W))" "$BORDER_Y" "$BORDER_W" "$((2 * BAR_H + 3 + 9))"
+      assert_id_geometry "bordered reconnect keeps hidden title" "$BORDER_TITLE" "$((ALT_W - BAR_W - 7))" \
+        "$((ALT_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
+      if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "bordered reconnect keeps title hidden"; else fail "bordered reconnect keeps title hidden"; fi
+      if wait_id_state "$BORDER_SLAVE" IsViewable; then pass "bordered reconnect keeps expanded slave"; else fail "bordered reconnect keeps expanded slave"; fi
+      kill -USR2 "$DZEN_PID" || fail "unhide bordered title after reconnect"
+    else fail "reconnect bordered output"; fi
+  else skip "dummy DDX cannot disconnect output for border state test"; fi
+else fail "bordered menu starts"; fi
+
+xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore output for bordered dock"
+wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "bordered dock output did not settle"
+test_case 16b "dock strut includes static borders and follows strict hide"
+if start -output "$OUTPUT" -dock -y 0 -h "$BAR_H" -b '3,7,9,11,#406080' \
+    -e 'sigusr1=hide;sigusr2=unhide'; then
+  BORDER_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+  BORDER_LEGACY_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT 2>/dev/null || true)
+  assert_match "bordered dock exact collapsed strut" "$BORDER_STRUT" \
+    '= 0, 0, 40, 0, 0, 0, 0, 0, 0, 1023, 0, 0$'
+  if kill -USR1 "$DZEN_PID" && wait_window_state IsUnMapped; then pass "hidden dock unmaps outer"; else fail "hidden dock unmaps outer"; fi
+  HIDDEN_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+  assert_match "hidden dock removes partial strut" "$HIDDEN_STRUT" 'not found'
+  HIDDEN_LEGACY_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT 2>/dev/null || true)
+  assert_match "hidden dock removes legacy strut" "$HIDDEN_LEGACY_STRUT" 'not found'
+  if xrandr --output "$OUTPUT" --off >/dev/null 2>&1; then
+    wait_window_state IsUnMapped || fail "fully hidden dock disconnects"
+    if xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1; then
+      wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "hidden dock reconnect output did not settle"
+      if wait_window_state IsUnMapped; then pass "fully hidden dock remains unmapped after reconnect"; else fail "fully hidden dock remains unmapped after reconnect"; fi
+      RECONNECTED_HIDDEN_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+      assert_match "hidden dock reconnect does not restore strut" "$RECONNECTED_HIDDEN_STRUT" 'not found'
+    else fail "reconnect fully hidden dock output"; fi
+  else skip "dummy DDX cannot disconnect fully hidden dock output"; fi
+  if kill -USR2 "$DZEN_PID" && wait_window_state IsViewable; then pass "dock unhide maps outer"; else fail "dock unhide maps outer"; fi
+  RESTORED_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT_PARTIAL 2>/dev/null || true)
+  assert_eq "dock unhide restores exact bordered strut" "$RESTORED_STRUT" "$BORDER_STRUT"
+  RESTORED_LEGACY_STRUT=$(xprop -id "$WIN" _NET_WM_STRUT 2>/dev/null || true)
+  assert_eq "dock unhide restores exact legacy strut" "$RESTORED_LEGACY_STRUT" "$BORDER_LEGACY_STRUT"
+else fail "bordered dock starts"; fi
 
 cleanup_dzen; summary; exit "$FAILURES"

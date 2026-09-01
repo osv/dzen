@@ -128,9 +128,18 @@ if [ ! -f "$EXPECTED_FILE" ]; then
 fi
 
 raw_diff=$(DISPLAY="$CLIENT_DISPLAY" "${COMPARE_CMD[@]}" -metric AE -fuzz 5% \
-  "$EXPECTED_FILE" "$ACTUAL_FILE" "$DIFF_FILE" 2>&1 || true)
-diff_pixels=$(printf '%s\n' "$raw_diff" | sed 's/[[:space:]]*(.*//' | grep -o '^[0-9]*' | head -1)
-if [ "$diff_pixels" = 0 ]; then
+  "$EXPECTED_FILE" "$ACTUAL_FILE" "$DIFF_FILE" 2>&1)
+compare_status=$?
+if [ "$compare_status" -gt 1 ] || ! diff_pixels=$(test_parse_ae_metric "$raw_diff"); then
+  printf '%sFAIL:%s ImageMagick comparison failed (status %s): %s\n' \
+    "$RED" "$RESET" "$compare_status" "${raw_diff:-<empty>}" >&2
+  exit 1
+elif { [ "$compare_status" -eq 0 ] && [ "$diff_pixels" -ne 0 ]; } ||
+     { [ "$compare_status" -eq 1 ] && [ "$diff_pixels" -eq 0 ]; }; then
+  printf '%sFAIL:%s ImageMagick returned inconsistent status and AE metric (%s, %s)\n' \
+    "$RED" "$RESET" "$compare_status" "$diff_pixels" >&2
+  exit 1
+elif [ "$diff_pixels" = 0 ]; then
   rm -f "$DIFF_FILE"
   printf '%sPASS:%s Xinerama screenshot matches\n' "$GREEN" "$RESET"
 else

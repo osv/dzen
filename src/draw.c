@@ -8,6 +8,7 @@
 #include "action.h"
 #include "font.h"
 #include "util.h"
+#include "windows.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -715,11 +716,10 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                 /* grow left end */
                 int new_x = dzen.title_win.x_right_corner - i > dzen.title_win.x ? dzen.title_win.x_right_corner - i
                                                                                  : dzen.title_win.x;
-                XMoveResizeWindow(dzen.dpy, dzen.title_win.win, new_x, dzen.title_win.y, ctx.current_x,
-                                  dzen.line_height);
+                windows_resize_expanded_title(ctx.current_x, new_x);
                 break;
             case right:
-                XResizeWindow(dzen.dpy, dzen.title_win.win, ctx.current_x, dzen.line_height);
+                windows_resize_expanded_title(ctx.current_x, dzen.title_win.x);
                 break;
             }
 
@@ -793,9 +793,35 @@ static int extract_between_parentheses(const char *str, char *result, size_t cap
     return 1;
 }
 
+static int extract_complete_command(const char *text, const char *prefix, char *result, size_t capacity) {
+    const char *end;
+    size_t      length;
+
+    if (strncmp(text, prefix, strlen(prefix)) != 0)
+        return 0;
+    text += strlen(prefix);
+    end = strchr(text, ')');
+    if (end == NULL || end[1] != '\0')
+        return 0;
+    length = (size_t)(end - text);
+    if (length >= capacity)
+        return 0;
+    memcpy(result, text, length);
+    result[length] = '\0';
+    return 1;
+}
+
 int parse_non_drawing_commands(const char *text) {
     if (!text)
         return 1;
+
+    if (!strncmp(text, "^border(", strlen("^border("))) {
+        char value[ARGLEN];
+
+        if (extract_complete_command(text, "^border(", value, sizeof(value)))
+            apply_border_spec(value);
+        return 0;
+    }
 
     if (!strncmp(text, "^togglecollapse()", strlen("^togglecollapse()"))) {
         a_togglecollapse(NULL);
@@ -885,6 +911,7 @@ int parse_non_drawing_commands(const char *text) {
             XSetBackground(dzen.dpy, dzen.gc, dzen.norm[ColBG]);
             XSetForeground(dzen.dpy, dzen.rgc, dzen.norm[ColBG]);
             XSetBackground(dzen.dpy, dzen.rgc, dzen.norm[ColFG]);
+            windows_normal_background_changed();
         }
         return 0;
     }

@@ -29,6 +29,7 @@ Main differences between the original and this fork of `dzen2`:
 * `-p` with argument n persist for n seconds,
   only when the mouse is not over the window (like popup or tooltip).
 * Change the mouse pointer when hovering over the action area.
+* Fixed upstream `hide` leaving a mapped strip one pixel high.
 
 Features
 ========
@@ -89,6 +90,7 @@ Running dzen
 
     -fg     foreground color
     -bg     background color
+    -b      static outer border widths and optional color, see below
     -fn     font
     -ta     alignment of title window content
             l(eft), c(center), r(ight)
@@ -110,6 +112,22 @@ Running dzen
     -v      version information
 
     See "(5) In-text formating language".
+
+`-b SPEC` adds an outer border.  SPEC accepts one, two, or four non-negative
+widths and an optional X11 color:
+
+    -b 10
+    -b 10,8
+    -b 10,8,10,8,red
+
+One width applies to every side; two mean vertical,horizontal; four mean
+top,right,bottom,left.  Without a color, the border follows `-bg` and later
+`^normbg(...)` changes.  Borders do not change explicit content sizes or
+clickable-area coordinates.  `-b 0` disables the border.
+
+`^border(SPEC)` uses the same grammar and replaces the border at runtime.  It
+must occupy its own input line.  Invalid runtime specifications are silently
+ignored.
 
 
 Monitor selection
@@ -321,9 +339,9 @@ Supported actions:
     stick               stick slave window
     unstick             unstick slave window
     togglestick         toggle sticky state
-    hide                hide title window
-    unhide              unhide title window
-    togglehide          toggle hide state
+    hide                strictly hide the title surface
+    unhide              restore the hidden surface
+    togglehide          toggle strict hide state
     raise               raise window to view (above all others)
     lower               lower window (behind all others)
     scrollhome          show head of input
@@ -336,6 +354,11 @@ Supported actions:
                         only needed with specific windowmanagers, such as fluxbox
     ungrabmouse         release mouse
                         only needed with specific windowmanagers, such as fluxbox
+
+`hide` fully unmaps title-only, collapsed vertical, and horizontal surfaces.
+An expanded vertical menu keeps its slave visible.  `unhide` restores the
+previous collapsed or expanded state.  A fully unmapped surface cannot receive
+pointer events; restore it with a signal or an active key grab.
 
 
     Note:   If no events/actions are specified dzen defaults to:
@@ -391,9 +414,9 @@ Horizontal menu:
 All actions beginning with "menu" work on the selected menu entry.
 
 Note:   Menu mode only makes sense if `-l <n>` is specified!
-        Horizontal menus have no title window, so all actions
-        affecting the title window will be silently discarded
-        in this mode.
+        Horizontal menus do not display title content.  Title-only
+        actions are otherwise ignored, but `hide`, `unhide`, and
+        `togglehide` control the complete horizontal surface.
 
 
 (4) Option `-u`, Simultaneous updates
@@ -554,6 +577,9 @@ Other:
                        used when ^bg()). You might want to use ^tw()
                        and ^cs() after. This command must be the first
                        and only command per line.
+
+    ^border(SPEC)      Replace the outer border at runtime; syntax as -b.
+                       Must be the only command on the line.
 
     ^normfn(FONT)      Set the normal font.
 

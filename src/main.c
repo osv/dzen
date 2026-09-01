@@ -138,7 +138,7 @@ static void x_unhilight_line(int line) {
 }
 
 void x_draw_body(void) {
-    int i;
+    int i, last_first_line;
     dzen.x = 0;
     dzen.y = 0;
     dzen.w = dzen.slave_win.width;
@@ -146,18 +146,21 @@ void x_draw_body(void) {
 
     window_sens[SLAVEWINDOW].sens_areas_cnt = 0;
 
-    if (!dzen.slave_win.last_line_vis) {
-        if (dzen.slave_win.tcnt < dzen.slave_win.max_lines) {
-            dzen.slave_win.first_line_vis = 0;
-            dzen.slave_win.last_line_vis  = dzen.slave_win.tcnt;
-        } else {
-            dzen.slave_win.first_line_vis = dzen.slave_win.tcnt - dzen.slave_win.max_lines;
-            dzen.slave_win.last_line_vis  = dzen.slave_win.tcnt;
-        }
-    }
+    last_first_line = dzen.slave_win.tcnt > dzen.slave_win.max_lines ? dzen.slave_win.tcnt - dzen.slave_win.max_lines
+                                                                     : 0;
+    if (dzen.slave_win.scroll_mode == SCROLL_FOLLOW_END)
+        dzen.slave_win.first_line_vis = last_first_line;
+    else if (dzen.slave_win.first_line_vis > last_first_line)
+        dzen.slave_win.first_line_vis = last_first_line;
+    if (dzen.slave_win.first_line_vis < 0)
+        dzen.slave_win.first_line_vis = 0;
+
+    dzen.slave_win.last_line_vis = dzen.slave_win.first_line_vis + dzen.slave_win.max_lines;
+    if (dzen.slave_win.last_line_vis > dzen.slave_win.tcnt)
+        dzen.slave_win.last_line_vis = dzen.slave_win.tcnt;
 
     for (i = 0; i < dzen.slave_win.max_lines; i++) {
-        if (i < dzen.slave_win.last_line_vis)
+        if (i + dzen.slave_win.first_line_vis < dzen.slave_win.last_line_vis)
             drawtext(text_buffer_data(&dzen.slave_win.tbuf[i + dzen.slave_win.first_line_vis]), 0, i,
                      dzen.slave_win.alignment);
     }
@@ -531,22 +534,13 @@ static void handle_newl(void) {
         do_action(onnewinput);
 
         windows_slave_is_mapped(&slave_mapped);
-        if (slave_mapped
-            /* autoscroll and redraw only if  we're
-             * currently viewing the last line of input
-             */
-            && (dzen.slave_win.last_line_vis == last_cnt)) {
-            dzen.slave_win.first_line_vis = 0;
-            dzen.slave_win.last_line_vis  = 0;
-            x_draw_body();
-        }
-        /* needed for a_scrollhome */
-        else if (slave_mapped && dzen.slave_win.last_line_vis == dzen.slave_win.max_lines)
+        if (slave_mapped)
             x_draw_body();
         /* forget state if window was unmapped */
-        else if (!slave_mapped || !dzen.slave_win.last_line_vis) {
+        else {
             dzen.slave_win.first_line_vis = 0;
             dzen.slave_win.last_line_vis  = 0;
+            dzen.slave_win.scroll_mode    = SCROLL_FOLLOW_END;
             x_draw_body();
         }
         last_cnt = dzen.slave_win.tcnt;
@@ -679,13 +673,14 @@ int main(int argc, char *argv[]) {
     text_buffer_assign(&dzen.fnt, FONT);
     text_buffer_assign(&dzen.bg, BGCOLOR);
     text_buffer_assign(&dzen.fg, FGCOLOR);
-    dzen.slave_win.max_lines = 0;
-    dzen.slave_win.sel_line  = -1;
-    dzen.running             = True;
-    dzen.xinescreen          = 0;
-    dzen.tsupdate            = 0;
-    dzen.line_height         = 0;
-    dzen.title_win.expand    = noexpand;
+    dzen.slave_win.max_lines   = 0;
+    dzen.slave_win.sel_line    = -1;
+    dzen.slave_win.scroll_mode = SCROLL_FOLLOW_END;
+    dzen.running               = True;
+    dzen.xinescreen            = 0;
+    dzen.tsupdate              = 0;
+    dzen.line_height           = 0;
+    dzen.title_win.expand      = noexpand;
     border_spec_init(&dzen.border);
 
     /* Connect to X server */

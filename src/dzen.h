@@ -61,6 +61,8 @@ typedef struct TW     TWIN;
 typedef struct SW     SWIN;
 typedef struct _Sline Sline;
 
+typedef enum { SCROLL_FOLLOW_END, SCROLL_FIXED } ScrollMode;
+
 typedef struct {
     Pixmap       pm;
     unsigned int w;
@@ -126,6 +128,7 @@ struct SW {
     int            max_lines;
     int            first_line_vis;
     int            last_line_vis;
+    ScrollMode     scroll_mode;
     int            sel_line;
 
     char           alignment;

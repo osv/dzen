@@ -113,31 +113,21 @@ Running dzen
 
     See "(5) In-text formating language".
 
-Outer borders use one, two, or four comma-separated non-negative pixel
-widths.  One width applies to every side; two widths mean vertical,horizontal;
-four widths mean top,right,bottom,left.  An optional final field selects an
-independent X11 color:
+`-b SPEC` adds an outer border.  SPEC accepts one, two, or four non-negative
+widths and an optional X11 color:
 
     -b 10
-    -b 11,14
-    -b 10,red
-    -b 10,8,red
+    -b 10,8
     -b 10,8,10,8,red
 
-Spaces around commas are accepted.  Without a color, the outer border follows
-the normal background (`-bg` and later `^normbg(...)` changes).  A supplied
-color does not follow `^normbg(...)`.  Repeating `-b` replaces the earlier
-specification.  Border widths are outside the content: explicit `-w` and `-tw`
-sizes and content-local clickable coordinates are unchanged.  With an implicit
-width, dzen subtracts the left and right borders so the complete outer surface
-still fills the selected monitor.  `-b 0` disables visible borders; in-text
-`^border(...)` uses the same grammar as `-b` when it is the only command on an
-input line.  It atomically replaces all widths and the color mode, immediately
-updates geometry and dock struts, and is not added to title or slave content.
-Omitting the color switches back to inherited `^normbg(...)`; `^border(0)`
-disables the border.  Malformed specifications, invalid colors, and unsafe
-dimensions are silently ignored without changing the current border or
-terminating dzen.
+One width applies to every side; two mean vertical,horizontal; four mean
+top,right,bottom,left.  Without a color, the border follows `-bg` and later
+`^normbg(...)` changes.  Borders do not change explicit content sizes or
+clickable-area coordinates.  `-b 0` disables the border.
+
+`^border(SPEC)` uses the same grammar and replaces the border at runtime.  It
+must occupy its own input line.  Invalid runtime specifications are silently
+ignored.
 
 
 Monitor selection
@@ -365,13 +355,10 @@ Supported actions:
     ungrabmouse         release mouse
                         only needed with specific windowmanagers, such as fluxbox
 
-`hide` leaves no one-pixel mapped strip.  With an expanded vertical slave it
-hides the title but keeps the slave visible inside a resized outer surface.
-With no slave or a collapsed vertical slave it unmaps the complete surface.
-For a horizontal menu it unmaps the complete horizontal surface.  `unhide`
-restores the same expanded or collapsed state that was active before `hide`.
-After a complete unmap, pointer actions such as `entertitle=unhide` cannot
-reveal the surface; use an external signal or an already active key grab.
+`hide` fully unmaps title-only, collapsed vertical, and horizontal surfaces.
+An expanded vertical menu keeps its slave visible.  `unhide` restores the
+previous collapsed or expanded state.  A fully unmapped surface cannot receive
+pointer events; restore it with a signal or an active key grab.
 
 
     Note:   If no events/actions are specified dzen defaults to:
@@ -591,10 +578,8 @@ Other:
                        and ^cs() after. This command must be the first
                        and only command per line.
 
-    ^border(SPEC)      Atomically replace the outer border using the same
-                       1/2/4-width and optional-color grammar as -b. This
-                       command must be the first and only command per line;
-                       invalid updates are silently ignored.
+    ^border(SPEC)      Replace the outer border at runtime; syntax as -b.
+                       Must be the only command on the line.
 
     ^normfn(FONT)      Set the normal font.
 

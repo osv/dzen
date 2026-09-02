@@ -31,6 +31,12 @@ typedef struct {
     LayoutRect outer;
 } VisibleGeometry;
 
+/*
+ * layout_resolve() starts with the visible title/slave content union in root
+ * coordinates, outsets it by padding to get surface, then by border to get
+ * outer.  The collapsed variants repeat this calculation for title alone.
+ * Child windows are positioned by subtracting surface's root origin.
+ */
 static LayoutRect outset_rect(LayoutRect content, const BoxInsets *insets) {
     LayoutRect result;
 
@@ -44,6 +50,7 @@ static LayoutRect outset_rect(LayoutRect content, const BoxInsets *insets) {
 static VisibleGeometry visible_geometry(Bool slave_mapped, Bool title_hidden) {
     VisibleGeometry result;
 
+    /* Pick the precomputed full/collapsed box, except when only slave remains visible. */
     if (dzen.slave_win.ishmenu) {
         result.surface = active_layout.surface;
         result.outer   = active_layout.outer;
@@ -278,6 +285,7 @@ void windows_lower_all(void) {
 }
 
 void windows_resize_expanded_title(int width, int x) {
+    /* Rebuild every box derived from title content after dynamic -expand changes it. */
     active_layout.title.x           = x;
     active_layout.title.width       = width;
     active_layout.title_right       = x + width;

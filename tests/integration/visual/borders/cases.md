@@ -15,15 +15,15 @@ uniform inherited
 
 ## Test: 02-asymmetric-explicit
 
-### Args: -x 40 -y 30 -w 300 -h 30 -ta l -bg '#101010' -fg white -b '4,8,12,16,#d03030'
+### Args: -x 40 -y 30 -w 300 -h 30 -ta l -bg '#101010' -fg white -b '10,20,30,40,#d03030'
 
 ### Pipe data
 
 ```
-asymmetric explicit
+border T1x R2x B3x L4x
 ```
 
-### Geometry: 24,26,324,46
+### Geometry: 0,20,360,70
 ### Title geometry: 40,30,300,30
 
 ![reference](./expected/02-asymmetric-explicit.png)
@@ -263,12 +263,12 @@ expanded title
 
 ## Test: 11-dynamic-widths-and-disable
 
-### Args: -x 20 -y 20 -w 300 -h 30 -ta l -bg '#203040' -fg white -b 0
+### Args: -x 60 -y 50 -w 300 -h 30 -ta l -bg '#203040' -fg white -b 0
 
 ### Pipe data
 
 ```
-dynamic widths
+dynamic border scale
 ```
 
 ### Pipe data
@@ -277,19 +277,19 @@ dynamic widths
 ^border(10)
 ```
 
-### Geometry: 10,10,320,50
-### Title geometry: 20,20,300,30
+### Geometry: 50,40,320,50
+### Title geometry: 60,50,300,30
 
 ![reference](./expected/11-dynamic-uniform.png)
 
 ### Pipe data
 
 ```
-^border(4,8,12,16,#d03030)
+^border(10,20,30,40,#d03030)
 ```
 
-### Geometry: 4,16,324,46
-### Title geometry: 20,20,300,30
+### Geometry: 20,40,360,70
+### Title geometry: 60,50,300,30
 
 ![reference](./expected/11-dynamic-asymmetric.png)
 
@@ -299,8 +299,8 @@ dynamic widths
 ^border(0)
 ```
 
-### Geometry: 20,20,300,30
-### Title geometry: 20,20,300,30
+### Geometry: 60,50,300,30
+### Title geometry: 60,50,300,30
 
 ![reference](./expected/11-dynamic-disabled.png)
 
@@ -310,7 +310,7 @@ dynamic widths
 ^border(0)
 ```
 
-### Geometry: 20,20,300,30
+### Geometry: 60,50,300,30
 
 ## Test: 12-dynamic-color-mode
 
@@ -512,15 +512,15 @@ dynamic dock strut
 
 ## Test: 18-asymmetric-padding
 
-### Args: -x 60 -y 60 -w 260 -h 30 -ta l -bg '#305020' -fg white -b '3,#3050b0' -pad '4,8,12,16'
+### Args: -x 60 -y 60 -w 260 -h 30 -ta l -bg '#305020' -fg white -b '3,#3050b0' -pad '10,20,30,40'
 
 ### Pipe data
 
 ```
-asymmetric padding
+padding T1x R2x B3x L4x
 ```
 
-### Geometry: 41,53,290,52
+### Geometry: 17,47,326,76
 ### Title geometry: 60,60,260,30
 
 ![reference](./expected/18-asymmetric-padding.png)
@@ -555,10 +555,10 @@ dynamic padding
 ### Pipe data
 
 ```
-^padding(3,9,11,5)
+^padding(10,20,30,40)
 ```
 
-### Geometry: 40,42,264,54
+### Geometry: 5,35,310,80
 
 ### Pipe data
 
@@ -566,7 +566,7 @@ dynamic padding
 ^padding(1,2,3)
 ```
 
-### Geometry: 40,42,264,54
+### Geometry: 5,35,310,80
 
 ### Pipe data
 
@@ -574,7 +574,7 @@ dynamic padding
 ^padding(4294967296)
 ```
 
-### Geometry: 40,42,264,54
+### Geometry: 5,35,310,80
 
 ### Pipe data
 
@@ -586,17 +586,17 @@ dynamic padding
 
 ## Test: 20-padding-vertical-hidden
 
-### Args: -x 100 -y 80 -l 2 -w 300 -tw 200 -h 30 -ta l -sa l -bg '#303018' -fg white -b '2,#8050b0' -pad '4,8,12,16' -e 'onstart=uncollapse;button1=hide;button2=unhide'
+### Args: -x 100 -y 80 -l 2 -w 300 -tw 200 -h 30 -ta l -sa l -bg '#303018' -fg white -b '2,#8050b0' -pad '10,20,30,40' -e 'onstart=uncollapse;button1=hide;button2=unhide'
 
 ### Pipe data
 
 ```
-vertical padding
+pad T1x R2x B3x L4x
 first line
 second line
 ```
 
-### Geometry: 32,74,328,110
+### Geometry: 8,68,364,134
 ### Title geometry: 100,80,200,30
 ### Slave geometry: 50,110,300,60
 
@@ -604,14 +604,14 @@ second line
 
 ### Mouse: 100,50
 ### Click: 1
-### Geometry: 32,104,328,80
+### Geometry: 8,98,364,104
 ### Title mapping: IsUnMapped
 ### Slave mapping: IsViewable
 
 ![reference](./expected/20-padding-hidden-title.png)
 
 ### Click: 2
-### Geometry: 32,74,328,110
+### Geometry: 8,68,364,134
 
 ## Test: 21-padding-horizontal-hidden-and-escape
 

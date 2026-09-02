@@ -26,39 +26,58 @@ static Bool           window_is_mapped(Window window, Bool *mapped) {
     return True;
 }
 
-static LayoutRect visible_outer(Bool slave_mapped, Bool title_hidden) {
+typedef struct {
+    LayoutRect surface;
+    LayoutRect outer;
+} VisibleGeometry;
+
+static LayoutRect outset_rect(LayoutRect content, const BoxInsets *insets) {
     LayoutRect result;
 
+    result.x      = content.x - (int)insets->left;
+    result.y      = content.y - (int)insets->top;
+    result.width  = content.width + insets->left + insets->right;
+    result.height = content.height + insets->top + insets->bottom;
+    return result;
+}
+
+static VisibleGeometry visible_geometry(Bool slave_mapped, Bool title_hidden) {
+    VisibleGeometry result;
+
     if (dzen.slave_win.ishmenu) {
-        result = active_layout.outer;
+        result.surface = active_layout.surface;
+        result.outer   = active_layout.outer;
     } else if (dzen.slave_win.max_lines && slave_mapped) {
         if (title_hidden) {
-            result.x      = active_layout.slave.x - (int)active_layout.border.left;
-            result.y      = active_layout.slave.y - (int)active_layout.border.top;
-            result.width  = active_layout.slave.width + active_layout.border.left + active_layout.border.right;
-            result.height = active_layout.slave.height + active_layout.border.top + active_layout.border.bottom;
+            result.surface = outset_rect(active_layout.slave, &active_layout.padding);
+            result.outer   = outset_rect(result.surface, &active_layout.border);
         } else {
-            result = active_layout.outer;
+            result.surface = active_layout.surface;
+            result.outer   = active_layout.outer;
         }
     } else {
-        result = active_layout.collapsed_outer;
+        result.surface = active_layout.collapsed_surface;
+        result.outer   = active_layout.collapsed_outer;
     }
     return result;
 }
 
 static void place_surface(Bool slave_mapped, Bool title_hidden) {
-    LayoutRect outer = visible_outer(slave_mapped, title_hidden);
-    int        title_x;
-    int        title_y;
-    int        slave_x;
-    int        slave_y;
+    VisibleGeometry geometry = visible_geometry(slave_mapped, title_hidden);
+    int             title_x;
+    int             title_y;
+    int             slave_x;
+    int             slave_y;
 
-    title_x = active_layout.title.x - outer.x;
-    title_y = active_layout.title.y - outer.y;
-    slave_x = active_layout.slave.x - outer.x;
-    slave_y = active_layout.slave.y - outer.y;
+    title_x = active_layout.title.x - geometry.surface.x;
+    title_y = active_layout.title.y - geometry.surface.y;
+    slave_x = active_layout.slave.x - geometry.surface.x;
+    slave_y = active_layout.slave.y - geometry.surface.y;
 
-    XMoveResizeWindow(dzen.dpy, dzen.outer_win, outer.x, outer.y, outer.width, outer.height);
+    XMoveResizeWindow(dzen.dpy, dzen.outer_win, geometry.outer.x, geometry.outer.y, geometry.outer.width,
+                      geometry.outer.height);
+    XMoveResizeWindow(dzen.dpy, dzen.content_win, geometry.surface.x - geometry.outer.x,
+                      geometry.surface.y - geometry.outer.y, geometry.surface.width, geometry.surface.height);
     XMoveResizeWindow(dzen.dpy, dzen.title_win.win, title_x, title_y, active_layout.title.width,
                       active_layout.title.height);
     if (dzen.slave_win.max_lines)
@@ -259,17 +278,15 @@ void windows_lower_all(void) {
 }
 
 void windows_resize_expanded_title(int width, int x) {
-    active_layout.title.x               = x;
-    active_layout.title.width           = width;
-    active_layout.title_right           = x + width;
-    active_layout.collapsed_outer.x     = x - active_layout.border.left;
-    active_layout.collapsed_outer.y     = active_layout.title.y - active_layout.border.top;
-    active_layout.collapsed_outer.width = width + active_layout.border.left + active_layout.border.right;
-    active_layout.collapsed_outer.height =
-        active_layout.title.height + active_layout.border.top + active_layout.border.bottom;
-    if (!dzen.slave_win.max_lines)
-        active_layout.outer = active_layout.collapsed_outer;
-    else if (!dzen.slave_win.ishmenu) {
+    active_layout.title.x           = x;
+    active_layout.title.width       = width;
+    active_layout.title_right       = x + width;
+    active_layout.collapsed_surface = outset_rect(active_layout.title, &active_layout.padding);
+    active_layout.collapsed_outer   = outset_rect(active_layout.collapsed_surface, &active_layout.border);
+    if (!dzen.slave_win.max_lines) {
+        active_layout.surface = active_layout.collapsed_surface;
+        active_layout.outer   = active_layout.collapsed_outer;
+    } else if (!dzen.slave_win.ishmenu) {
         int left_edge   = x < active_layout.slave.x ? x : active_layout.slave.x;
         int right_edge  = x + width > active_layout.slave.x + active_layout.slave.width
                               ? x + width
@@ -279,10 +296,13 @@ void windows_resize_expanded_title(int width, int x) {
                                   active_layout.slave.y + active_layout.slave.height
                               ? active_layout.title.y + active_layout.title.height
                               : active_layout.slave.y + active_layout.slave.height;
-        active_layout.outer.x      = left_edge - active_layout.border.left;
-        active_layout.outer.y      = top_edge - active_layout.border.top;
-        active_layout.outer.width  = right_edge - left_edge + active_layout.border.left + active_layout.border.right;
-        active_layout.outer.height = bottom_edge - top_edge + active_layout.border.top + active_layout.border.bottom;
+        LayoutRect content;
+        content.x             = left_edge;
+        content.y             = top_edge;
+        content.width         = right_edge - left_edge;
+        content.height        = bottom_edge - top_edge;
+        active_layout.surface = outset_rect(content, &active_layout.padding);
+        active_layout.outer   = outset_rect(active_layout.surface, &active_layout.border);
     }
     sync_surface();
 }
@@ -374,9 +394,10 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
     /*
      * root
      * `-- outer          the only top-level / WM-facing window
-     *     |-- title      content child
-     *     `-- slave      content child
-     *         `-- lines
+     *     `-- content surface   padding background
+     *         |-- title         content child
+     *         `-- slave         content child
+     *             `-- lines
      *
      * Only outer owns the WM class/name/PID, _NET_WM_WINDOW_TYPE_DOCK,
      * _NET_WM_STRUT, _NET_WM_STRUT_PARTIAL, and all other WM-facing properties.
@@ -394,11 +415,24 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
     set_docking_ewmh_info(dzen.outer_win, use_ewmh_dock);
 
     wa.override_redirect = 0;
+    wa.event_mask        = 0;
+    if (box_insets_visible(&dzen.padding))
+        wa.background_pixel = dzen.norm[ColBG];
+    else
+        wa.background_pixmap = ParentRelative;
+    dzen.content_win = XCreateWindow(dzen.dpy, dzen.outer_win, layout->surface.x - layout->outer.x,
+                                     layout->surface.y - layout->outer.y, layout->surface.width, layout->surface.height,
+                                     0, DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent,
+                                     DefaultVisual(dzen.dpy, dzen.screen),
+                                     box_insets_visible(&dzen.padding) ? CWBackPixel : CWBackPixmap, &wa);
+    XMapWindow(dzen.dpy, dzen.content_win);
+
+    wa.override_redirect = 0;
     wa.background_pixmap = ParentRelative;
     wa.event_mask        = ExposureMask | ButtonReleaseMask | ButtonPressMask | ButtonMotionMask | EnterWindowMask |
                     LeaveWindowMask | KeyPressMask | PointerMotionMask;
 
-    dzen.title_win.win = XCreateWindow(dzen.dpy, dzen.outer_win, layout->title_local.x, layout->title_local.y,
+    dzen.title_win.win = XCreateWindow(dzen.dpy, dzen.content_win, layout->title_local.x, layout->title_local.y,
                                        dzen.title_win.width, dzen.line_height, 0, DefaultDepth(dzen.dpy, dzen.screen),
                                        CopyFromParent, DefaultVisual(dzen.dpy, dzen.screen), CWBackPixmap | CWEventMask,
                                        &wa);
@@ -420,7 +454,7 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
         int last_width          = layout->menu_last_width;
         dzen.slave_win.issticky = True;
 
-        dzen.slave_win.win = XCreateWindow(dzen.dpy, dzen.outer_win, layout->slave_local.x, layout->slave_local.y,
+        dzen.slave_win.win = XCreateWindow(dzen.dpy, dzen.content_win, layout->slave_local.x, layout->slave_local.y,
                                            parent_width, dzen.line_height, 0, DefaultDepth(dzen.dpy, dzen.screen),
                                            CopyFromParent, DefaultVisual(dzen.dpy, dzen.screen),
                                            CWBackPixmap | CWEventMask, &wa);
@@ -441,10 +475,10 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
         dzen.slave_win.width = last_width;
     } else {
         dzen.slave_win.issticky = False;
-        dzen.slave_win.win      = XCreateWindow(dzen.dpy, dzen.outer_win, layout->slave_local.x, layout->slave_local.y,
-                                                dzen.slave_win.width, dzen.slave_win.max_lines * dzen.line_height, 0,
-                                                DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent,
-                                                DefaultVisual(dzen.dpy, dzen.screen), CWBackPixmap | CWEventMask, &wa);
+        dzen.slave_win.win = XCreateWindow(dzen.dpy, dzen.content_win, layout->slave_local.x, layout->slave_local.y,
+                                           dzen.slave_win.width, dzen.slave_win.max_lines * dzen.line_height, 0,
+                                           DefaultDepth(dzen.dpy, dzen.screen), CopyFromParent,
+                                           DefaultVisual(dzen.dpy, dzen.screen), CWBackPixmap | CWEventMask, &wa);
         XStoreName(dzen.dpy, dzen.slave_win.win, text_buffer_data(&dzen.slave_win.name));
 
         for (i = 0; i < dzen.slave_win.max_lines; i++) {
@@ -461,11 +495,16 @@ void windows_create(Bool use_ewmh_dock, const ResolvedLayout *layout) {
 }
 
 void windows_normal_background_changed(void) {
-    if (!border_spec_visible(&dzen.border) || dzen.border.color_explicit || dzen.outer_win == None)
-        return;
-    dzen.border_pixel = dzen.norm[ColBG];
-    XSetWindowBackground(dzen.dpy, dzen.outer_win, dzen.border_pixel);
-    XClearWindow(dzen.dpy, dzen.outer_win);
+    if (border_spec_visible(&dzen.border) && !dzen.border.color_explicit && dzen.outer_win != None) {
+        dzen.border_pixel = dzen.norm[ColBG];
+        XSetWindowBackground(dzen.dpy, dzen.outer_win, dzen.border_pixel);
+        XClearWindow(dzen.dpy, dzen.outer_win);
+    }
+    if (box_insets_visible(&dzen.padding) && dzen.content_win != None) {
+        XSetWindowBackground(dzen.dpy, dzen.content_win, dzen.norm[ColBG]);
+        XClearWindow(dzen.dpy, dzen.content_win);
+    } else if (dzen.content_win != None)
+        XClearWindow(dzen.dpy, dzen.content_win);
 }
 
 void windows_set_outer_background(Bool visible, unsigned long pixel) {
@@ -476,6 +515,18 @@ void windows_set_outer_background(Bool visible, unsigned long pixel) {
     else
         XSetWindowBackgroundPixmap(dzen.dpy, dzen.outer_win, ParentRelative);
     XClearWindow(dzen.dpy, dzen.outer_win);
+    if (dzen.content_win != None && !box_insets_visible(&dzen.padding))
+        XClearWindow(dzen.dpy, dzen.content_win);
+}
+
+void windows_set_padding_background(Bool visible, unsigned long pixel) {
+    if (dzen.content_win == None)
+        return;
+    if (visible)
+        XSetWindowBackground(dzen.dpy, dzen.content_win, pixel);
+    else
+        XSetWindowBackgroundPixmap(dzen.dpy, dzen.content_win, ParentRelative);
+    XClearWindow(dzen.dpy, dzen.content_win);
 }
 
 void windows_destroy(void) {
@@ -497,5 +548,6 @@ void windows_destroy(void) {
     XFreeCursor(dzen.dpy, dzen.cursor_arrow);
     XFreeCursor(dzen.dpy, dzen.cursor_hand);
     XDestroyWindow(dzen.dpy, dzen.title_win.win);
+    XDestroyWindow(dzen.dpy, dzen.content_win);
     XDestroyWindow(dzen.dpy, dzen.outer_win);
 }

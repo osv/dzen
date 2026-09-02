@@ -219,9 +219,14 @@ assert_id_geometry() {
 pid_window_count() { xdotool search --pid "$DZEN_PID" 2>/dev/null | awk 'NF { count++ } END { print count + 0 }'; }
 slave_window() { xdotool search --name '^dzen slave$' 2>/dev/null | tail -1; }
 title_window() {
-  local slave_hex
+  local slave_hex surface
   slave_hex=$(printf '0x%x' "$1")
-  xwininfo -id "$WIN" -children 2>/dev/null | awk -v slave="$slave_hex" '$1 ~ /^0x/ && tolower($1) != tolower(slave) { print $1; exit }'
+  surface=$(xwininfo -id "$WIN" -children 2>/dev/null | awk '$1 ~ /^0x/ { print $1; exit }')
+  xwininfo -id "$surface" -children 2>/dev/null |
+    awk -v slave="$slave_hex" '$1 ~ /^0x/ && tolower($1) != tolower(slave) { print $1; exit }'
+}
+surface_window() {
+  xwininfo -id "$WIN" -children 2>/dev/null | awk '$1 ~ /^0x/ { print $1; exit }'
 }
 start() {
   cleanup_dzen; WIN=
@@ -292,6 +297,10 @@ run_rejected "border empty field" -b '1,,red'
 run_rejected "border three-width form" -b '1,2,3'
 run_rejected "border numeric overflow" -b '999999999999999999999999999999'
 run_rejected "border invalid X11 color" -b '2,__not_an_x11_color__'
+run_rejected "padding missing argument" -pad
+run_rejected "padding three-width form" -pad '1,2,3'
+run_rejected "padding numeric overflow" -pad '999999999999999999999999999999'
+run_rejected "legacy padding option name" -padding 2
 
 test_case 02 "initial output placement" 02-dummy-initial.png
 if start -output "$OUTPUT" -x "$BAR_X" -y "$BAR_Y" -h "$BAR_H" -w "$BAR_W"; then
@@ -531,37 +540,39 @@ if [ -n "$SECONDARY" ]; then
 fi
 
 wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "border-case output restoration did not settle"
-test_case 16 "border clamping and state across disconnect/reconnect"
+test_case 16 "padding clamping and state across disconnect/reconnect"
 if start -output "$OUTPUT" -x -1 -y -1 -tw "$BAR_W" -w "$SLAVE_W" -l 2 -m v \
-    -b '3,7,9,11,#406080' -e 'onstart=uncollapse;sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
-  BORDER_X=$((SCREEN_W - SLAVE_W - 11 - 7)); BORDER_Y=$((SCREEN_H - 3 * BAR_H - 3 - 9))
-  BORDER_W=$((SLAVE_W + 11 + 7)); BORDER_H=$((3 * BAR_H + 3 + 9))
-  BORDER_WIN=$WIN; BORDER_SLAVE=$(slave_window); BORDER_TITLE=$(title_window "$BORDER_SLAVE")
-  assert_window_geometry "bordered negative-anchor clamp" "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$BORDER_H"
-  assert_id_geometry "bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
-    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
+    -b '2,#406080' -pad '3,7,9,11' -e 'onstart=uncollapse;sigusr1=hide;sigusr2=unhide' -h "$BAR_H"; then
+  PAD_X=$((SCREEN_W - SLAVE_W - 13 - 9)); PAD_Y=$((SCREEN_H - 3 * BAR_H - 5 - 11))
+  PAD_W=$((SLAVE_W + 13 + 9)); PAD_H=$((3 * BAR_H + 5 + 11))
+  PAD_WIN=$WIN; PAD_SURFACE=$(surface_window); PAD_SLAVE=$(slave_window); PAD_TITLE=$(title_window "$PAD_SLAVE")
+  assert_window_geometry "padded negative-anchor clamp" "$PAD_X" "$PAD_Y" "$PAD_W" "$PAD_H"
+  assert_id_geometry "padded title child" "$PAD_TITLE" "$((SCREEN_W - BAR_W - 9))" \
+    "$((SCREEN_H - BAR_H - 11))" "$BAR_W" "$BAR_H"
   if kill -USR1 "$DZEN_PID" &&
-      wait_window_geometry "$BORDER_X" "$BORDER_Y" "$BORDER_W" "$((2 * BAR_H + 3 + 9))"; then
-    pass "expanded vertical hide wraps bordered slave"
-  else fail "expanded vertical hide wraps bordered slave"; fi
-  if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "expanded vertical hide unmaps title child"; else fail "expanded vertical hide unmaps title child"; fi
-  assert_id_geometry "hidden bordered title child" "$BORDER_TITLE" "$((SCREEN_W - BAR_W - 7))" \
-    "$((SCREEN_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
+      wait_window_geometry "$PAD_X" "$PAD_Y" "$PAD_W" "$((2 * BAR_H + 5 + 11))"; then
+    pass "expanded vertical hide wraps padded slave"
+  else fail "expanded vertical hide wraps padded slave"; fi
+  if wait_id_state "$PAD_TITLE" IsUnMapped; then pass "expanded vertical hide unmaps title child"; else fail "expanded vertical hide unmaps title child"; fi
+  assert_id_geometry "hidden padded title child" "$PAD_TITLE" "$((SCREEN_W - BAR_W - 9))" \
+    "$((SCREEN_H - BAR_H - 11))" "$BAR_W" "$BAR_H"
   if xrandr --output "$OUTPUT" --off >/dev/null 2>&1; then
-    wait_window_state IsUnMapped || fail "bordered hidden surface disconnects"
+    wait_window_state IsUnMapped || fail "padded hidden surface disconnects"
     if xrandr --fb "${ALT_W}x${ALT_H}" --output "$OUTPUT" --mode "${ALT_W}x${ALT_H}" --pos 0x0 >/dev/null 2>&1; then
-      wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+0+0" || fail "bordered reconnect output did not settle"
-      if wait_window_state IsViewable; then pass "bordered hidden surface reconnects"; else fail "bordered hidden surface reconnects"; fi
-      assert_eq "bordered reconnect keeps outer window" "$WIN" "$BORDER_WIN"
-      assert_window_geometry "bordered reconnect clamp" "$((ALT_W - BORDER_W))" "$BORDER_Y" "$BORDER_W" "$((2 * BAR_H + 3 + 9))"
-      assert_id_geometry "bordered reconnect keeps hidden title" "$BORDER_TITLE" "$((ALT_W - BAR_W - 7))" \
-        "$((ALT_H - BAR_H - 9))" "$BAR_W" "$BAR_H"
-      if wait_id_state "$BORDER_TITLE" IsUnMapped; then pass "bordered reconnect keeps title hidden"; else fail "bordered reconnect keeps title hidden"; fi
-      if wait_id_state "$BORDER_SLAVE" IsViewable; then pass "bordered reconnect keeps expanded slave"; else fail "bordered reconnect keeps expanded slave"; fi
-      kill -USR2 "$DZEN_PID" || fail "unhide bordered title after reconnect"
-    else fail "reconnect bordered output"; fi
-  else skip "dummy DDX cannot disconnect output for border state test"; fi
-else fail "bordered menu starts"; fi
+      wait_output_geometry "$OUTPUT" "${ALT_W}x${ALT_H}+0+0" || fail "padded reconnect output did not settle"
+      if wait_window_state IsViewable; then pass "padded hidden surface reconnects"; else fail "padded hidden surface reconnects"; fi
+      assert_eq "padded reconnect keeps outer window" "$WIN" "$PAD_WIN"
+      assert_eq "padded reconnect keeps content surface" "$(surface_window)" "$PAD_SURFACE"
+      assert_window_geometry "padded reconnect clamp" "$((ALT_W - PAD_W))" \
+        "$PAD_Y" "$PAD_W" "$((2 * BAR_H + 5 + 11))"
+      assert_id_geometry "padded reconnect keeps hidden title" "$PAD_TITLE" "$((ALT_W - BAR_W - 9))" \
+        "$((ALT_H - BAR_H - 11))" "$BAR_W" "$BAR_H"
+      if wait_id_state "$PAD_TITLE" IsUnMapped; then pass "padded reconnect keeps title hidden"; else fail "padded reconnect keeps title hidden"; fi
+      if wait_id_state "$PAD_SLAVE" IsViewable; then pass "padded reconnect keeps expanded slave"; else fail "padded reconnect keeps expanded slave"; fi
+      kill -USR2 "$DZEN_PID" || fail "unhide padded title after reconnect"
+    else fail "reconnect padded output"; fi
+  else skip "dummy DDX cannot disconnect output for padding state test"; fi
+else fail "padded menu starts"; fi
 
 xrandr --fb "${SCREEN_W}x${SCREEN_H}" --output "$OUTPUT" --mode "${SCREEN_W}x${SCREEN_H}" --pos 0x0 >/dev/null 2>&1 || fail "restore output for bordered dock"
 wait_output_geometry "$OUTPUT" "${SCREEN_W}x${SCREEN_H}+0+0" || fail "bordered dock output did not settle"

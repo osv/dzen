@@ -8,13 +8,19 @@ typedef struct {
     unsigned int right;
     unsigned int bottom;
     unsigned int left;
-} BorderInsets;
+} BoxInsets;
+
+/* Kept as an alias for source compatibility with the border API. */
+typedef BoxInsets BorderInsets;
 
 typedef struct {
     BorderInsets widths;
     char        *color;
     Bool         color_explicit;
 } BorderSpec;
+
+Bool box_insets_parse(BoxInsets *insets, const char *text);
+Bool box_insets_visible(const BoxInsets *insets);
 
 void border_spec_init(BorderSpec *spec);
 void border_spec_destroy(BorderSpec *spec);

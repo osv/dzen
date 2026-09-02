@@ -147,10 +147,12 @@ struct DZEN {
     /* Default colors for foreground and background */
     unsigned long norm[ColLast]; /* Array holding normal fg/bg colors */
     BorderSpec    border;
+    BoxInsets     padding;
     unsigned long border_pixel;
 
     /* Window structures */
     Window        outer_win; /* The only root child and WM-facing application surface */
+    Window        content_win; /* Padding surface containing title and slave */
     TWIN          title_win; /* Title window (always visible, single line) */
     SWIN          slave_win; /* Slave window (optional multi-line menu) */
 
@@ -203,6 +205,7 @@ extern void parse_line_text(const char *text, TextBuffer *output);
 extern void drawheader(const char *text);
 extern void redrawheader(void);
 extern void apply_border_spec(const char *text);
+extern void apply_padding_spec(const char *text);
 extern void drawbody(char *text);
 extern void draw_cleanup(void);
 

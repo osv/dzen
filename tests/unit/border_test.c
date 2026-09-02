@@ -21,8 +21,34 @@ static void check_rejected_unchanged(BorderSpec *spec, const char *text) {
     CHECK(strcmp(spec->color, "blue") == 0);
 }
 
+static void check_insets(BoxInsets insets, unsigned int top, unsigned int right, unsigned int bottom,
+                         unsigned int left) {
+    CHECK(insets.top == top);
+    CHECK(insets.right == right);
+    CHECK(insets.bottom == bottom);
+    CHECK(insets.left == left);
+}
+
 int main(void) {
     BorderSpec spec;
+    BoxInsets  insets = { 3, 4, 3, 4 };
+
+    CHECK(box_insets_parse(&insets, "10"));
+    check_insets(insets, 10, 10, 10, 10);
+    CHECK(box_insets_parse(&insets, " 11 , 14 "));
+    check_insets(insets, 11, 14, 11, 14);
+    CHECK(box_insets_parse(&insets, "1,2,3,4"));
+    check_insets(insets, 1, 2, 3, 4);
+    CHECK(box_insets_parse(&insets, "0"));
+    CHECK(!box_insets_visible(&insets));
+    CHECK(box_insets_parse(&insets, "3,4"));
+    CHECK(!box_insets_parse(&insets, NULL));
+    CHECK(!box_insets_parse(&insets, ""));
+    CHECK(!box_insets_parse(&insets, "1,2,3"));
+    CHECK(!box_insets_parse(&insets, "1,2,3,4,5"));
+    CHECK(!box_insets_parse(&insets, "-1"));
+    CHECK(!box_insets_parse(&insets, "4294967296"));
+    check_insets(insets, 3, 4, 3, 4);
 
     border_spec_init(&spec);
     CHECK(border_spec_parse(&spec, "10"));
@@ -77,6 +103,6 @@ int main(void) {
     check_rejected_unchanged(&spec, "broken");
 
     border_spec_destroy(&spec);
-    puts("border tests passed");
+    puts("border and inset parser tests passed");
     return EXIT_SUCCESS;
 }

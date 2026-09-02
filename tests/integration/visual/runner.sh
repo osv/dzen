@@ -370,13 +370,15 @@ run_test() {
   }
 
   content_window_id() {
-    local kind=$1 child name
+    local kind=$1 surface child name
+    surface=$(xwininfo -id "$window_id" -children 2>/dev/null |
+      awk '/^[[:space:]]+0x[0-9a-f]+ / { print $1; exit }')
     while read -r child; do
       [ -n "$child" ] || continue
       name=$(xprop -id "$child" WM_NAME 2>/dev/null || true)
       if [ "$kind" = slave ] && [[ $name == *'dzen slave'* ]]; then echo "$child"; return; fi
       if [ "$kind" = title ] && [[ $name != *'dzen slave'* ]]; then echo "$child"; return; fi
-    done < <(xwininfo -id "$window_id" -children | awk '/^[[:space:]]+0x[0-9a-f]+ / { print $1 }')
+    done < <(xwininfo -id "$surface" -children | awk '/^[[:space:]]+0x[0-9a-f]+ / { print $1 }')
   }
 
   for step in "${steps[@]}"; do

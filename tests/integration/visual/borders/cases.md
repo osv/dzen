@@ -487,3 +487,193 @@ dynamic dock strut
 ### Geometry: 0,0,300,30
 ### Title geometry: 0,0,300,30
 ### Dock strut: 0,0,30,0,0,0,0,0,0,299,0,0
+
+## Test: 17-static-padding-box-model
+
+### Args: -x 40 -y 40 -w 240 -h 30 -ta l -bg '#203040' -fg white -b '4,#b03030' -pad 10
+
+### Pipe data
+
+```
+^ca(1,printf padding-content-hit)uniform padding^ca()
+```
+
+### Geometry: 26,26,268,58
+### Title geometry: 40,40,240,30
+
+![reference](./expected/17-static-padding-box-model.png)
+
+### Mouse: 8,20
+### Click: 1
+### Check no output
+
+### Mouse: 20,20
+### Click and check output: 1, padding-content-hit
+
+## Test: 18-asymmetric-padding
+
+### Args: -x 60 -y 60 -w 260 -h 30 -ta l -bg '#305020' -fg white -b '3,#3050b0' -pad '4,8,12,16'
+
+### Pipe data
+
+```
+asymmetric padding
+```
+
+### Geometry: 41,53,290,52
+### Title geometry: 60,60,260,30
+
+![reference](./expected/18-asymmetric-padding.png)
+
+## Test: 19-dynamic-padding-and-normbg
+
+### Args: -x 50 -y 50 -w 240 -h 30 -ta l -bg '#202040' -fg white -b '5,#b03030' -pad 0
+
+### Pipe data
+
+```
+dynamic padding
+```
+
+### Pipe data
+
+```
+^padding(8)
+```
+
+### Geometry: 37,37,266,56
+### Title geometry: 50,50,240,30
+
+### Pipe data
+
+```
+^normbg(#207040)
+```
+
+![reference](./expected/19-dynamic-padding-normbg.png)
+
+### Pipe data
+
+```
+^padding(3,9,11,5)
+```
+
+### Geometry: 40,42,264,54
+
+### Pipe data
+
+```
+^padding(1,2,3)
+```
+
+### Geometry: 40,42,264,54
+
+### Pipe data
+
+```
+^padding(4294967296)
+```
+
+### Geometry: 40,42,264,54
+
+### Pipe data
+
+```
+^padding(0)
+```
+
+### Geometry: 45,45,250,40
+
+## Test: 20-padding-vertical-hidden
+
+### Args: -x 100 -y 80 -l 2 -w 300 -tw 200 -h 30 -ta l -sa l -bg '#303018' -fg white -b '2,#8050b0' -pad '4,8,12,16' -e 'onstart=uncollapse;button1=hide;button2=unhide'
+
+### Pipe data
+
+```
+vertical padding
+first line
+second line
+```
+
+### Geometry: 32,74,328,110
+### Title geometry: 100,80,200,30
+### Slave geometry: 50,110,300,60
+
+![reference](./expected/20-padding-vertical.png)
+
+### Mouse: 100,50
+### Click: 1
+### Geometry: 32,104,328,80
+### Title mapping: IsUnMapped
+### Slave mapping: IsViewable
+
+![reference](./expected/20-padding-hidden-title.png)
+
+### Click: 2
+### Geometry: 32,74,328,110
+
+## Test: 21-padding-horizontal-hidden-and-escape
+
+### Args: -x 80 -y 60 -l 3 -m h -w 300 -h 30 -bg '#183040' -fg white -b '3,#b08020' -pad 6 -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
+
+### Pipe data
+
+```
+header
+one
+two
+three
+```
+
+### Geometry: 71,51,318,48
+### Slave geometry: 80,60,300,30
+
+![reference](./expected/21-padding-horizontal.png)
+
+### Press key: h
+### Outer mapping: IsUnMapped
+### Slave mapping: IsUnMapped
+
+### Pipe data
+
+```
+^padding(broken)
+```
+
+### Geometry: 71,51,318,48
+### Outer mapping: IsUnMapped
+
+### Press key: u
+### Outer mapping: IsViewable
+### Slave mapping: IsViewable
+
+## Test: 22-padding-dock-strut
+
+### Args: -dock -x 0 -y 0 -w 300 -h 30 -ta l -bg '#204030' -fg white -b '2,#803030' -pad 10
+
+### Pipe data
+
+```
+dock padding
+```
+
+### Geometry: 0,0,324,54
+### Title geometry: 12,12,300,30
+### Dock strut: 0,0,54,0,0,0,0,0,0,323,0,0
+
+![reference](./expected/22-padding-dock-strut.png)
+
+## Test: 23-escaped-padding-is-literal
+
+### Args: -x 40 -y 40 -w 300 -h 30 -ta l -bg '#202020' -fg white
+
+### Pipe data
+
+```
+^^padding(10)
+```
+
+### Geometry: 40,40,300,30
+
+![reference](./expected/23-escaped-padding-is-literal.png)

@@ -828,6 +828,14 @@ int parse_non_drawing_commands(const char *text) {
         return 0;
     }
 
+    if (!strncmp(text, "^padding(", strlen("^padding("))) {
+        char value[ARGLEN];
+
+        if (extract_complete_command(text, "^padding(", value, sizeof(value)))
+            apply_padding_spec(value);
+        return 0;
+    }
+
     if (!strncmp(text, "^togglecollapse()", strlen("^togglecollapse()"))) {
         a_togglecollapse(NULL);
         return 0;

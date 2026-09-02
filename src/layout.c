@@ -47,13 +47,13 @@ static WideRect rect_union(const WideRect *left, const WideRect *right) {
     return result;
 }
 
-static WideRect bordered(const WideRect *content, const BorderInsets *border) {
+static WideRect outset(const WideRect *content, const BoxInsets *insets) {
     WideRect result;
 
-    result.x      = content->x - border->left;
-    result.y      = content->y - border->top;
-    result.width  = content->width + (int64_t)border->left + border->right;
-    result.height = content->height + (int64_t)border->top + border->bottom;
+    result.x      = content->x - insets->left;
+    result.y      = content->y - insets->top;
+    result.width  = content->width + (int64_t)insets->left + insets->right;
+    result.height = content->height + (int64_t)insets->top + insets->bottom;
     return result;
 }
 
@@ -74,6 +74,8 @@ Bool layout_resolve(const LayoutRequest *request, const XRectangle *target, Reso
     WideRect       title;
     WideRect       slave;
     WideRect       content_outer;
+    WideRect       surface;
+    WideRect       collapsed_surface;
     WideRect       outer;
     WideRect       collapsed_outer;
     int64_t        target_x      = target->x;
@@ -87,7 +89,8 @@ Bool layout_resolve(const LayoutRequest *request, const XRectangle *target, Reso
     int64_t        translation_y;
 
     memset(&resolved, 0, sizeof(resolved));
-    implicit_width = positive_size(target_width - (int64_t)request->border.left - request->border.right);
+    implicit_width = positive_size(target_width - (int64_t)request->border.left - request->border.right -
+                                   request->padding.left - request->padding.right);
 
     if (request->title_width_explicit)
         title_width = positive_size(request->title_width);
@@ -131,8 +134,10 @@ Bool layout_resolve(const LayoutRequest *request, const XRectangle *target, Reso
         content_outer = slave;
     else
         content_outer = rect_union(&title, &slave);
-    outer           = bordered(&content_outer, &request->border);
-    collapsed_outer = bordered(&title, &request->border);
+    surface           = outset(&content_outer, &request->padding);
+    collapsed_surface = outset(&title, &request->padding);
+    outer             = outset(&surface, &request->border);
+    collapsed_outer   = outset(&collapsed_surface, &request->border);
 
     translation_x = clamp_position(outer.x, target_x, target_width, outer.width) - outer.x;
     translation_y = clamp_position(outer.y, target_y, target_height, outer.height) - outer.y;
@@ -140,29 +145,36 @@ Bool layout_resolve(const LayoutRequest *request, const XRectangle *target, Reso
     title.y += translation_y;
     slave.x += translation_x;
     slave.y += translation_y;
+    surface.x += translation_x;
+    surface.y += translation_y;
+    collapsed_surface.x += translation_x;
+    collapsed_surface.y += translation_y;
     outer.x += translation_x;
     outer.y += translation_y;
     collapsed_outer.x += translation_x;
     collapsed_outer.y += translation_y;
 
-    if (!rect_is_safe(&title) || !rect_is_safe(&outer) || !rect_is_safe(&collapsed_outer) ||
-        (request->max_lines && !rect_is_safe(&slave)))
+    if (!rect_is_safe(&title) || !rect_is_safe(&surface) || !rect_is_safe(&collapsed_surface) ||
+        !rect_is_safe(&outer) || !rect_is_safe(&collapsed_outer) || (request->max_lines && !rect_is_safe(&slave)))
         return False;
 
     narrow_rect(&title, &resolved.title);
     narrow_rect(&slave, &resolved.slave);
+    narrow_rect(&surface, &resolved.surface);
+    narrow_rect(&collapsed_surface, &resolved.collapsed_surface);
     narrow_rect(&outer, &resolved.outer);
     narrow_rect(&collapsed_outer, &resolved.collapsed_outer);
-    resolved.title_local.x      = (int)(title.x - outer.x);
-    resolved.title_local.y      = (int)(title.y - outer.y);
+    resolved.title_local.x      = (int)(title.x - surface.x);
+    resolved.title_local.y      = (int)(title.y - surface.y);
     resolved.title_local.width  = resolved.title.width;
     resolved.title_local.height = resolved.title.height;
-    resolved.slave_local.x      = (int)(slave.x - outer.x);
-    resolved.slave_local.y      = (int)(slave.y - outer.y);
+    resolved.slave_local.x      = (int)(slave.x - surface.x);
+    resolved.slave_local.y      = (int)(slave.y - surface.y);
     resolved.slave_local.width  = resolved.slave.width;
     resolved.slave_local.height = resolved.slave.height;
     resolved.title_right        = resolved.title.x + resolved.title.width;
     resolved.border             = request->border;
+    resolved.padding            = request->padding;
 
     if (request->horizontal_menu && request->max_lines > 0) {
         resolved.menu_entry_width = resolved.slave.width / request->max_lines;

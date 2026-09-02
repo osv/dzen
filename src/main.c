@@ -276,7 +276,7 @@ static void handle_xrandr_event(XEvent *event) {
 
     current_target = target;
     if (!layout_resolve(&layout_request, &target, &next))
-        eprint("dzen: border/content geometry exceeds safe X11 dimensions\n");
+        eprint("dzen: border/padding/content geometry exceeds safe X11 dimensions\n");
     apply_layout(&next);
     if (has_output_name() && !was_connected)
         restore_window_mapping();
@@ -327,6 +327,25 @@ void apply_border_spec(const char *text) {
 
 rejected:
     border_spec_destroy(&replacement);
+}
+
+void apply_padding_spec(const char *text) {
+    BoxInsets      replacement = { 0 };
+    LayoutRequest  next_request;
+    ResolvedLayout next_layout;
+
+    if (!box_insets_parse(&replacement, text))
+        return;
+
+    next_request         = layout_request;
+    next_request.padding = replacement;
+    if (!layout_resolve(&next_request, &current_target, &next_layout))
+        return;
+
+    dzen.padding   = replacement;
+    layout_request = next_request;
+    apply_layout(&next_layout);
+    windows_set_padding_background(box_insets_visible(&dzen.padding), dzen.norm[ColBG]);
 }
 
 static void x_connect(void) {
@@ -694,6 +713,11 @@ int main(int argc, char *argv[]) {
                 eprint("dzen: -b requires a border specification\n");
             if (!border_spec_parse(&dzen.border, argv[i]))
                 eprint("dzen: invalid border specification '%s'\n", argv[i]);
+        } else if (!strcmp(argv[i], "-pad")) {
+            if (++i >= argc)
+                eprint("dzen: -pad requires a padding specification\n");
+            if (!box_insets_parse(&dzen.padding, argv[i]))
+                eprint("dzen: invalid padding specification '%s'\n", argv[i]);
         } else if (!strncmp(argv[i], "-l", 3)) {
             if (++i < argc) {
                 dzen.slave_win.max_lines = atoi(argv[i]);
@@ -741,7 +765,7 @@ int main(int argc, char *argv[]) {
                     dzen.title_win.expand = noexpand;
                 }
             }
-        } else if (!strncmp(argv[i], "-p", 3)) {
+        } else if (!strcmp(argv[i], "-p")) {
             dzen.ispersistent = True;
             if (i + 1 < argc) {
                 dzen.timeout = strtoul(argv[i + 1], &endptr, 10);
@@ -851,7 +875,8 @@ int main(int argc, char *argv[]) {
         } else
             eprint("usage: dzen2 [-v] [-p [seconds]] [-m [v|h]] [-ta <l|c|r>] [-sa <l|c|r>]\n"
                    "             [-x <pixel>] [-y <pixel>] [-w <pixel>] [-h <pixel>] [-tw <pixel>] [-u]\n"
-                   "             [-e <string>] [-l <lines>] [-b <widths[,color]>] [-fn <font>]\n"
+                   "             [-e <string>] [-l <lines>] [-b <widths[,color]>] [-pad <widths>]\n"
+                   "             [-fn <font>]\n"
                    "             [-bg <color>] [-fg <color>]\n"
                    "             [-geometry <geometry string>] [-expand <left|right>] [-dock]\n"
                    "             [-title-name <string>] [-slave-name <string>]\n"
@@ -967,8 +992,9 @@ int main(int argc, char *argv[]) {
     layout_request.expand          = dzen.title_win.expand;
     layout_request.horizontal_menu = dzen.slave_win.ishmenu;
     layout_request.border          = dzen.border.widths;
+    layout_request.padding         = dzen.padding;
     if (!layout_resolve(&layout_request, &current_target, &current_layout))
-        eprint("dzen: border/content geometry exceeds safe X11 dimensions\n");
+        eprint("dzen: border/padding/content geometry exceeds safe X11 dimensions\n");
     layout_initialized = True;
     windows_initialize_layout(&current_layout, layout_request.horizontal_menu);
 

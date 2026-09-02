@@ -86,8 +86,9 @@ int main(void) {
     check_rect(first.outer, 100, 50, 800, 94);
     check_rect(first.title, 111, 55, 782, 20);
     check_rect(first.slave, 111, 75, 782, 60);
-    check_rect(first.title_local, 11, 5, 782, 20);
-    check_rect(first.slave_local, 11, 25, 782, 60);
+    check_rect(first.surface, 111, 55, 782, 80);
+    check_rect(first.title_local, 0, 0, 782, 20);
+    check_rect(first.slave_local, 0, 20, 782, 60);
     check_rect(first.collapsed_outer, 100, 50, 800, 34);
 
     input.title_width          = 200;
@@ -118,11 +119,51 @@ int main(void) {
     check_rect(first.slave, 105, 52, 792, 20);
 
     input                      = request();
+    input.x                    = 250;
+    input.title_width          = 200;
+    input.slave_width          = 300;
+    input.title_width_explicit = True;
+    input.slave_width_explicit = True;
+    input.padding.top          = 3;
+    input.padding.right        = 4;
+    input.padding.bottom       = 5;
+    input.padding.left         = 6;
+    input.border.top           = 2;
+    input.border.right         = 7;
+    input.border.bottom        = 11;
+    input.border.left          = 13;
+    CHECK(layout_resolve(&input, &target, &first));
+    check_rect(first.title, 350, 55, 200, 20);
+    check_rect(first.slave, 300, 75, 300, 60);
+    check_rect(first.surface, 294, 52, 310, 88);
+    check_rect(first.outer, 281, 50, 330, 101);
+    check_rect(first.collapsed_surface, 344, 52, 210, 28);
+    check_rect(first.collapsed_outer, 331, 50, 230, 41);
+    check_rect(first.title_local, 56, 3, 200, 20);
+    check_rect(first.slave_local, 6, 23, 300, 60);
+
+    input               = request();
+    input.padding.left  = 5;
+    input.padding.right = 7;
+    input.border.left   = 11;
+    input.border.right  = 13;
+    CHECK(layout_resolve(&input, &target, &first));
+    check_rect(first.outer, 100, 50, 800, 80);
+    check_rect(first.surface, 111, 50, 776, 80);
+    check_rect(first.title, 116, 50, 764, 20);
+
+    input                      = request();
     input.title_width          = 65535;
     input.slave_width          = 65535;
     input.title_width_explicit = True;
     input.slave_width_explicit = True;
     input.border.left          = 1;
+    CHECK(!layout_resolve(&input, &target, &first));
+
+    input                      = request();
+    input.title_width          = 65535;
+    input.title_width_explicit = True;
+    input.padding.left         = 1;
     CHECK(!layout_resolve(&input, &target, &first));
 
     input             = request();

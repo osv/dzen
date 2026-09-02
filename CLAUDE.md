@@ -202,6 +202,9 @@ This fork adds caching layers:
 2. **Actions**: Define in `action.h` and implement in `action.c`
 3. **Configuration options**: Add to `dzen.h:Dzen` struct and parse in `main.c`
 4. **Font features**: Modify `src/font.c` and `src/font.h` for font-related functionality
+5. **Documentation**: Every major user-visible feature must be added to the
+   "About this dzen2 fork" differences list in `README.dzen`. Regenerate
+   `README.md` and `dzen2.1` after changing `README.dzen`.
 
 ### Font Module
 

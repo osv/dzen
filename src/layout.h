@@ -17,6 +17,7 @@ typedef struct {
     Bool         slave_width_explicit;
     Bool         horizontal_menu;
     BorderInsets border;
+    BoxInsets    padding;
 } LayoutRequest;
 
 typedef struct {
@@ -29,11 +30,14 @@ typedef struct {
 typedef struct {
     LayoutRect   title;
     LayoutRect   slave;
+    LayoutRect   surface;
+    LayoutRect   collapsed_surface;
     LayoutRect   outer;
     LayoutRect   collapsed_outer;
     LayoutRect   title_local;
     LayoutRect   slave_local;
     BorderInsets border;
+    BoxInsets    padding;
     int          title_right;
     int          menu_entry_width;
     int          menu_last_width;

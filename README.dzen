@@ -18,12 +18,13 @@ Script archive with a collection of interesting ideas:
 Main differences between the original and this fork of `dzen2`:
 
 ^fg(red)*^fg(grey70) Improved performance for color/font changing (caching X11 resources).
-^fg(red)*^fg(grey70) Increased line size from 8k to 256k.
+^fg(red)*^fg(grey70) Increased line size from 8k to 16M.
 ^fg(red)*^fg(grey70) Align commands: `^^left()`, `^^center()`, `^^right()`.
   You can now run a single dzen instance to render workspaces on the
   left side and other widgets on the right side.
 ^fg(red)*^fg(grey70) Improved theme changing on the fly. Allows setting default fg/bg color and font.
   See `^^normfg(COLOR)`, `^^normbg(COLOR)`, `^^normfg(FONT)`.
+^fg(red)*^fg(grey70) Borders and padding. See `-b`, `-pad`, `^^border(SPEC)`, and `^^padding(SPEC)`.
 ^fg(red)*^fg(grey70) Added integration test (you can run: `make test`).
 ^fg(red)*^fg(grey70) To make assembly easier, used GNU Autotools instead of a simple Makefile.
 ^fg(red)*^fg(grey70) `-p` with argument n persist for n seconds,
@@ -91,6 +92,7 @@ XRandR tests require XFT, DejaVu Sans Mono, Xorg, and the dummy video driver.
     -fg     foreground color
     -bg     background color
     -b      static outer border widths and optional color, see below
+    -pad    static padding widths, see below
     -fn     font
     -ta     alignment of title window content
             l(eft), c(center), r(ight)
@@ -128,6 +130,25 @@ clickable-area coordinates.  `-b 0` disables the border.
 `^^border(SPEC)` uses the same grammar and replaces the border at runtime.  It
 must occupy its own input line.  Invalid runtime specifications are silently
 ignored.
+
+`-pad SPEC` adds padding around the union of the visible title and slave
+content. SPEC accepts one, two, or four non-negative widths:
+
+    -pad 10
+    -pad 10,8
+    -pad 10,8,10,8
+
+One width applies to every side; two mean vertical,horizontal; four mean
+top,right,bottom,left. Padding always uses the normal `-bg` color, including
+later `^^normbg(...)` changes. `^^padding(SPEC)` replaces all four sides at
+runtime, and `^^padding(0)` disables it. The command must occupy its own input
+line; invalid runtime specifications are silently ignored.
+
+The visible box model is `border -> padding -> content`. Explicit `-x`, `-y`,
+`-w`, `-tw`, and `-h` values continue to describe content; padding and border
+grow outward and are included in dock struts. A single padding box surrounds
+the visible title/slave union, so it does not add a gap between them. Padding
+does not change text or clickable-area coordinates.
 
 
 ^fg(#6fbf47)Monitor selection
@@ -579,6 +600,7 @@ Currently the following commands are supported:
                        and only command per line.
 
     ^^border(SPEC)      Replace the outer border at runtime; syntax as -b.
+    ^^padding(SPEC)     Replace padding at runtime; syntax as -pad.
                        Must be the only command on the line.
 
     ^^normfn(FONT)      Set the normal font.

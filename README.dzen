@@ -18,7 +18,7 @@ Script archive with a collection of interesting ideas:
 Main differences between the original and this fork of `dzen2`:
 
 ^fg(red)*^fg(grey70) Improved performance for color/font changing (caching X11 resources).
-^fg(red)*^fg(grey70) Increased line size from 8k to 256k.
+^fg(red)*^fg(grey70) Increased line size from 8k to 16M.
 ^fg(red)*^fg(grey70) Align commands: `^^left()`, `^^center()`, `^^right()`.
   You can now run a single dzen instance to render workspaces on the
   left side and other widgets on the right side.

@@ -1,5 +1,7 @@
 # We'll build multiple small executables: dbar, gdbar, gcpubar, textwidth
 bin_PROGRAMS = dbar gdbar gcpubar textwidth
+CLEANFILES = dbar.1.raw dbar.1.tmp gcpubar.1.raw gcpubar.1.tmp gdbar.1.raw gdbar.1.tmp
+MAN_GENERATOR = $(top_srcdir)/build-aux/generate-man.sh
 
 # Common sources used by multiple programs
 common_sources = dbar.c dbar.h
@@ -31,27 +33,13 @@ dist_man_MANS = dbar.1 \
 
 .PHONY: update-man
 
-update-man:
-	pandoc ./README.dbar.md \
-		--metadata date="$(shell date +%Y-%m-%d)" \
-		--metadata author="Robert Manea" \
-		--metadata version="$(VERSION)" \
-		--metadata title="$(PACKAGE)" \
-		--metadata section="1" \
-		-s -t man -o dbar.1
+update-man: dbar.1 gcpubar.1 gdbar.1
 
-	pandoc ./README.gcpubar.md \
-		--metadata date="$(shell date +%Y-%m-%d)" \
-		--metadata author="Robert Manea" \
-		--metadata version="$(VERSION)" \
-		--metadata title="$(PACKAGE)" \
-		--metadata section="1" \
-		-s -t man -o gcpubar.1
+dbar.1: README.dbar.md $(top_srcdir)/configure.ac $(MAN_GENERATOR)
+	$(SHELL) $(MAN_GENERATOR) "$<" "$@" "$(PACKAGE)" "$(VERSION)" 1 "Robert Manea"
 
-	pandoc ./README.gdbar.md \
-		--metadata date="$(shell date +%Y-%m-%d)" \
-		--metadata author="Robert Manea" \
-		--metadata version="$(VERSION)" \
-		--metadata title="$(PACKAGE)" \
-		--metadata section="1" \
-		-s -t man -o gdbar.1
+gcpubar.1: README.gcpubar.md $(top_srcdir)/configure.ac $(MAN_GENERATOR)
+	$(SHELL) $(MAN_GENERATOR) "$<" "$@" "$(PACKAGE)" "$(VERSION)" 1 "Robert Manea"
+
+gdbar.1: README.gdbar.md $(top_srcdir)/configure.ac $(MAN_GENERATOR)
+	$(SHELL) $(MAN_GENERATOR) "$<" "$@" "$(PACKAGE)" "$(VERSION)" 1 "Robert Manea"

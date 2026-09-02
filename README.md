@@ -18,14 +18,13 @@ About this dzen2 fork
 Main differences between the original and this fork of `dzen2`:
 
 * Improved performance for color/font changing (caching X11 resources).
-* Increased line size from 8k to 256k.
+* Increased line size from 8k to 16M.
 * Align commands: `^left()`, `^center()`, `^right()`.
   You can now run a single dzen instance to render workspaces on the
   left side and other widgets on the right side.
 * Improved theme changing on the fly. Allows setting default fg/bg color and font.
   See `^normfg(COLOR)`, `^normbg(COLOR)`, `^normfg(FONT)`.
-* Unified title and slave into one WM-facing surface with configurable borders and padding.
-  See `-b`, `-pad`, `^border(SPEC)`, and `^padding(SPEC)`.
+* Borders and padding. See `-b`, `-pad`, `^border(SPEC)`, and `^padding(SPEC)`.
 * Added integration test (you can run: `make test`).
 * To make assembly easier, used GNU Autotools instead of a simple Makefile.
 * `-p` with argument n persist for n seconds,

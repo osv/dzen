@@ -1,6 +1,15 @@
-# Test scenarios of dzen compiled without XFT
+# Core-font visual integration tests
 
-Compile dzen without XFT to run this test: `./configure --disable-xft && make`!
+This suite exercises the shared rendering, menu, positioning, interaction,
+dynamic sizing, runtime-default, and lifetime behavior with X11 core fonts. It
+also covers core-font switching and preloaded-font aliases that do not apply to
+the XFT build.
+
+The runner interprets only `## Test:`, supported `###` directives, fenced pipe
+data, and reference-image links. All other prose is documentation and is
+ignored while executing the tests.
+
+Compile dzen without XFT to run this suite: `./configure --disable-xft && make`.
 
 ## Test: 1 Color
 
@@ -30,6 +39,8 @@ wor^fg(#f00)l^fg(#0f0)d
 
 ## Test: 3 Menu horizontal
 
+Checks item highlighting as the pointer moves across a horizontal menu.
+
 ### Args: -l 4 -m h -fn "6x13" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 ### Mouse: 70,10
@@ -56,6 +67,8 @@ line 4
 ![reference](./expected/03-menu-horizontal-2_highlight.png)
 
 ## Test: 4 Menu vertical
+
+Checks opening, selecting, updating, scrolling, and clearing a vertical menu.
 
 ### Args: -l 4 -m -fn "6x13" -h 30 -w 300 -bg '#000' -fg '#fff'
 
@@ -131,6 +144,8 @@ printf "line 7"
 ![reference](./expected/04-menu-7-clear-slave.png)
 
 ## Test: 5 Position
+
+Checks special positioning commands and locked horizontal positioning.
 
 ### Args: -l 5 -e onstart=uncollapse -fn "fixed" -h 30 -w 300 -bg '#000' -fg '#fff'
 
@@ -293,6 +308,9 @@ SomeText^p(_RIGHT)^fg(green)RIGHT
 
 ## Test: 9 Block area
 
+Checks text alignment inside fixed-width block areas, including blocks that
+contain another formatting command.
+
 ### Args: -l 5 -e onstart=uncollapse -fn "6x13" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 
@@ -314,6 +332,8 @@ Broken ba:^ib(1)^ro(50x28)^p(-50)^ba(50,_RIGHT)^fg(green)R^ba()
 ![reference](./expected/09-block-area.png)
 
 ## Test: 10 Click Area
+
+Checks the boundaries of two adjacent clickable areas.
 
 ### Args: -ta l -fn "6x13" -h 30 -w 300 -bg '#000' -fg '#fff'
 
@@ -405,6 +425,8 @@ Multiple background of icons
 
 ## Test: 12 Action: 'menuprint'
 
+Checks that `menuprint` returns the selected menu row.
+
 ### Args: -e 'button1=menuprint;onstart=uncollapse' -m -l 4 -ta l -fn "6x13" -h 30 -w 300 -bg '#000' -fg '#fff'
 
 ### Mouse: 1, 61
@@ -434,6 +456,8 @@ line 4
 ### Click and check output: 1, line 4
 
 ## Test: 13 expand left
+
+Checks leftward resizing as content width changes and when X locking is used.
 
 ### Args: -expand left -x 0 -fn "6x13" -h 30 -bg '#000' -fg '#fff'
 
@@ -466,6 +490,8 @@ Lock X with expand
 
 ## Test: 14 expand right
 
+Checks rightward resizing as content width changes and when X locking is used.
+
 ### Args: -expand right -x 0 -fn "6x13" -h 30 -bg '#000' -fg '#fff'
 
 ### Pipe data
@@ -489,6 +515,8 @@ Lock X with expand
 
 ## Test: 15 Align commands
 
+Checks mixed left, center, and right alignment commands across several lines.
+
 ### Args: -l 5 -e onstart=uncollapse -fn "fixed" -h 30 -w 400 -bg '#000' -fg '#fff'
 
 ### Pipe data
@@ -510,6 +538,8 @@ Use different aligns (`^left()` and so on). Should reset settings
 
 
 ## Test: 16 normbg/normfg commands
+
+Checks runtime changes to the default colors after menu contents are replaced.
 
 ### Args: -l 5 -e onstart=uncollapse -fn "6x13" -h 30 -w 300 -bg pink
 

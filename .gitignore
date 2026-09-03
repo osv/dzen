@@ -80,8 +80,11 @@ __pycache__/
 *.orig
 *.rej
 
-# build artifacts
-gadgets
+# Gadget binaries
+/gadgets/dbar
+/gadgets/gcpubar
+/gadgets/gdbar
+/gadgets/textwidth
 
 .direnv
 .claude

@@ -7,7 +7,8 @@ if ENABLE_GADGETS
 endif
 
 bin_SCRIPTS = dzen2-help
-CLEANFILES = $(bin_SCRIPTS) .x11-test.lock
+CLEANFILES = $(bin_SCRIPTS) .x11-test.lock dzen2.1.raw dzen2.1.tmp
+MAN_GENERATOR = $(top_srcdir)/build-aux/generate-man.sh
 dist_doc_DATA = README.dzen README.md
 
 dist_man_MANS = dzen2.1
@@ -17,6 +18,7 @@ EXTRA_DIST = \
   LICENSE \
   INSTALL \
   docs/feature-borders.md \
+  build-aux/generate-man.sh \
   bitmaps \
   dzen2-help.in \
   tests/integration/test_common.sh \
@@ -237,17 +239,16 @@ clean-local:
 	  tests/integration/xrandr/actual \
 	  tests/integration/xrandr/diffs
 
+.PHONY: update-man
+
+update-man: dzen2.1
+	$(MAKE) -C gadgets update-man
+
 # TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
-update-man: ./README.md
-	pandoc ./README.md \
-		--metadata date="$(shell date +%Y-%m-%d)" \
-		--metadata author="Robert Manea" \
-		--metadata author="Olexandr Sydorchuk" \
-		--metadata version="$(VERSION)" \
-		--metadata title="$(PACKAGE)" \
-		--metadata section="1" \
-		-s -t man -o dzen2.1
-	$(MAKE) -C gadgets update-man || exit 1;
+dzen2.1: README.md $(top_srcdir)/configure.ac $(MAN_GENERATOR)
+	$(SHELL) $(MAN_GENERATOR) \
+		"$<" "$@" "$(PACKAGE)" "$(VERSION)" 1 \
+		"Robert Manea; Olexandr Sydorchuk"
 
 ./README.md: ./README.dzen
 # 1) Temporarily replace ^^tag(...) with <DC>tag(...)

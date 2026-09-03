@@ -1,3 +1,14 @@
+# Border and padding visual integration tests
+
+This suite exercises the `border -> padding -> content` box model: static and
+runtime configuration, inherited and explicit colors, exact outer/content
+geometry, menu visibility transitions, pointer-action boundaries, dynamic
+width, dock struts, invalid input, and escaped runtime commands.
+
+The runner interprets only `## Test:`, supported `###` directives, fenced pipe
+data, and reference-image links. All other prose is documentation and is
+ignored while executing the tests.
+
 ## Test: 01-uniform-inherited
 
 ### Args: -x 20 -y 20 -w 300 -h 30 -ta l -bg '#203040' -fg white -b 10
@@ -15,6 +26,8 @@ uniform inherited
 
 ## Test: 02-asymmetric-explicit
 
+Checks asymmetric border widths and an explicit border color.
+
 ### Args: -x 40 -y 30 -w 300 -h 30 -ta l -bg '#101010' -fg white -b '10,20,30,40,#d03030'
 
 ### Pipe data
@@ -30,6 +43,8 @@ border T1x R2x B3x L4x
 
 ## Test: 03-implicit-full-width
 
+Checks a border around a title with automatic full-screen width.
+
 ### Args: -h 30 -ta l -bg '#182818' -fg white -b '5,10,#308050'
 
 ### Pipe data
@@ -44,6 +59,9 @@ implicit width fills the target
 ![reference](./expected/03-implicit-full-width.png)
 
 ## Test: 04-vertical-state
+
+Checks a bordered vertical menu while it is expanded, collapsed, title-hidden,
+and restored.
 
 ### Args: -x 100 -y 50 -l 2 -w 300 -tw 200 -h 30 -ta l -sa l -bg '#181818' -fg white -b '6,#7050b0' -e 'onstart=uncollapse,grabkeys;button1=collapse;button2=uncollapse;key_h=hide;key_u=unhide'
 
@@ -87,6 +105,8 @@ second slave line
 
 ## Test: 05-horizontal-and-hide
 
+Checks a bordered horizontal menu across hide and unhide actions.
+
 ### Args: -x 30 -y 40 -l 3 -m h -w 300 -h 30 -bg '#151515' -fg white -b '3,7,9,11,#b08020' -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
 
 ### Pipe data
@@ -121,6 +141,8 @@ three
 
 ## Test: 05a-title-only-strict-hide
 
+Checks hide and unhide actions for a bordered title without a menu.
+
 ### Args: -x 30 -y 40 -w 300 -h 30 -bg '#151515' -fg white -b '3,7,9,11,#b08020' -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
 
 ### Pipe data
@@ -145,6 +167,8 @@ title only
 ### Title mapping: IsViewable
 
 ## Test: 05b-collapsed-vertical-strict-hide
+
+Checks that a vertical menu remains collapsed after being hidden and restored.
 
 ### Args: -x 30 -y 40 -l 2 -w 300 -h 30 -bg '#151515' -fg white -b '3,7,9,11,#b08020' -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
 
@@ -176,6 +200,8 @@ two
 
 ## Test: 06-inherited-normbg
 
+Checks that an inherited border follows a runtime background-color change.
+
 ### Args: -x 20 -y 20 -w 300 -h 30 -ta l -bg '#202040' -fg white -b 8
 
 ### Pipe data
@@ -195,6 +221,9 @@ before inherited update
 ![reference](./expected/06-inherited-after.png)
 
 ## Test: 07-explicit-normbg
+
+Checks that an explicit border color survives a runtime background-color
+change.
 
 ### Args: -x 20 -y 20 -w 300 -h 30 -ta l -bg '#202040' -fg white -b '8,#804020'
 
@@ -216,6 +245,8 @@ before explicit update
 
 ## Test: 08-border-has-no-actions
 
+Checks that clicks work in content but not in the surrounding border.
+
 ### Args: -x 20 -y 20 -w 300 -h 30 -ta l -bg '#181818' -fg white -b '10,#305080'
 
 ### Pipe data
@@ -232,6 +263,8 @@ before explicit update
 ### Click and check output: 1, content-hit
 
 ## Test: 09-slave-above-title
+
+Checks a bordered menu that opens above its title near the bottom of the screen.
 
 ### Args: -x 100 -y 1060 -l 2 -w 300 -h 30 -ta l -sa l -bg '#181818' -fg white -b '5,#406080' -e 'onstart=uncollapse'
 
@@ -251,6 +284,8 @@ slave above two
 
 ## Test: 10-dynamic-expand-static-border
 
+Checks a static border around a dynamically sized title.
+
 ### Args: -x 80 -y 40 -expand right -h 30 -ta l -bg '#181818' -fg white -b '7,#904060'
 
 ### Pipe data
@@ -262,6 +297,8 @@ expanded title
 ![reference](./expected/10-dynamic-expand-static-border.png)
 
 ## Test: 11-dynamic-widths-and-disable
+
+Checks runtime replacement of border widths and repeated disabling.
 
 ### Args: -x 60 -y 50 -w 300 -h 30 -ta l -bg '#203040' -fg white -b 0
 
@@ -314,6 +351,8 @@ dynamic border scale
 
 ## Test: 12-dynamic-color-mode
 
+Checks runtime switching between explicit and inherited border colors.
+
 ### Args: -x 20 -y 20 -w 300 -h 30 -ta l -bg '#202040' -fg white -b 8
 
 ### Pipe data
@@ -345,6 +384,8 @@ dynamic color mode
 ![reference](./expected/12-dynamic-inherited.png)
 
 ## Test: 13-dynamic-vertical-state
+
+Checks runtime border changes before and after collapsing a vertical menu.
 
 ### Args: -x 100 -y 50 -l 2 -w 300 -tw 200 -h 30 -ta l -sa l -bg '#181818' -fg white -b 2 -e 'onstart=uncollapse;button1=collapse;button2=uncollapse'
 
@@ -387,6 +428,9 @@ second slave line
 
 ## Test: 14-dynamic-horizontal-hidden
 
+Checks a runtime border change while a horizontal menu is hidden, then restores
+the menu.
+
 ### Args: -x 30 -y 40 -l 3 -m h -w 300 -h 30 -bg '#151515' -fg white -b 2 -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
 
 ### Pipe data
@@ -420,6 +464,9 @@ three
 ![reference](./expected/14-dynamic-horizontal.png)
 
 ## Test: 15-dynamic-invalid-unchanged
+
+Checks that malformed, invalid-color, and oversized runtime border values are
+ignored without disrupting the running bar.
 
 ### Args: -x 20 -y 20 -w 300 -h 30 -ta l -bg '#181818' -fg white -b '5,#305080'
 
@@ -458,6 +505,9 @@ invalid updates survive
 
 ## Test: 16-dynamic-dock-strut
 
+Checks dock reservations while a runtime border is enabled, changed, and
+disabled.
+
 ### Args: -dock -x 0 -y 0 -w 300 -h 30 -ta l -bg '#181818' -fg white -b 2
 
 ### Pipe data
@@ -490,6 +540,9 @@ dynamic dock strut
 
 ## Test: 17-static-padding-box-model
 
+Checks the complete border, padding, and content box model, including clicks in
+padding and content.
+
 ### Args: -x 40 -y 40 -w 240 -h 30 -ta l -bg '#203040' -fg white -b '4,#b03030' -pad 10
 
 ### Pipe data
@@ -512,6 +565,8 @@ dynamic dock strut
 
 ## Test: 18-asymmetric-padding
 
+Checks asymmetric padding with visibly different 1x/2x/3x/4x side widths.
+
 ### Args: -x 60 -y 60 -w 260 -h 30 -ta l -bg '#305020' -fg white -b '3,#3050b0' -pad '10,20,30,40'
 
 ### Pipe data
@@ -526,6 +581,9 @@ padding T1x R2x B3x L4x
 ![reference](./expected/18-asymmetric-padding.png)
 
 ## Test: 19-dynamic-padding-and-normbg
+
+Checks runtime padding changes, inherited background color, invalid values, and
+disabling padding while a border remains enabled.
 
 ### Args: -x 50 -y 50 -w 240 -h 30 -ta l -bg '#202040' -fg white -b '5,#b03030' -pad 0
 
@@ -586,6 +644,9 @@ dynamic padding
 
 ## Test: 20-padding-vertical-hidden
 
+Checks asymmetric padding around a vertical menu while its title is shown and
+hidden.
+
 ### Args: -x 100 -y 80 -l 2 -w 300 -tw 200 -h 30 -ta l -sa l -bg '#303018' -fg white -b '2,#8050b0' -pad '10,20,30,40' -e 'onstart=uncollapse;button1=hide;button2=unhide'
 
 ### Pipe data
@@ -614,6 +675,9 @@ second line
 ### Geometry: 8,68,364,134
 
 ## Test: 21-padding-horizontal-hidden-and-escape
+
+Checks that invalid padding does not change a hidden horizontal menu when it is
+restored.
 
 ### Args: -x 80 -y 60 -l 3 -m h -w 300 -h 30 -bg '#183040' -fg white -b '3,#b08020' -pad 6 -e 'onstart=grabkeys;key_h=hide;key_u=unhide'
 
@@ -650,6 +714,8 @@ three
 
 ## Test: 22-padding-dock-strut
 
+Checks dock reservations for a title with both padding and a border.
+
 ### Args: -dock -x 0 -y 0 -w 300 -h 30 -ta l -bg '#204030' -fg white -b '2,#803030' -pad 10
 
 ### Pipe data
@@ -665,6 +731,8 @@ dock padding
 ![reference](./expected/22-padding-dock-strut.png)
 
 ## Test: 23-escaped-padding-is-literal
+
+Checks that an escaped padding command is displayed as literal text.
 
 ### Args: -x 40 -y 40 -w 300 -h 30 -ta l -bg '#202020' -fg white
 

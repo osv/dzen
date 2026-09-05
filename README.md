@@ -165,8 +165,13 @@ An empty argument uses the configured defaults, a single argument may override
 the thickness or color, and two arguments override both. `off` closes the
 active span:
 
-    ^underline()text and ^r(20x8) graphics^underline(off)
-    ^overline(2,#5fd7ff)overlined^overline(off)
+    ^overline()text and ^r(20x8) graphics^overline(off)
+    ^underline(2,#5fd7ff)underlined^underline(off)
+
+Rendered by dzen:
+
+    text and  graphics
+    underlined
 
 Decorated spans include text, spaces, icons, rectangles, circles, block
 alignment, and horizontal `^p(...)`/`^pa(...)` movement. They use constant

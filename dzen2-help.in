@@ -5,8 +5,8 @@ OPTS=(
     -fg "grey70"
     -p
     -l 30
-    -l 30
     -b "1,#5FBF77"
+    -pad "5,20"
     -e "onstart=uncollapse,scrollhome,grabkeys;\
 button5=scrolldown;\
 key_Down=scrolldown;\

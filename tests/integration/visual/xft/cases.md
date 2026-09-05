@@ -728,3 +728,20 @@ Header
 ### Mouse: 10,40
 
 ![reference](./expected/23-decoration-menu-2-highlight.png)
+
+## Test: 24 Decoration alignment with absolute positioning
+
+Each alignment block underlines ordinary text, the horizontal interval crossed
+by `^pa(50)`, and the text drawn at that absolute position.
+
+### Args: -ta l -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 400 -bg '#000' -fg '#fff' -underline 3,#ffb52a
+
+### Pipe data
+
+```
+^left()^underline()L^pa(50)LPA^underline(off)^center()^underline()C^pa(50)CPA^underline(off)^right()^underline()R^pa(50)RPA^underline(off)
+```
+
+### Crop: 400x30+0+0
+
+![reference](./expected/24-decoration-align-absolute.png)

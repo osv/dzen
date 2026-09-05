@@ -157,7 +157,8 @@ does not change text or clickable-area coordinates.
 default span-decoration styles. They do not enable decorations by themselves.
 The built-in default for each is one pixel using the normal foreground color.
 An omitted color follows `-fg` and later `^normfg(...)` changes; an explicit
-color is independent.
+color is independent. Specifications are strict and contain no whitespace:
+`2,#ffb52a` is valid, while `2, #ffb52a` is not.
 
 Use `^underline(...)` and `^overline(...)` in input to enable a decoration.
 An empty argument uses the configured defaults, a single argument may override

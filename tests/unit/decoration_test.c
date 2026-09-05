@@ -27,17 +27,23 @@ int main(void) {
     char tiny[2];
 
     check_valid("", 0, "");
-    check_valid("   ", 0, "");
     check_valid("1", 1, "");
-    check_valid(" 12 ", 12, "");
     check_valid("red", 0, "red");
-    check_valid(" #abcdef ", 0, "#abcdef");
     check_valid("rgb:1/2/3", 0, "rgb:1/2/3");
     check_valid("2,red", 2, "red");
-    check_valid(" 3 , #abcdef ", 3, "#abcdef");
     check_valid("off", 0, "off");
 
     check_invalid(NULL);
+    check_invalid(" ");
+    check_invalid(" 12");
+    check_invalid("12 ");
+    check_invalid("#abcdef ");
+    check_invalid("3,#abcdef ");
+    check_invalid("3, #abcdef");
+    check_invalid("3 ,#abcdef");
+    check_invalid("red blue");
+    check_invalid("off ");
+    check_invalid("1\t,#abcdef");
     check_invalid("0");
     check_invalid("-1");
     check_invalid("+1");

@@ -32,6 +32,9 @@ The following options define the default style:
 accepted by the existing dzen color parser, including X11 color names and
 `#rrggbb` values.
 
+Decoration specifications are strict and do not permit whitespace. For
+example, `2,#ffb52a` is valid, while `2, #ffb52a`, ` 2`, and `2 ` are invalid.
+
 When `COLOR` is omitted, the decoration follows the normal foreground color
 set by `-fg`, including later `^normfg(...)` changes. An explicitly configured
 color is independent of foreground changes.
@@ -83,6 +86,7 @@ Enabling an already active decoration closes the current span at the current
 horizontal position and starts a new span with the requested style. Disabling
 an inactive decoration is a no-op. Invalid arguments are silently ignored and
 do not change the current state, matching existing in-text error handling.
+`off` must also match exactly; surrounding whitespace is invalid.
 
 Examples:
 

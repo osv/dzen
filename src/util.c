@@ -299,13 +299,6 @@ static int parse_positive_width(const char *begin, const char *end, unsigned int
     return 1;
 }
 
-static void trim_field(const char **begin, const char **end) {
-    while (*begin < *end && isspace((unsigned char)**begin))
-        (*begin)++;
-    while (*end > *begin && isspace((unsigned char)(*end)[-1]))
-        (*end)--;
-}
-
 int get_decor_vals(const char *s, unsigned int *thickness, char *color, size_t color_capacity) {
     const char  *begin;
     const char  *comma;
@@ -325,9 +318,11 @@ int get_decor_vals(const char *s, unsigned int *thickness, char *color, size_t c
 
     begin = s;
     end   = s + strlen(s);
-    trim_field(&begin, &end);
     if (begin == end)
         return 1;
+    for (const char *cursor = begin; cursor < end; cursor++)
+        if (isspace((unsigned char)*cursor))
+            return 0;
 
     comma = memchr(begin, ',', (size_t)(end - begin));
     if (comma) {
@@ -336,8 +331,6 @@ int get_decor_vals(const char *s, unsigned int *thickness, char *color, size_t c
         color_begin = comma + 1;
         color_end   = end;
         end         = comma;
-        trim_field(&begin, &end);
-        trim_field(&color_begin, &color_end);
         if (begin == end || color_begin == color_end || parse_positive_width(begin, end, &parsed_thickness) != 1)
             return 0;
     } else {

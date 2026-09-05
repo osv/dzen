@@ -311,6 +311,19 @@ run_test() {
     xprop -root -f RESOURCE_MANAGER 8s -set RESOURCE_MANAGER "$test_xresources" >/dev/null
   fi
 
+  # Do not let the previous test's pointer position trigger EnterNotify while
+  # the next window is being mapped. This is especially important for menus,
+  # where entering the title can uncollapse the slave before the first check.
+  if [ "$USE_VIRTUAL_DISPLAY" = true ]; then
+    local display_width display_height
+    read -r display_width display_height < <(xdotool getdisplaygeometry)
+    if [[ "$display_width" =~ ^[0-9]+$ && "$display_height" =~ ^[0-9]+$ ]] &&
+       [ "$display_width" -gt 0 ] && [ "$display_height" -gt 0 ]; then
+      xdotool mousemove "$((display_width - 1))" "$((display_height - 1))"
+      xdotool getmouselocation >/dev/null
+    fi
+  fi
+
   # Run the app using coproc and capture the PID
   eval "args=($cmd_args)"
   local app_output_path="$ACTUAL_DIR/app_output.txt"

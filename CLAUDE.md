@@ -62,6 +62,8 @@ Below are list of options for `./src/dzen2`
 - `-fn <font>` - Font specification (XFT or X11 font)
 - `-bg <color>` - Background color
 - `-fg <color>` - Foreground color
+- `-underline <thickness[,color]>` - Default underline style
+- `-overline <thickness[,color]>` - Default overline style
 - `-x/-y <pixel>` - Window position
 - `-w/-h <pixel>` - Window width/height
 - `-ta <l|c|r>` - Title window text alignment (left/center/right)

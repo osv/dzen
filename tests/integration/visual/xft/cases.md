@@ -668,3 +668,63 @@ Esc: ^^fg(red) literal
 ### Crop: 300x60+0+0
 
 ![reference](./expected/20-escaped-command-marker.png)
+
+## Test: 21 Underline and overline
+
+Decorations cover text, icons, graphics, relative and absolute positioning,
+including drawing while horizontal advancement is locked.
+
+### Args: -l 2 -e onstart=uncollapse -ta l -sa l -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 400 -bg '#000' -fg '#fff' -underline 3,#ff5555 -overline 2,#50fa7b
+
+### Pipe data
+
+```
+^underline()Under^underline(off) ^overline()Over^overline(off) ^underline(2,#5fafff)^overline(3,#ffff00)Both^overline(off)^underline(off)
+^underline()^i(bitmaps/envelope.xbm)^p(4)^r(20x12)^p(4)^ro(20x12)^p(4)^c(10)^p(4)^co(10)^underline(off)
+^overline()A^p(15)^p(_LOCK_X)^ro(30x20)^p(_UNLOCK_X)^p(35)^pa(120)^r(12x8)^overline(off)
+```
+
+### Crop: 400x90+0+0
+
+![reference](./expected/21-underline-overline.png)
+
+## Test: 22 Decoration Xresources and CLI precedence
+
+The overline uses its X resource, while the underline command-line option
+overrides its X resource.
+
+### Xresource: dzen2.underline: 5,#ff5555
+### Xresource: dzen2.overline: 4,#50fa7b
+
+### Args: -ta l -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff' -underline 2,#5fafff
+
+### Pipe data
+
+```
+^underline()CLI underline^underline(off) ^overline()resource overline^overline(off)
+```
+
+![reference](./expected/22-decoration-xresources.png)
+
+## Test: 23 Decoration menu highlight
+
+Default decoration colors follow the effective foreground when a menu row is
+highlighted in reverse mode.
+
+### Args: -m -l 2 -e onstart=uncollapse -ta l -sa l -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 300 -bg '#000' -fg '#fff' -underline 3 -overline 2
+
+### Pipe data
+
+```
+Header
+^underline()default underline^underline(off)
+^overline()default overline^overline(off)
+```
+
+### Crop: 300x90+0+0
+
+![reference](./expected/23-decoration-menu-1.png)
+
+### Mouse: 10,40
+
+![reference](./expected/23-decoration-menu-2-highlight.png)

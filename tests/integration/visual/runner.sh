@@ -183,7 +183,7 @@ start_virtual_display() {
     fi
     
     echo "Starting virtual display ${server_display}..."
-    Xvfb "$server_display" -screen 0 1920x1080x24 "${transport[@]}" > /dev/null 2>&1 &
+    Xvfb "$server_display" -noreset -screen 0 1920x1080x24 "${transport[@]}" > /dev/null 2>&1 &
     XVFB_PID=$!
 
     export DISPLAY
@@ -288,6 +288,7 @@ run_test() {
   local cmd_args=$2
   shift 2
   local steps=("$@")
+  local test_xresources=""
 
   # Check if we've been interrupted
   if [ "$INTERRUPTED" = true ]; then
@@ -295,6 +296,20 @@ run_test() {
   fi
 
   echo -n "Running test: $test_name ... "
+
+  for step in "${steps[@]}"; do
+    IFS='|' read -r action params <<< "$step"
+    if [ "$action" = xresource ]; then
+      test_xresources+="$params"$'\n'
+    fi
+  done
+  if [ -n "$test_xresources" ]; then
+    if [ "$USE_VIRTUAL_DISPLAY" != true ]; then
+      echo "SKIP (Xresources tests require the isolated display)"
+      return
+    fi
+    xprop -root -f RESOURCE_MANAGER 8s -set RESOURCE_MANAGER "$test_xresources" >/dev/null
+  fi
 
   # Run the app using coproc and capture the PID
   eval "args=($cmd_args)"
@@ -304,6 +319,9 @@ run_test() {
 
   # Wait for the app to start (adjust this time if necessary)
   sleep 0.6  # Adjust this as needed based on your app's loading time
+  if [ -n "$test_xresources" ]; then
+    xprop -root -remove RESOURCE_MANAGER >/dev/null
+  fi
 
   # Find the window ID associated with the app's PID
   local window_id=$(xdotool search --pid "$app_pid" | head -n 1)
@@ -547,6 +565,9 @@ run_test() {
         sleep 0.1
         ;;
 
+      'xresource')
+        ;;
+
       'sleep')
         echo -en "Sleep for ${params}s, "
         sleep "$params"
@@ -664,6 +685,9 @@ run_tests() {
         ;;
       '### Args: '*)
         cmd_args="${line#'### Args: '}"
+        ;;
+      '### Xresource: '*)
+        steps+=("xresource|${line#'### Xresource: '}")
         ;;
       '### Pipe data')
         pipe_data_block=""

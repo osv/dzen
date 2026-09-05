@@ -7,6 +7,9 @@
 
 #include "dzen.h"
 #include "util.h"
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -268,4 +271,94 @@ int get_block_align_vals(char *s, int *a, int *w) {
         *a = -1;
 
     return 2;
+}
+
+static int parse_positive_width(const char *begin, const char *end, unsigned int *result) {
+    unsigned long value = 0;
+    const char   *cursor;
+
+    if (begin == end)
+        return 0;
+    for (cursor = begin; cursor < end; cursor++)
+        if (!isdigit((unsigned char)*cursor))
+            return -1;
+
+    errno = 0;
+    for (cursor = begin; cursor < end; cursor++) {
+        unsigned int digit = (unsigned int)(*cursor - '0');
+
+        if (value > (UINT_MAX - digit) / 10) {
+            errno = ERANGE;
+            break;
+        }
+        value = value * 10 + digit;
+    }
+    if (errno == ERANGE || value == 0)
+        return 0;
+    *result = (unsigned int)value;
+    return 1;
+}
+
+static void trim_field(const char **begin, const char **end) {
+    while (*begin < *end && isspace((unsigned char)**begin))
+        (*begin)++;
+    while (*end > *begin && isspace((unsigned char)(*end)[-1]))
+        (*end)--;
+}
+
+int get_decor_vals(const char *s, unsigned int *thickness, char *color, size_t color_capacity) {
+    const char  *begin;
+    const char  *comma;
+    const char  *end;
+    const char  *color_begin;
+    const char  *color_end;
+    size_t       color_length;
+    unsigned int parsed_thickness = 0;
+    int          width_status;
+
+    if (!thickness || !color || color_capacity == 0)
+        return 0;
+    *thickness = 0;
+    color[0]   = '\0';
+    if (!s)
+        return 0;
+
+    begin = s;
+    end   = s + strlen(s);
+    trim_field(&begin, &end);
+    if (begin == end)
+        return 1;
+
+    comma = memchr(begin, ',', (size_t)(end - begin));
+    if (comma) {
+        if (memchr(comma + 1, ',', (size_t)(end - comma - 1)))
+            return 0;
+        color_begin = comma + 1;
+        color_end   = end;
+        end         = comma;
+        trim_field(&begin, &end);
+        trim_field(&color_begin, &color_end);
+        if (begin == end || color_begin == color_end || parse_positive_width(begin, end, &parsed_thickness) != 1)
+            return 0;
+    } else {
+        width_status = parse_positive_width(begin, end, &parsed_thickness);
+        if (width_status == 1) {
+            *thickness = parsed_thickness;
+            return 1;
+        }
+        if (width_status == 0)
+            return 0;
+        if (*begin == '+' || *begin == '-')
+            return 0;
+        color_begin = begin;
+        color_end   = end;
+    }
+
+    color_length = (size_t)(color_end - color_begin);
+    if (color_length >= color_capacity)
+        return 0;
+    memcpy(color, color_begin, color_length);
+    color[color_length] = '\0';
+    *thickness          = parsed_thickness;
+    return 1;
 }

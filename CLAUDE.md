@@ -279,6 +279,11 @@ The font functionality has been extracted into a separate module consisting of:
 - Font preloading for non-XFT builds (allows `^fn(dfnt0)`, `^fn(dfnt1)`, etc.)
 - Automatic cleanup on program exit
 
+When adding or changing a drawing primitive in `draw.c`, always call
+`touch_decorations()` with the primitive's actual horizontal span (and with
+the old and new X positions for cursor movement) so underline/overline bounds
+remain correct.
+
 ### Testing Changes
 
 Always run `make check` before committing. If visual output changes are intentional:

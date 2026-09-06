@@ -18,6 +18,7 @@ EXTRA_DIST = \
   LICENSE \
   INSTALL \
   docs/feature-borders.md \
+  docs/feature-underline.md \
   build-aux/generate-man.sh \
   bitmaps \
   dzen2-help.in \
@@ -51,6 +52,7 @@ noinst_HEADERS = tests/unit/test_common.h
 UNIT_TESTS = \
   tests/unit/action_test \
   tests/unit/border_test \
+  tests/unit/decoration_test \
   tests/unit/layout_test \
   tests/unit/signal_dispatch_test \
   tests/unit/text_buffer_test
@@ -77,6 +79,13 @@ tests_unit_border_test_SOURCES = \
   src/border.h
 tests_unit_border_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
 tests_unit_border_test_LDADD = $(X11_LIBS)
+
+tests_unit_decoration_test_SOURCES = \
+  tests/unit/decoration_test.c \
+  src/util.c \
+  src/util.h
+tests_unit_decoration_test_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/tests/unit
+tests_unit_decoration_test_LDADD = $(X11_LIBS)
 
 tests_unit_layout_test_SOURCES = \
   tests/unit/layout_test.c \
@@ -120,7 +129,8 @@ dzen2-help: dzen2-help.in Makefile
 	$(do_subst) < $(srcdir)/dzen2-help.in > dzen2-help
 	chmod +x dzen2-help
 
-.PHONY: test test-unit test-action test-border test-layout test-signal-dispatch test-text-buffer test-compare-metric \
+.PHONY: test test-unit test-action test-border test-decoration test-layout test-signal-dispatch test-text-buffer \
+  test-compare-metric \
   test-signals test-visual test-visual-xft test-visual-borders test-visual-core test-nonxft \
   test-xinerama test-xrandr update-man
 
@@ -134,6 +144,9 @@ test-action: tests/unit/action_test
 
 test-border: tests/unit/border_test
 	./tests/unit/border_test
+
+test-decoration: tests/unit/decoration_test
+	./tests/unit/decoration_test
 
 test-layout: tests/unit/layout_test
 	./tests/unit/layout_test

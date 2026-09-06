@@ -25,6 +25,7 @@ Main differences between the original and this fork of `dzen2`:
 * Improved theme changing on the fly. Allows setting default fg/bg color and font.
   See `^normfg(COLOR)`, `^normbg(COLOR)`, `^normfg(FONT)`.
 * Borders and padding. See `-b`, `-pad`, `^border(SPEC)`, and `^padding(SPEC)`.
+* Span underline and overline decorations for text, icons, graphics, and positioning.
 * Added integration test (you can run: `make test`).
 * To make assembly easier, used GNU Autotools instead of a simple Makefile.
 * `-p` with argument n persist for n seconds,
@@ -93,6 +94,8 @@ Running dzen
     -bg     background color
     -b      static outer border widths and optional color, see below
     -pad    static padding widths, see below
+    -underline default underline thickness and optional color, see below
+    -overline  default overline thickness and optional color, see below
     -fn     font
     -ta     alignment of title window content
             l(eft), c(center), r(ight)
@@ -150,6 +153,32 @@ grow outward and are included in dock struts. A single padding box surrounds
 the visible title/slave union, so it does not add a gap between them. Padding
 does not change text or clickable-area coordinates.
 
+`-underline THICKNESS[,COLOR]` and `-overline THICKNESS[,COLOR]` configure
+default span-decoration styles. They do not enable decorations by themselves.
+The built-in default for each is one pixel using the normal foreground color.
+An omitted color follows `-fg` and later `^normfg(...)` changes; an explicit
+color is independent. Specifications are strict and contain no whitespace:
+`2,#ffb52a` is valid, while `2, #ffb52a` is not.
+
+Use `^underline(...)` and `^overline(...)` in input to enable a decoration.
+An empty argument uses the configured defaults, a single argument may override
+the thickness or color, and two arguments override both. `off` closes the
+active span:
+
+    ^overline()text and ^r(20x8) graphics^overline(off)
+    ^underline(2,#5fd7ff)underlined^underline(off)
+
+Rendered by dzen:
+
+    text and  graphics
+    underlined
+
+Decorated spans include text, spaces, icons, rectangles, circles, block
+alignment, and horizontal `^p(...)`/`^pa(...)` movement. They use constant
+memory and normal painter order, so later explicitly positioned content may
+overwrite a previously closed decoration. Decorations are clipped inside the
+line and do not affect geometry or clickable areas.
+
 
 Monitor selection
 =================
@@ -180,6 +209,11 @@ As an example you can add following lines to ~/.Xresources
     dzen2.font:       -*-fixed-*-*-*-*-*-*-*-*-*-*-*-*
     dzen2.foreground: #22EE11
     dzen2.background: black
+    dzen2.underline:  2,#ffb52a
+    dzen2.overline:   1,#5fd7ff
+
+Decoration resources use the same `THICKNESS[,COLOR]` grammar as their command
+line options. Command-line values override X resources.
 
 
 Window layout
@@ -495,6 +529,13 @@ Graphics:
 
     ^c(RADIUS)         Draw a circle with size RADIUS pixels
     ^co(RADIUS)        Circle outline
+
+    ^underline()       Enable underline with configured defaults
+    ^underline(ARG)    Enable underline with a thickness, color, or both
+    ^underline(off)    Disable underline
+    ^overline()        Enable overline with configured defaults
+    ^overline(ARG)     Enable overline with a thickness, color, or both
+    ^overline(off)     Disable overline
 
 Positioning:
 ------------

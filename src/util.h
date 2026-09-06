@@ -7,6 +7,7 @@
 #ifndef DZEN_UTIL_H
 #define DZEN_UTIL_H
 
+#include <stddef.h>
 #include <stdarg.h>
 
 /* Positioning helpers - shared between draw.c and util.c */
@@ -101,5 +102,8 @@ int   get_sens_area(char *s, int *b, char *cmd);
  * Example: "100,_CENTER" → w=100, a=ALIGNCENTER, returns 2
  */
 int   get_block_align_vals(char *s, int *a, int *w);
+
+/* Parse [THICKNESS][,COLOR]. Zero means that thickness was omitted. */
+int   get_decor_vals(const char *s, unsigned int *thickness, char *color, size_t color_capacity);
 
 #endif /* DZEN_UTIL_H */

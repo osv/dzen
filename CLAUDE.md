@@ -62,6 +62,8 @@ Below are list of options for `./src/dzen2`
 - `-fn <font>` - Font specification (XFT or X11 font)
 - `-bg <color>` - Background color
 - `-fg <color>` - Foreground color
+- `-underline <thickness[,color]>` - Default underline style
+- `-overline <thickness[,color]>` - Default overline style
 - `-x/-y <pixel>` - Window position
 - `-w/-h <pixel>` - Window width/height
 - `-ta <l|c|r>` - Title window text alignment (left/center/right)
@@ -177,15 +179,67 @@ dzen2 is a scriptable notification and menu program with two main windows:
 
 ### In-text Formatting Language
 
-dzen2 parses special sequences in input text:
-- `^fg(color)` / `^bg(color)` - Set colors
-- `^fn(font)` - Change font
-- `^i(icon.xbm)` - Insert XBM icon
-- `^r(WxH)` / `^c(radius)` - Draw rectangle/circle
-- `^p(x;y)` - Relative positioning
-- `^ca(button, command)...^ca()` - Clickable areas
+dzen2 has two command categories. Keep them separate when adding features:
 
-Parser implementation is in `draw.c:parse_line()`.
+1. Inline rendering commands are parsed by `draw.c:parse_line()` and may be
+   mixed with text and each other. They update formatting state (`^fg(COLOR)`,
+   `^bg(COLOR)`, `^fn(FONT)`, `^ib(0|1)`, `^underline(SPEC)`,
+   `^overline(SPEC)`), draw content (`^i(PATH)`, `^r(WxH)`, `^ro(WxH)`,
+   `^c(DIAMETER)`, `^co(DIAMETER)`), move/layout the cursor (`^p(X;Y)`,
+   `^pa(X;Y)`, `^ba(WIDTH,ALIGN)`, `^left()`, `^center()`, `^right()`), or
+   delimit clickable areas (`^ca(BUTTON,COMMAND)...^ca()`).
+2. Whole-line control commands are handled before rendering by
+   `draw.c:parse_non_drawing_commands()`. Commands such as `^border(SPEC)`,
+   `^padding(SPEC)`, `^normfg(COLOR)`, `^normbg(COLOR)`, `^normfn(FONT)`,
+   `^collapse()`, `^hide()`, and `^exit()` must be the only command on their
+   input line. The line is consumed rather than rendered or stored. This keeps
+   global window/layout mutation out of the span renderer and avoids changing
+   geometry while a line pixmap is being parsed. `^cs()` is likewise a
+   first-and-only command. `^tw()` redirects the remainder to the title and
+   should be used once, as the first command on the line.
+
+Common argument examples:
+
+```text
+^fg(#ff5555)text^fg()
+^r(20x8)^p(4;0)^i(icon.xbm)
+^ca(1,echo clicked)click me^ca()
+^underline()default style^underline(off)
+^overline(2,#5fd7ff)explicit style^overline(off)
+^border(1,2,3,4,#303030)
+^padding(4,8)
+```
+
+Command arguments follow the grammar of their individual parser; do not add
+generic trimming in the tokenizer. Decoration specifications are deliberately
+strict and contain no whitespace: `THICKNESS`, `COLOR`, or
+`THICKNESS,COLOR`. Thus `2,#ff5555` is valid while `2, #ff5555`, ` 2`, and
+`off ` are invalid. Empty `^underline()`/`^overline()` arguments are valid and
+select the configured defaults. Invalid inline decoration arguments are
+ignored without changing the active decoration.
+
+### Configuration Defaults and Precedence
+
+Startup configuration is applied in this order:
+
+1. built-in defaults are initialized in `main.c`;
+2. X resources replace matching built-in values;
+3. command-line options replace matching X resource values.
+
+For example, `dzen2.underline: 2,#ffb52a` supplies the default underline style,
+while `-underline 3,#5fd7ff` overrides it for that process. These settings do
+not enable a decoration; they are read only when an inline `^underline(...)`
+or `^overline(...)` command omits a field. An inline thickness or color applies
+only to the span it opens and never changes the process default. With no
+explicit configured decoration color, the default color is the effective
+normal foreground (including reversed menu highlighting). X resource and CLI
+decoration specifications require a positive thickness and use the strict
+`THICKNESS[,COLOR]` grammar.
+
+When adding a configurable option, initialize its built-in value before
+`x_read_resources()`, read the X resource there, and parse the CLI option
+afterward so this precedence remains consistent. Resolve reusable X resources,
+such as explicit colors, once during startup rather than on the render path.
 
 ### Performance Optimizations (Fork-specific)
 
@@ -224,6 +278,11 @@ The font functionality has been extracted into a separate module consisting of:
 - Font caching for XFT builds (improves performance)
 - Font preloading for non-XFT builds (allows `^fn(dfnt0)`, `^fn(dfnt1)`, etc.)
 - Automatic cleanup on program exit
+
+When adding or changing a drawing primitive in `draw.c`, always call
+`touch_decorations()` with the primitive's actual horizontal span (and with
+the old and new X positions for cursor movement) so underline/overline bounds
+remain correct.
 
 ### Testing Changes
 

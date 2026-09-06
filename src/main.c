@@ -355,6 +355,24 @@ static void x_connect(void) {
     dzen.screen = DefaultScreen(dzen.dpy);
 }
 
+static void set_decoration_default(const char *name, const char *value, Bool underline) {
+    unsigned int thickness;
+    char         color[MAX_COLOR_LEN];
+
+    if (!get_decor_vals(value, &thickness, color, sizeof(color)) || thickness == 0)
+        eprint("dzen: invalid %s specification '%s'\n", name, value);
+
+    if (underline) {
+        dzen.underline_thickness      = thickness;
+        dzen.underline_color_explicit = color[0] != '\0';
+        memcpy(dzen.underline_color, color, strlen(color) + 1);
+    } else {
+        dzen.overline_thickness      = thickness;
+        dzen.overline_color_explicit = color[0] != '\0';
+        memcpy(dzen.overline_color, color, strlen(color) + 1);
+    }
+}
+
 /* Read display styles from X resources. */
 static void x_read_resources(void) {
     XrmDatabase xdb;
@@ -366,19 +384,25 @@ static void x_read_resources(void) {
     xrm = XResourceManagerString(dzen.dpy);
     if (xrm != NULL) {
         xdb = XrmGetStringDatabase(xrm);
-        if (XrmGetResource(xdb, "dzen2.font", "*", datatype, &xvalue) == True) {
+        if (XrmGetResource(xdb, "dzen2.font", "Dzen2.Font", datatype, &xvalue) == True) {
             text_buffer_assign(&dzen.fnt, xvalue.addr);
         }
-        if (XrmGetResource(xdb, "dzen2.foreground", "*", datatype, &xvalue) == True) {
+        if (XrmGetResource(xdb, "dzen2.foreground", "Dzen2.Foreground", datatype, &xvalue) == True) {
             text_buffer_assign(&dzen.fg, xvalue.addr);
         }
-        if (XrmGetResource(xdb, "dzen2.background", "*", datatype, &xvalue) == True) {
+        if (XrmGetResource(xdb, "dzen2.background", "Dzen2.Background", datatype, &xvalue) == True) {
             text_buffer_assign(&dzen.bg, xvalue.addr);
         }
-        if (XrmGetResource(xdb, "dzen2.titlename", "*", datatype, &xvalue) == True) {
+        if (XrmGetResource(xdb, "dzen2.underline", "Dzen2.Underline", datatype, &xvalue) == True) {
+            set_decoration_default("dzen2.underline", xvalue.addr, True);
+        }
+        if (XrmGetResource(xdb, "dzen2.overline", "Dzen2.Overline", datatype, &xvalue) == True) {
+            set_decoration_default("dzen2.overline", xvalue.addr, False);
+        }
+        if (XrmGetResource(xdb, "dzen2.titlename", "Dzen2.Titlename", datatype, &xvalue) == True) {
             text_buffer_assign(&dzen.title_win.name, xvalue.addr);
         }
-        if (XrmGetResource(xdb, "dzen2.slavename", "*", datatype, &xvalue) == True) {
+        if (XrmGetResource(xdb, "dzen2.slavename", "Dzen2.Slavename", datatype, &xvalue) == True) {
             text_buffer_assign(&dzen.slave_win.name, xvalue.addr);
         }
         XrmDestroyDatabase(xdb);
@@ -700,6 +724,8 @@ int main(int argc, char *argv[]) {
     dzen.tsupdate              = 0;
     dzen.line_height           = 0;
     dzen.title_win.expand      = noexpand;
+    dzen.underline_thickness   = 1;
+    dzen.overline_thickness    = 1;
     border_spec_init(&dzen.border);
 
     /* Connect to X server */
@@ -708,7 +734,15 @@ int main(int argc, char *argv[]) {
 
     /* cmdline args */
     for (i = 1; i < argc; i++)
-        if (!strcmp(argv[i], "-b")) {
+        if (!strcmp(argv[i], "-underline")) {
+            if (++i >= argc)
+                eprint("dzen: -underline requires a decoration specification\n");
+            set_decoration_default("underline", argv[i], True);
+        } else if (!strcmp(argv[i], "-overline")) {
+            if (++i >= argc)
+                eprint("dzen: -overline requires a decoration specification\n");
+            set_decoration_default("overline", argv[i], False);
+        } else if (!strcmp(argv[i], "-b")) {
             if (++i >= argc)
                 eprint("dzen: -b requires a border specification\n");
             if (!border_spec_parse(&dzen.border, argv[i]))
@@ -876,6 +910,7 @@ int main(int argc, char *argv[]) {
             eprint("usage: dzen2 [-v] [-p [seconds]] [-m [v|h]] [-ta <l|c|r>] [-sa <l|c|r>]\n"
                    "             [-x <pixel>] [-y <pixel>] [-w <pixel>] [-h <pixel>] [-tw <pixel>] [-u]\n"
                    "             [-e <string>] [-l <lines>] [-b <widths[,color]>] [-pad <widths>]\n"
+                   "             [-underline <thickness[,color]>] [-overline <thickness[,color]>]\n"
                    "             [-fn <font>]\n"
                    "             [-bg <color>] [-fg <color>]\n"
                    "             [-geometry <geometry string>] [-expand <left|right>] [-dock]\n"
@@ -937,6 +972,20 @@ int main(int argc, char *argv[]) {
     init_all_caches();
     font_init(dzen.dpy, dzen.screen);
     font_set_default(text_buffer_data(&dzen.fnt));
+    if (dzen.underline_color_explicit) {
+        long pixel = get_color(dzen.underline_color);
+
+        if (pixel == -1)
+            eprint("dzen: error, cannot allocate color '%s'\n", dzen.underline_color);
+        dzen.underline_pixel = (unsigned long)pixel;
+    }
+    if (dzen.overline_color_explicit) {
+        long pixel = get_color(dzen.overline_color);
+
+        if (pixel == -1)
+            eprint("dzen: error, cannot allocate color '%s'\n", dzen.overline_color);
+        dzen.overline_pixel = (unsigned long)pixel;
+    }
 
 #ifdef HAVE_XRANDR
     if (!xrandr_initialize(dzen.dpy, dzen.screen, &xrandr_context) && (has_output_name() || list_outputs))

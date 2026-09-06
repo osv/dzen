@@ -39,6 +39,9 @@ Borders and padding.
 See \f[CR]\-b\f[R], \f[CR]\-pad\f[R], \f[CR]\[ha]border(SPEC)\f[R], and
 \f[CR]\[ha]padding(SPEC)\f[R].
 .IP \[bu] 2
+Span underline and overline decorations for text, icons, graphics, and
+positioning.
+.IP \[bu] 2
 Added integration test (you can run: \f[CR]make test\f[R]).
 .IP \[bu] 2
 To make assembly easier, used GNU Autotools instead of a simple
@@ -113,6 +116,8 @@ driver.
 \-bg     background color
 \-b      static outer border widths and optional color, see below
 \-pad    static padding widths, see below
+\-underline default underline thickness and optional color, see below
+\-overline  default overline thickness and optional color, see below
 \-fn     font
 \-ta     alignment of title window content
         l(eft), c(center), r(ight)
@@ -185,6 +190,43 @@ padding and border grow outward and are included in dock struts.
 A single padding box surrounds the visible title/slave union, so it does
 not add a gap between them.
 Padding does not change text or clickable\-area coordinates.
+.PP
+\f[CR]\-underline THICKNESS[,COLOR]\f[R] and
+\f[CR]\-overline THICKNESS[,COLOR]\f[R] configure default
+span\-decoration styles.
+They do not enable decorations by themselves.
+The built\-in default for each is one pixel using the normal foreground
+color.
+An omitted color follows \f[CR]\-fg\f[R] and later
+\f[CR]\[ha]normfg(...)\f[R] changes; an explicit color is independent.
+Specifications are strict and contain no whitespace:
+\f[CR]2,#ffb52a\f[R] is valid, while \f[CR]2, #ffb52a\f[R] is not.
+.PP
+Use \f[CR]\[ha]underline(...)\f[R] and \f[CR]\[ha]overline(...)\f[R] in
+input to enable a decoration.
+An empty argument uses the configured defaults, a single argument may
+override the thickness or color, and two arguments override both.
+\f[CR]off\f[R] closes the active span:
+.IP
+.EX
+\[ha]overline()text and \[ha]r(20x8) graphics\[ha]overline(off)
+\[ha]underline(2,#5fd7ff)underlined\[ha]underline(off)
+.EE
+.PP
+Rendered by dzen:
+.IP
+.EX
+text and  graphics
+underlined
+.EE
+.PP
+Decorated spans include text, spaces, icons, rectangles, circles, block
+alignment, and horizontal \f[CR]\[ha]p(...)\f[R]/\f[CR]\[ha]pa(...)\f[R]
+movement.
+They use constant memory and normal painter order, so later explicitly
+positioned content may overwrite a previously closed decoration.
+Decorations are clipped inside the line and do not affect geometry or
+clickable areas.
 .SH Monitor selection
 Without a monitor selector, dzen uses the root\-window geometry and
 follows XRandR changes to its size.
@@ -212,7 +254,13 @@ As an example you can add following lines to \[ti]/.Xresources
 dzen2.font:       \-*\-fixed\-*\-*\-*\-*\-*\-*\-*\-*\-*\-*\-*\-*
 dzen2.foreground: #22EE11
 dzen2.background: black
+dzen2.underline:  2,#ffb52a
+dzen2.overline:   1,#5fd7ff
 .EE
+.PP
+Decoration resources use the same \f[CR]THICKNESS[,COLOR]\f[R] grammar
+as their command line options.
+Command\-line values override X resources.
 .SH Window layout
 Dzen\[cq]s window layout is as follows:
 .IP
@@ -518,6 +566,13 @@ Currently the following commands are supported:
 
 \[ha]c(RADIUS)         Draw a circle with size RADIUS pixels
 \[ha]co(RADIUS)        Circle outline
+
+\[ha]underline()       Enable underline with configured defaults
+\[ha]underline(ARG)    Enable underline with a thickness, color, or both
+\[ha]underline(off)    Disable underline
+\[ha]overline()        Enable overline with configured defaults
+\[ha]overline(ARG)     Enable overline with a thickness, color, or both
+\[ha]overline(off)     Disable overline
 .EE
 .SS Positioning:
 .IP

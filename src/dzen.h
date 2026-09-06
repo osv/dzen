@@ -42,6 +42,7 @@
 #define MIN_BUF_SIZE          1024
 #define MAX_CLICKABLE_AREAS   256
 #define MAX_CLICKABLE_CMD_LEN 1024
+#define MAX_COLOR_LEN         256
 
 #ifndef Button6
 #define Button6 6
@@ -149,6 +150,14 @@ struct DZEN {
     BorderSpec    border;
     BoxInsets     padding;
     unsigned long border_pixel;
+    unsigned int  underline_thickness;
+    unsigned int  overline_thickness;
+    char          underline_color[MAX_COLOR_LEN];
+    char          overline_color[MAX_COLOR_LEN];
+    Bool          underline_color_explicit;
+    Bool          overline_color_explicit;
+    unsigned long underline_pixel;
+    unsigned long overline_pixel;
 
     /* Window structures */
     Window        outer_win; /* The only root child and WM-facing application surface */

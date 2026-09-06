@@ -50,7 +50,9 @@ enum ctype {
     ba,
     leftalign,
     centeralign,
-    rightalign
+    rightalign,
+    underline,
+    overline
 };
 
 struct command_lookup {
@@ -77,6 +79,8 @@ struct command_lookup cmd_lookup_table[] = {
     { "left(",      leftalign,  5},
     { "right(",     rightalign, 6},
     { "center(",    centeralign,7},
+    { "underline(", underline,  10},
+    { "overline(",  overline,    9},
     { "tw(",        titlewin,   3},
     { 0,            0,          0}
 };
@@ -152,6 +156,14 @@ static void setcolor(Drawable *pm, int x, int width, long tfg, long tbg, int rev
     XSetBackground(dzen.dpy, dzen.tgc, reverse ? tfg : tbg);
 }
 
+typedef struct {
+    int           active;
+    int           min_x;
+    int           max_x;
+    unsigned int  thickness;
+    unsigned long pixel;
+} DecorState;
+
 /* Parser context structure to hold parsing state */
 typedef struct {
     /* Position and dimensions */
@@ -192,6 +204,13 @@ typedef struct {
     /* Clickable areas tracking */
     int         sens_areas_start;
 
+    /* Active decorations use constant memory and are painted when closed. */
+    DecorState  underline;
+    DecorState  overline;
+    /* Shared bounds for operations while the set of active decorations is unchanged. */
+    int         segment_min_x;
+    int         segment_max_x;
+
     /* Text parsing */
     const char *input_ptr;
     int         token;
@@ -201,6 +220,114 @@ typedef struct {
     /* For nodraw mode */
     TextBuffer *markup_free_text;
 } ParseContext;
+
+static void touch_decorations(ParseContext *ctx, int x1, int x2) {
+    int left;
+    int right;
+
+    if (!ctx->underline.active && !ctx->overline.active)
+        return;
+
+    left  = x1 < x2 ? x1 : x2;
+    right = x1 < x2 ? x2 : x1;
+    if (left == right)
+        return;
+    if (left < ctx->segment_min_x)
+        ctx->segment_min_x = left;
+    if (right > ctx->segment_max_x)
+        ctx->segment_max_x = right;
+}
+
+static void flush_decoration_segment(ParseContext *ctx) {
+    /* Every active decoration covers the same segment; retain its own history across flushes. */
+    if (ctx->underline.active) {
+        if (ctx->segment_min_x < ctx->underline.min_x)
+            ctx->underline.min_x = ctx->segment_min_x;
+        if (ctx->segment_max_x > ctx->underline.max_x)
+            ctx->underline.max_x = ctx->segment_max_x;
+    }
+    if (ctx->overline.active) {
+        if (ctx->segment_min_x < ctx->overline.min_x)
+            ctx->overline.min_x = ctx->segment_min_x;
+        if (ctx->segment_max_x > ctx->overline.max_x)
+            ctx->overline.max_x = ctx->segment_max_x;
+    }
+
+    ctx->segment_min_x = ctx->segment_max_x = ctx->current_x;
+}
+
+static void close_decoration(ParseContext *ctx, DecorState *decoration, int underline_line) {
+    int          left;
+    int          right;
+    unsigned int thickness;
+    int          y;
+
+    left      = decoration->min_x;
+    right     = decoration->max_x;
+    thickness = decoration->thickness;
+
+    if (!decoration->active || dzen.line_height <= 0) {
+        decoration->active = 0;
+        return;
+    }
+    decoration->active = 0;
+    if (left < 0)
+        left = 0;
+    if (right > dzen.w)
+        right = dzen.w;
+    if (right <= left)
+        return;
+    if (thickness > (unsigned int)dzen.line_height)
+        thickness = (unsigned int)dzen.line_height;
+    y = underline_line ? dzen.line_height - (int)thickness : 0;
+
+    XSetForeground(dzen.dpy, dzen.tgc, decoration->pixel);
+    XFillRectangle(dzen.dpy, ctx->pm, dzen.tgc, left, y, (unsigned int)(right - left), thickness);
+    XSetForeground(dzen.dpy, dzen.tgc, ctx->reverse ? ctx->lastbg : ctx->lastfg);
+    XSetBackground(dzen.dpy, dzen.tgc, ctx->reverse ? ctx->lastfg : ctx->lastbg);
+}
+
+static int decoration_is_off(const char *value) {
+    return !strcmp(value, "off");
+}
+
+static void process_decoration_command(ParseContext *ctx, int underline_line) {
+    DecorState   *decoration = underline_line ? &ctx->underline : &ctx->overline;
+    unsigned int  thickness;
+    unsigned long pixel;
+    char          color[MAX_COLOR_LEN];
+    const char   *value = ctx->token_value ? ctx->token_value : "";
+    long          parsed_pixel;
+
+    if (decoration_is_off(value)) {
+        flush_decoration_segment(ctx);
+        close_decoration(ctx, decoration, underline_line);
+        return;
+    }
+    if (!get_decor_vals(value, &thickness, color, sizeof(color)))
+        return;
+    if (thickness == 0)
+        thickness = underline_line ? dzen.underline_thickness : dzen.overline_thickness;
+
+    if (color[0]) {
+        parsed_pixel = get_color(color);
+        if (parsed_pixel == -1)
+            return;
+        pixel = (unsigned long)parsed_pixel;
+    } else if (underline_line ? dzen.underline_color_explicit : dzen.overline_color_explicit) {
+        pixel = underline_line ? dzen.underline_pixel : dzen.overline_pixel;
+    } else {
+        pixel = ctx->reverse ? dzen.norm[ColBG] : dzen.norm[ColFG];
+    }
+
+    flush_decoration_segment(ctx);
+    close_decoration(ctx, decoration, underline_line);
+    decoration->active    = 1;
+    decoration->min_x     = ctx->current_x;
+    decoration->max_x     = ctx->current_x;
+    decoration->thickness = thickness;
+    decoration->pixel     = pixel;
+}
 
 /* Process rectangle command */
 static void process_rect_command(ParseContext *ctx) {
@@ -212,6 +339,7 @@ static void process_rect_command(ParseContext *ctx) {
     recty      = recty == 0 ? (dzen.line_height - recth) / 2 : (dzen.line_height - recth) / 2 + recty;
     ctx->max_x = MAX(ctx->max_x, ctx->current_x + rectx + rectw);
     ctx->current_x += !ctx->pos_is_fixed ? rectx : 0;
+    touch_decorations(ctx, ctx->current_x, ctx->current_x + rectw);
     setcolor(&ctx->pm, ctx->current_x, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
 
     XFillRectangle(dzen.dpy, ctx->pm, dzen.tgc, ctx->current_x,
@@ -224,6 +352,7 @@ static void process_rect_command(ParseContext *ctx) {
 static void process_circle_command(ParseContext *ctx) {
     int rectw, recth, rectx;
     rectx = get_circle_vals(ctx->token_value, &rectw, &recth);
+    touch_decorations(ctx, ctx->current_x, ctx->current_x + rectw);
     setcolor(&ctx->pm, ctx->current_x, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
     XFillArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->current_x,
              ctx->set_posy ? ctx->current_y : (dzen.line_height - rectw) / 2, rectw, rectw, 90 * 64,
@@ -234,6 +363,8 @@ static void process_circle_command(ParseContext *ctx) {
 
 /* Process position command */
 static void process_pos_command(ParseContext *ctx) {
+    int old_x = ctx->current_x;
+
     if (ctx->token_value && ctx->token_value[0]) {
         int r = 0;
         int n_posx, n_posy;
@@ -280,6 +411,7 @@ static void process_pos_command(ParseContext *ctx) {
         ctx->current_y = (dzen.line_height - h) / 2;
     }
     ctx->max_x = MAX(ctx->max_x, ctx->current_x);
+    touch_decorations(ctx, old_x, ctx->current_x);
 }
 
 /* Process background color command */
@@ -363,6 +495,8 @@ static void process_font_command(ParseContext *ctx) {
 
 /* Process absolute position command */
 static void process_abspos_command(ParseContext *ctx) {
+    int old_x = ctx->current_x;
+
     if (ctx->token_value && ctx->token_value[0]) {
         int r = 0;
         int n_posx, n_posy;
@@ -383,12 +517,14 @@ static void process_abspos_command(ParseContext *ctx) {
         ctx->current_y = (dzen.line_height - h) / 2;
     }
     ctx->max_x = MAX(ctx->max_x, ctx->current_x);
+    touch_decorations(ctx, old_x, ctx->current_x);
 }
 
 /* Process outlined circle command */
 static void process_circleo_command(ParseContext *ctx) {
     int rectw, recth, rectx;
     rectx = get_circle_vals(ctx->token_value, &rectw, &recth);
+    touch_decorations(ctx, ctx->current_x, ctx->current_x + rectw);
     setcolor(&ctx->pm, ctx->current_x, rectw, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
     XDrawArc(dzen.dpy, ctx->pm, dzen.tgc, ctx->current_x,
              ctx->set_posy ? ctx->current_y : (dzen.line_height - rectw) / 2, rectw, rectw, 90 * 64,
@@ -410,6 +546,7 @@ static void process_recto_command(ParseContext *ctx) {
     recty          = recty == 0 ? (dzen.line_height - recth) / 2 : (dzen.line_height - recth) / 2 + recty;
     ctx->max_x     = MAX(ctx->max_x, ctx->current_x + rectx + rectw);
     ctx->current_x = (rectx == 0) ? ctx->current_x : rectx + ctx->current_x;
+    touch_decorations(ctx, ctx->current_x, ctx->current_x + rectw);
     /* prevent from stairs effect when rounding recty */
     if (!((dzen.line_height - recth) % 2))
         recty--;
@@ -429,6 +566,7 @@ static void process_icon_command(ParseContext *ctx) {
                      : (dzen.line_height >= (int)icon_obj->h ? (dzen.line_height - (int)icon_obj->h) / 2 : 0));
 
         setcolor(&ctx->pm, ctx->current_x, icon_obj->w, ctx->lastfg, ctx->lastbg, ctx->reverse, ctx->nobg);
+        touch_decorations(ctx, ctx->current_x, ctx->current_x + (int)icon_obj->w);
 
         if (icon_obj->is_xbm) {
             /* 1-bit XBM => plane copy. */
@@ -504,6 +642,10 @@ static void parse_context_init(ParseContext *ctx, const char *line, int lnr, int
 
     /* Clickable areas tracking */
     ctx->sens_areas_start = window_sens[LNR2WINDOW(lnr)].sens_areas_cnt;
+
+    ctx->underline     = (DecorState){ 0 };
+    ctx->overline      = (DecorState){ 0 };
+    ctx->segment_min_x = ctx->segment_max_x = ctx->current_x;
 
     /* Text parsing */
     ctx->input_ptr          = NULL;
@@ -622,6 +764,12 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                     case ba:
                         process_block_align(&ctx);
                         break;
+                    case underline:
+                        process_decoration_command(&ctx, 1);
+                        break;
+                    case overline:
+                        process_decoration_command(&ctx, 0);
+                        break;
                     }
                     /* No need to free - token_value points into line_buffer */
                 }
@@ -638,6 +786,7 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
 
                 /* draw background for block */
                 if (ctx.block_align != -1 && !ctx.nobg) {
+                    touch_decorations(&ctx, ctx.current_x, ctx.current_x + ctx.block_width);
                     setcolor(&ctx.pm, ctx.current_x, ctx.block_width, ctx.lastbg, ctx.lastbg, 0, ctx.nobg);
                     XFillRectangle(dzen.dpy, ctx.pm, dzen.tgc, ctx.current_x, 0, ctx.block_width, dzen.line_height);
                 }
@@ -650,6 +799,7 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                 if (!ctx.nobg)
                     setcolor(&ctx.pm, ctx.current_x, tw, ctx.lastfg, ctx.lastbg, ctx.reverse, ctx.nobg);
 
+                touch_decorations(&ctx, ctx.current_x, ctx.current_x + tw);
                 font_draw_text(ctx.pm, dzen.tgc, ctx.current_x, ctx.current_y, ctx.text_buffer,
                                (unsigned int)ctx.buffer_pos, ctx.reverse, ctx.current_fgcolor, ctx.current_bgcolor);
 
@@ -667,6 +817,8 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
                         ctx.current_x = ctx.block_start_x;
                     else
                         ctx.current_x = ctx.block_start_x + ctx.block_width;
+                    if (!ctx.pos_is_fixed)
+                        touch_decorations(&ctx, ctx.block_start_x, ctx.current_x);
                     ctx.max_x = MAX(ctx.max_x, ctx.current_x);
                 }
                 ctx.block_align = ctx.block_width = -1;
@@ -713,6 +865,10 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
     }
 
     if (!ctx.nodraw) {
+        flush_decoration_segment(&ctx);
+        close_decoration(&ctx, &ctx.overline, 0);
+        close_decoration(&ctx, &ctx.underline, 1);
+
         /* expand/shrink dynamically */
         if (dzen.title_win.expand && ctx.line_number == -1) {
             i = ctx.current_x;

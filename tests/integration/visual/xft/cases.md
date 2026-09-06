@@ -672,14 +672,16 @@ Esc: ^^fg(red) literal
 ## Test: 21 Underline and overline
 
 Decorations cover text, icons, graphics, relative and absolute positioning,
-including drawing while horizontal advancement is locked.
+including drawing while horizontal advancement is locked. The first line also
+checks staggered overlap, active style replacement, an empty span, and an
+invalid command that must leave the active overline unchanged.
 
 ### Args: -l 2 -e onstart=uncollapse -ta l -sa l -fn "DejaVu Sans Mono:size=16:dpi=96:spacing=100:style=Book:antialias=true:hinting=false:rgba=none" -h 30 -w 400 -bg '#000' -fg '#fff' -underline 3,#ff5555 -overline 2,#50fa7b
 
 ### Pipe data
 
 ```
-^underline()Under^underline(off) ^overline()Over^overline(off) ^underline(2,#5fafff)^overline(3,#ffff00)Both^overline(off)^underline(off)
+^underline()Under^underline(off) ^overline()Over^overline(off) ^underline(2,#5fafff)^overline(3,#ffff00)Both^overline(off)^underline(off) ^underline()U^overline()B^underline(off)O^overline(off) ^underline(2,#5fafff)A^underline(4,#ff79c6)B^underline(off) ^overline()^overline(off)^overline()X^overline(off )Y^overline(off)
 ^underline()^i(bitmaps/envelope.xbm)^p(4)^r(20x12)^p(4)^ro(20x12)^p(4)^c(10)^p(4)^co(10)^underline(off)
 ^overline()A^p(15)^p(_LOCK_X)^ro(30x20)^p(_UNLOCK_X)^p(35)^pa(120)^r(12x8)^overline(off)
 ```

@@ -158,7 +158,6 @@ static void setcolor(Drawable *pm, int x, int width, long tfg, long tbg, int rev
 
 typedef struct {
     int           active;
-    int           touched;
     int           min_x;
     int           max_x;
     unsigned int  thickness;
@@ -208,6 +207,9 @@ typedef struct {
     /* Active decorations use constant memory and are painted when closed. */
     DecorState  underline;
     DecorState  overline;
+    /* Shared bounds for operations while the set of active decorations is unchanged. */
+    int         segment_min_x;
+    int         segment_max_x;
 
     /* Text parsing */
     const char *input_ptr;
@@ -219,27 +221,39 @@ typedef struct {
     TextBuffer *markup_free_text;
 } ParseContext;
 
-static void touch_one_decoration(DecorState *decoration, int x1, int x2) {
-    int left  = x1 < x2 ? x1 : x2;
-    int right = x1 < x2 ? x2 : x1;
+static void touch_decorations(ParseContext *ctx, int x1, int x2) {
+    int left;
+    int right;
 
-    if (!decoration->active || left == right)
+    if (!ctx->underline.active && !ctx->overline.active)
         return;
-    if (!decoration->touched) {
-        decoration->min_x   = left;
-        decoration->max_x   = right;
-        decoration->touched = 1;
+
+    left  = x1 < x2 ? x1 : x2;
+    right = x1 < x2 ? x2 : x1;
+    if (left == right)
         return;
-    }
-    if (left < decoration->min_x)
-        decoration->min_x = left;
-    if (right > decoration->max_x)
-        decoration->max_x = right;
+    if (left < ctx->segment_min_x)
+        ctx->segment_min_x = left;
+    if (right > ctx->segment_max_x)
+        ctx->segment_max_x = right;
 }
 
-static void touch_decorations(ParseContext *ctx, int x1, int x2) {
-    touch_one_decoration(&ctx->underline, x1, x2);
-    touch_one_decoration(&ctx->overline, x1, x2);
+static void flush_decoration_segment(ParseContext *ctx) {
+    /* Every active decoration covers the same segment; retain its own history across flushes. */
+    if (ctx->underline.active) {
+        if (ctx->segment_min_x < ctx->underline.min_x)
+            ctx->underline.min_x = ctx->segment_min_x;
+        if (ctx->segment_max_x > ctx->underline.max_x)
+            ctx->underline.max_x = ctx->segment_max_x;
+    }
+    if (ctx->overline.active) {
+        if (ctx->segment_min_x < ctx->overline.min_x)
+            ctx->overline.min_x = ctx->segment_min_x;
+        if (ctx->segment_max_x > ctx->overline.max_x)
+            ctx->overline.max_x = ctx->segment_max_x;
+    }
+
+    ctx->segment_min_x = ctx->segment_max_x = ctx->current_x;
 }
 
 static void close_decoration(ParseContext *ctx, DecorState *decoration, int underline_line) {
@@ -252,11 +266,11 @@ static void close_decoration(ParseContext *ctx, DecorState *decoration, int unde
     right     = decoration->max_x;
     thickness = decoration->thickness;
 
-    if (!decoration->active || !decoration->touched || dzen.line_height <= 0) {
-        decoration->active = decoration->touched = 0;
+    if (!decoration->active || dzen.line_height <= 0) {
+        decoration->active = 0;
         return;
     }
-    decoration->active = decoration->touched = 0;
+    decoration->active = 0;
     if (left < 0)
         left = 0;
     if (right > dzen.w)
@@ -286,6 +300,7 @@ static void process_decoration_command(ParseContext *ctx, int underline_line) {
     long          parsed_pixel;
 
     if (decoration_is_off(value)) {
+        flush_decoration_segment(ctx);
         close_decoration(ctx, decoration, underline_line);
         return;
     }
@@ -305,9 +320,9 @@ static void process_decoration_command(ParseContext *ctx, int underline_line) {
         pixel = ctx->reverse ? dzen.norm[ColBG] : dzen.norm[ColFG];
     }
 
+    flush_decoration_segment(ctx);
     close_decoration(ctx, decoration, underline_line);
     decoration->active    = 1;
-    decoration->touched   = 0;
     decoration->min_x     = ctx->current_x;
     decoration->max_x     = ctx->current_x;
     decoration->thickness = thickness;
@@ -628,8 +643,9 @@ static void parse_context_init(ParseContext *ctx, const char *line, int lnr, int
     /* Clickable areas tracking */
     ctx->sens_areas_start = window_sens[LNR2WINDOW(lnr)].sens_areas_cnt;
 
-    ctx->underline = (DecorState){ 0 };
-    ctx->overline  = (DecorState){ 0 };
+    ctx->underline     = (DecorState){ 0 };
+    ctx->overline      = (DecorState){ 0 };
+    ctx->segment_min_x = ctx->segment_max_x = ctx->current_x;
 
     /* Text parsing */
     ctx->input_ptr          = NULL;
@@ -849,6 +865,7 @@ static void parse_line_internal(const char *line, int lnr, int align, int revers
     }
 
     if (!ctx.nodraw) {
+        flush_decoration_segment(&ctx);
         close_decoration(&ctx, &ctx.overline, 0);
         close_decoration(&ctx, &ctx.underline, 1);
 

@@ -30,7 +30,10 @@ pandoc "$input" \
     --metadata "title=$title" \
     --metadata "section=$section" \
     -s -t man -o "$raw"
-sed 's/[[:blank:]]*$//' "$raw" > "$tmp"
+sed -e 's/[[:blank:]]*$//' \
+    -e 's/DZENFMTBOLDTOKEN/\\fB/g' \
+    -e 's/DZENFMTITALICTOKEN/\\fI/g' \
+    -e 's/DZENFMTRESETTOKEN/\\fP/g' "$raw" > "$tmp"
 
 if test -r "$output" && cmp -s "$tmp" "$output"; then
     touch "$output"

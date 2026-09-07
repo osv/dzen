@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 OPTS=(
     -bg "#111111"
@@ -54,9 +54,13 @@ README_FILE=$(find_readme)
 
 if [ -x "$DZEN2_BIN" ]; then
     if [ -f "$README_FILE" ]; then
+        # Resolve relative icon paths against the documentation, including after install.
+        README_DIR=$(dirname "$README_FILE")
+        README_NAME=$(basename "$README_FILE")
+        cd "$README_DIR" || exit 1
         (
             echo "^fg(#323232)^bg(#5FBF77) Documentation (use: scrollwheel, arrow keys, PgUP/PgDown to scroll. Escape or right mouse button to quit)";
-            cat "$README_FILE"
+            cat "$README_NAME"
         ) | "$DZEN2_BIN" "${OPTS[@]}"
     else
         echo "Error: README.dzen not found. Please ensure the file is available."

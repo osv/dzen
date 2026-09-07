@@ -1,122 +1,172 @@
-    ====================================
-     dzen, (c) 2007-2010 by Robert Manea
-           (c) 2025 by Olexandr Sydorchuk
-    ====================================
+## NAME
 
-Dzen is a general purpose messaging, notification and menuing program for X11.
-It was designed to be fast, tiny and scriptable in any language.
+`dzen2` - scriptable X11 status bars, notifications and menus
 
-The "gadgets" subdirectory contains some tools that you can
-use in combination with dzen.
+## SYNOPSIS
 
-Script archive with a collection of interesting ideas:
-  http://gotmor.googlepages.com/dzenscriptarchive
+    dzen2 [OPTIONS] < input
+    printf '%s\n' 'Hello' | dzen2 -p
+    status.sh | dzen2 -w 800 -ta l
+    printf '%s\n' 'Menu' 'xterm' 'xclock' | dzen2 -l 2 -m v -p
 
-About this dzen2 fork
-=====================
+Use `dzen2-help` to read this document with live formatting. Right-click or
+press Escape to close that viewer.
 
-Main differences between the original and this fork of `dzen2`:
+## DESCRIPTION
 
-* Improved performance for color/font changing (caching X11 resources).
-* Increased line size from 8k to 16M.
-* Align commands: `^left()`, `^center()`, `^right()`.
-  You can now run a single dzen instance to render workspaces on the
-  left side and other widgets on the right side.
-* Improved theme changing on the fly. Allows setting default fg/bg color and font.
-  See `^normfg(COLOR)`, `^normbg(COLOR)`, `^normfg(FONT)`.
-* Borders and padding. See `-b`, `-pad`, `^border(SPEC)`, and `^padding(SPEC)`.
-* Span underline and overline decorations for text, icons, graphics, and positioning.
-* Added integration test (you can run: `make test`).
-* To make assembly easier, used GNU Autotools instead of a simple Makefile.
-* `-p` with argument n persist for n seconds,
-  only when the mouse is not over the window (like popup or tooltip).
-* Change the mouse pointer when hovering over the action area.
-* Fixed upstream `hide` leaving a mapped strip one pixel high.
+Dzen displays a stream of newline-terminated text from standard input.
+Your script supplies data and determines when updates happen; dzen draws it
+and handles mouse, keyboard and signal events. It runs on X11.
 
-Features
-========
+Use it for a status bar, a notification, a scrollable log or a menu.
+Text can contain colors, fonts, icons, shapes and clickable regions.
+Optional build features include XFT, XPM, Xinerama, XRandR and Xcursor.
+The gadgets directory supplies dbar, gdbar, gcpubar and textwidth helpers.
 
-* Small, fast, very tiny set of dependencies (Xlib only by default)
-* Scriptable in any language
-* Sophisticated formating language - including colours, icons, graphics
-* Versatile - display all sorts of information (status bar, menu)
-* Interactive - user defined mouse and keyboard actions. Hideable, collapsable
-* Optional XFT support (enabled when xft lib present)
-* Optional XINERAMA support (enabled when xinerama lib present)
+## FORK DIFFERENCES
 
+Comparison baseline: the upstream robm/dzen history at commit
+488ab66019f475e35e067646621827c18a879ba1 (2013-09-23), before this fork's
+local development. This is a historical comparison, not a claim about the
+latest upstream version. Fork repository: https://github.com/osv/dzen
 
-Requirements
-============
+- Resource reuse: color/font caches reduce repeated X11 resource allocation.
+- Input capacity: upstream's 8192-byte buffer is replaced by a streaming
+  reader accepting up to 16 MiB per line. See LIMITATIONS.
+- Layout: `^left()`, `^center()` and `^right()` provide independently aligned
+  regions in one instance. They reset formatting for the following region.
+- Runtime themes: `^normfg()`, `^normbg()` and `^normfn()` change normal defaults.
+- Box model: `-b` / `^border()` and `-pad` / `^padding()` add borders and padding.
+- Decorations: underline and overline spans cover text, icons and graphics.
+- Monitors: XRandR output selection follows changes and disconnection.
+- Interaction: optional Xcursor feedback over clickable areas.
+- Compatibility: `-p N` persistence takes pointer presence into account.
+  hide fully unmaps hidden surfaces; upstream left a one-pixel strip.
+  A hidden surface needs a signal or active key grab to restore it.
+- Lifecycle: SIGTERM runs onexit and returns 143.
+- Development: GNU Autotools builds and unit/integration tests.
 
-In order to build dzen you need the Xlib header files.
+Traditional stdin formatting, title/slave windows and event bindings remain
+the basis of the interface. Review INPUT PROTOCOL and EVENTS AND ACTIONS
+when adapting scripts, especially custom `-e` bindings and whole-line commands.
 
+## QUICK START
 
-Installation
-============
+Keep a message visible after its producer exits:
 
-To enable all features and compile gadgets use next configure options:
+    printf '%s\n' 'Hello world' | dzen2 -p
 
-    autoreconf -vfi
-    ./configure --enable-gadgets --enable-xft --enable-xpm --enable-xinerama --enable-xcursor
-    make
-    make install
+Without `-l`, every new line replaces the title:
 
-Note: Using the `--enable-FEATURE` options requires libraries to be installed.
-      You might want to disable some feature by `--disable-FEATURE`
+    while :; do
+        date '+%H:%M:%S'
+        sleep 1
+    done | dzen2 -w 240 -ta c
 
+Show a title and two body lines immediately:
 
-Contribute:
-========
+    printf '%s\n' 'Status' 'Service running' 'Connected' |
+        dzen2 -l 2 -p -e 'onstart=uncollapse;button3=exit'
 
-Feature requests, patches or anything else related to dzen can be sent
-to: https://github.com/osv/dzen
+Specifying `-e` replaces ALL default event bindings. This example explicitly
+opens the slave window and binds right-click to exit.
 
-To update man page and README.md from README.dzen, run:
+## INPUT PROTOCOL
 
-    make update-man
+The title is a single line. The optional slave is a scrollable body.
+In the usual vertical layout it opens below the title; placement near the
+bottom of the screen can put it above the title instead.
 
-To run all tests applicable to the current build:
+    +---------------------------+
+    | Title: one line           |  first input line, or ^tw()TEXT
+    +---------------------------+
+    | Slave: body line 1        |  subsequent input lines
+    | Slave: body line 2        |  -l N controls visible body lines
+    | ...                       |  wheel scrolls through the buffer
+    +---------------------------+
 
-    make check
+Without `-l`, only the title is used. A collapsed slave retains its contents
+but is not visible. Horizontal menu mode (`-m` h) displays slave entries in a
+single row and does not display title content.
 
-`make test` is an alias for `make check`. Integration tests are selected
-according to the enabled configure features. Visual tests require Xvfb,
-xdotool, xwd, and ImageMagick. Xinerama tests additionally require Xephyr.
-XRandR tests require XFT, DejaVu Sans Mono, Xorg, and the dummy video driver.
+    producer -> newline-terminated stdin -> title / slave
+    mouse, keyboard, signals -> event bindings -> actions / stdout / processes
 
+Without `-l`, each ordinary input line replaces the title. With `-l N`, the
+first ordinary line supplies the title and subsequent lines enter the slave
+buffer; N is the number of visible body lines, not the input buffer length.
+By default the slave opens when the pointer enters the title.
 
-Running dzen
-============
+There are three kinds of input:
 
-`dzen` accepts a couple of options:
+- Rendered lines: text mixed with inline commands such as `^fg(red)`.
+  Formatting starts from normal defaults for each line.
+- Routed lines: `^tw()`TEXT explicitly updates the title. Put `^tw()` first,
+  once per line. It does not append TEXT to the slave.
+- Control lines: `^cs()`, `^padding(...)` and the other CONTROL COMMANDS.
+  Each must occupy its own line. They are consumed, not displayed as text.
 
-    -fg     foreground color
-    -bg     background color
-    -b      static outer border widths and optional color, see below
-    -pad    static padding widths, see below
-    -underline default underline thickness and optional color, see below
-    -overline  default overline thickness and optional color, see below
-    -fn     font
-    -ta     alignment of title window content
-            l(eft), c(center), r(ight)
-    -tw     title window width
-    -sa     alignment of slave window, see "-ta"
-    -l      lines, see (1)
-    -e      events and actions, see (2)
-    -m      menu mode, see (3)
-    -u      update contents of title and
-            slave window simultaneously, see (4)
-    -p      persist EOF (optional timeout in seconds)
-    -x      x position
-    -y      y position
-    -h      line height (default: fontheight + 2 pixels)
-    -w      width
-    -xs     number of Xinerama screen
-    -output XRandR output name
-    -lm     list connected XRandR outputs with an active CRTC
-    -v      version information
+Write a newline after each message. Flush buffered output in your producer
+when an update should become visible. Double a caret to display it literally.
+Input examples show the characters to send to dzen; README.dzen doubles
+their carets again so they can be read in the live viewer.
 
-    See "(5) In-text formating language".
+Inline color/font changes affect subsequent content in that line.
+`^fg()`, `^bg()` and `^fn()` restore normal defaults; they do not mean
+"restore the previous span". Alignment commands start a new region and
+reset formatting. Runtime normal-default commands affect subsequent drawing;
+resend content when you want a full repaint with a new theme.
+
+EOF normally ends dzen. `-p` keeps it alive; `-p N` adds a timeout after EOF.
+See EXIT STATUS for timeout and signal details.
+
+## OPTIONS
+
+Appearance:
+
+    -fg COLOR             normal foreground
+    -bg COLOR             normal background
+    -fn FONT              normal font; xft: and x: select a backend
+    -b SPEC               outer border widths and optional color
+    -pad SPEC             padding widths
+    -underline N[,COLOR]  default underline thickness and optional color
+    -overline N[,COLOR]   default overline thickness and optional color
+    -ta l|c|r             title alignment (left, center or right)
+    -sa l|c|r             slave alignment
+
+Geometry and window properties:
+
+    -x PIXELS             content x position
+    -y PIXELS             content y position
+    -w PIXELS             slave width (also the title fallback width)
+    -tw PIXELS            explicit title width
+    -h PIXELS             line height
+    -geometry WxH+X+Y     title geometry in X geometry syntax
+    -expand left|center|right  grow/shrink title to its content
+    -dock                 set dock type and reserve space through EWMH struts
+    -title-name NAME      title/outer name (default: dzen title)
+    -slave-name NAME      slave name (default: dzen slave)
+
+Input and interaction:
+
+    -l N                  visible slave lines; see MULTI-LINE WINDOWS
+    -m [v|h]              vertical (default) or horizontal menu; requires -l
+    -e BINDINGS           events and actions; replaces all default bindings
+    -p [SECONDS]          persist after EOF, optionally with a timeout
+    -u                    deprecated fixed-size updates; see LIMITATIONS
+
+Monitors and information:
+
+    -xs N                 Xinerama screen number; requires Xinerama support
+    -output NAME          follow an XRandR output; requires XRandR support
+    -lm                   list connected XRandR outputs with an active CRTC
+    -v                    version and enabled features (requires X display)
+
+Defaults: foreground grey70, background #111111, fixed font, title centered,
+slave left-aligned, no border or padding, no slave window, no EOF persistence.
+Line height defaults to font height + 2. Without explicit widths, available
+target geometry is used. See MONITOR SELECTION for target selection.
+Options affecting the same value are processed in command-line order.
 
 `-b SPEC` adds an outer border.  SPEC accepts one, two, or four non-negative
 widths and an optional X11 color:
@@ -158,7 +208,7 @@ default span-decoration styles. They do not enable decorations by themselves.
 The built-in default for each is one pixel using the normal foreground color.
 An omitted color follows `-fg` and later `^normfg(...)` changes; an explicit
 color is independent. Specifications are strict and contain no whitespace:
-`2,#ffb52a` is valid, while `2, #ffb52a` is not.
+`2,orange` is valid, while `2, orange` is not.
 
 Use `^underline(...)` and `^overline(...)` in input to enable a decoration.
 An empty argument uses the configured defaults, a single argument may override
@@ -166,12 +216,7 @@ the thickness or color, and two arguments override both. `off` closes the
 active span:
 
     ^overline()text and ^r(20x8) graphics^overline(off)
-    ^underline(2,#5fd7ff)underlined^underline(off)
-
-Rendered by dzen:
-
-    text and  graphics
-    underlined
+    ^underline(2,lightblue)underlined^underline(off)
 
 Decorated spans include text, spaces, icons, rectangles, circles, block
 alignment, and horizontal `^p(...)`/`^pa(...)` movement. They use constant
@@ -180,8 +225,7 @@ overwrite a previously closed decoration. Decorations are clipped inside the
 line and do not affect geometry or clickable areas.
 
 
-Monitor selection
-=================
+## MONITOR SELECTION
 
 Without a monitor selector, dzen uses the root-window geometry and follows
 XRandR changes to its size.
@@ -200,110 +244,9 @@ Geometry is resolved once at startup and later XRandR events are ignored when
 `-xs` was explicitly supplied.
 
 
-X resources
-===========
+## MULTI-LINE WINDOWS
 
-Dzen is able to read font and color setting from X resources.
-As an example you can add following lines to ~/.Xresources
-
-    dzen2.font:       -*-fixed-*-*-*-*-*-*-*-*-*-*-*-*
-    dzen2.foreground: #22EE11
-    dzen2.background: black
-    dzen2.underline:  2,#ffb52a
-    dzen2.overline:   1,#5fd7ff
-
-Decoration resources use the same `THICKNESS[,COLOR]` grammar as their command
-line options. Command-line values override X resources.
-
-
-Window layout
-=============
-
-Dzen's window layout is as follows:
-
-     ------------------------------------------
-    |        Title window, single line         |
-    `------------------------------------------´
-    |                                          |
-    |               scrollable                 |
-    |              Slave window                |
-    |             multiple lines               |
-    |     lines to display simultaneously      |
-    |           controlled with the            |
-    |              '-l' option                 |
-    |                                          |
-    |                                          |
-    `------------------------------------------´
-
-The first line you provide to dzen always goes to the title window,
-all other consecutive lines will be drawn to the slave window unless
-you explicitly override this with the "(5) In-text formating language"
-command ^tw().
-
-
-QA:
----
-
-Q1:  I don't want a slave window, what to do?
-A1:  Do not provide the `-l` option, all lines will be displayed
-     in the title window, this is the default behaviour.
-
-Q2:  I used the `-l` option but no slave window appears.
-A2:  With the default event/action handling the slave window will
-     only be displayed if you hoover with the mouse over the title
-     window. See "(2) Events and actions" if you'd like to change
-     this.
-
-Q3:  If I echo some text or cat a file dzen closes itself immediately.
-A3:  There are 2 different approaches dzen uses to terminate itself,
-     see next section "Termination".
-
-Q4:  Ok, the title and slave thing works, can I update the
-     contents of both windows at the same time?
-A4:  Sure, see "(4) Simultaneous updates" or use the in-text
-     command "^tw()" to explicitly draw to the title window.
-     See "(5) In-Text formating language" for further details
-
-Q5:  Can I change color of my input at runtime?
-A5:  Yes, you can change both background and foreground colors and
-     much more See "(5) In-Text formating language".
-
-Q6:  Can I use dzen as a menu?
-A6:  Yes, both vertical and horizontal menus are supported.
-     See "(3) Menu" for further details.
-
-
-Termination:
-============
-
-`dzen` uses two different approaches to terminate itself:
-
-* Timed termination: if EOF is received -> terminate
-  - unless the `-p` option is set
-    - `-p` Without argument persist forever
-    - `-p` With argument n persist for n seconds,
-           only when the mouse is not over the window.
-
-* Interactive termination: if mouse button3 is clicked -> terminate
-  - this is the default behaviour, see (2)
-  - in some modes the Escape key terminates too, see (2)
-
-`SIGTERM` performs the normal shutdown lifecycle, including the `onexit` event,
-and exits with status 143. An `exit:N` action attached to `onexit` does not
-override that status. A `-p N` timeout also performs `onexit`, but exits with
-status 0.
-
-
-Return values:
---------------
-0               -   dzen received EOF
-1               -   some error occured, inspect the error message
-user defined    -   set with 'exit:retval' action, see (2)
-
-(1) Option `-l`: Slave window
-=============================
-
-Enables support for displaying multiple lines. The parameter to "-l"
+Enables support for displaying multiple lines. The parameter to "`-l`"
 specifies the number of lines to be displayed.
 
 These lines of input are held in the slave window which becomes active as soon
@@ -317,10 +260,312 @@ and down if the content exceeds the window height (default action).
 
 
 
-(2) Option `-e`: Events and actions
-===================================
+## MENUS
 
-dzen allows the user to associate actions to events.
+Dzen provides two menu modes, vertical and horizontal menus. You can
+access these modes by adding 'v'(vertical) or 'h'(horizontal) to the
+'`-m`' option. If nothing is specified dzen defaults to vertical menus.
+
+Vertical menu, both invocations are equivalent:
+
+    dzen2 -p -l 4 -m < file
+    dzen2 -p -l 4 -m v < file
+
+Horizontal menu:
+
+    dzen2 -p -l 4 -m h < file
+
+
+All actions beginning with "menu" work on the selected menu entry.
+
+Note:   Menu mode only makes sense if `-l <n>` is specified!
+        Horizontal menus do not display title content.  Title-only
+        actions are otherwise ignored, but `hide`, `unhide`, and
+        `togglehide` control the complete horizontal surface.
+
+
+## X RESOURCES
+
+Startup precedence: built-in defaults < X resources < command-line options.
+As an example you can add following lines to ~/.Xresources
+
+    dzen2.font:       -*-fixed-*-*-*-*-*-*-*-*-*-*-*-*
+    dzen2.foreground: green
+    dzen2.background: black
+    dzen2.underline:  2,orange
+    dzen2.overline:   1,lightblue
+    dzen2.titlename:  dzen title
+    dzen2.slavename:  dzen slave
+
+Decoration resources use the same `THICKNESS[,COLOR]` grammar as their command
+line options. Command-line values override X resources.
+
+
+## FORMATTING COMMANDS
+
+These commands may be mixed with text. They change rendering, not global
+window geometry. Colors accept X11 names or #rrggbb values.
+
+### Colors:
+
+    ^fg(color)         Set foreground color
+    ^fg()              Without arguments, sets default fg color
+    ^bg(color)         Set background color
+    ^bg()              Without arguments, sets default bg color
+
+    ^fn(FONT)          Select font for subsequent content in this line
+    ^fn()              Restore the normal font
+                       Prefix xft: or x: to select the font backend.
+                       XFT fonts require an XFT-enabled build.
+
+### Graphics:
+
+    ^i(path)           Draw icon specified by path
+                       supported formats: XBM and optionally XPM
+
+    ^r(WIDTHxHEIGHT)   Draw a rectangle with the dimensions
+                       WIDTH and HEIGHT
+    ^ro(WIDTHxHEIGHT)  Rectangle outline
+
+    ^c(DIAMETER)         Draw a circle with diameter DIAMETER pixels
+    ^co(DIAMETER)        Circle outline
+
+    ^underline()       Enable underline with configured defaults
+    ^underline(ARG)    Enable underline with a thickness, color, or both
+    ^underline(off)    Disable underline
+    ^overline()        Enable overline with configured defaults
+    ^overline(ARG)     Enable overline with a thickness, color, or both
+    ^overline(off)     Disable overline
+
+### Positioning:
+
+    ^p(ARGUMENT)       Position next input amount of PIXELs to the right
+                       or left of the current position
+                       a.k.a. relative positioning
+
+    ^pa(ARGUMENT)      Position next input at PIXEL
+                       a.k.a. absolute positioning
+                       For maximum predictability `^pa()` should only be
+                       used with `-ta l` or `-sa l`
+
+     Where ARGUMENT:
+
+     ^p(+-X)           Move X pixels to the right or left of the current position (on the X axis)
+
+     ^p(+-X;+-Y)       Move X pixels to the right or left and Y pixels up or down of the current
+                       position (on the X and Y axis)
+
+     ^p(;+-Y)          Move Y pixels up or down of the current position (on the Y axis)
+
+     ^p()              Without parameters resets the Y position to its default
+
+     ^pa()             Takes the same parameters as described above but positions at
+                       the absolute X and Y coordinates
+
+     Further ^p() also takes some symbolic names as argument:
+
+     _LOCK_X           Lock the current X position, useful if you want to
+                       align things vertically
+     _UNLOCK_X         Unlock the X position
+     _LEFT             Move current x-position to the left edge
+     _RIGHT            Move current x-position to the right edge
+     _TOP              Move current y-position to the top edge
+     _CENTER           Move current x-position to center of the window
+     _BOTTOM           Move current y-position to the bottom edge
+
+    ^ba(WIDTH,ALIGN)   Align the next text run in WIDTH pixels
+                       ALIGN is _LEFT, _CENTER or _RIGHT
+    ^ba()              Cancel pending block alignment
+                       Block alignment resets after drawing that text run.
+
+    ^left()            Align next input to left. Reset settings (fg, bg, fn, etc)
+    ^center()          Align next input to center. Reset settings (fg, bg, fn, etc)
+    ^right()           Align next input to right. Reset settings (fg, bg, fn, etc)
+                       Example:
+                         ^left()^fg(red)Left ^center()^fg(green)Center ^right()^fg(blue)Right
+
+### Interaction:
+
+    ^ca(BTN, CMD) ... ^ca()
+
+                       Used to define 'clickable areas' anywhere inside the
+                       title window or slave window.
+                       - 'BTN' denotes the mouse button (1=left, 2=middle, 3=right, etc.)
+                       - 'CMD' denotes the command that should be spawned when the specific
+                         area has been clicked with the defined button
+                       - '...' denotes any text or formatting commands dzen accepts
+                       - '^ca()' without arguments denotes the end of this clickable area
+
+                       Example: ^ca(1,echo clicked)Click me^ca()
+
+    ^ib(1)             Do not paint backgrounds over earlier content
+    ^ib(0)             Resume background painting (the default)
+
+Use `^ib(1)` with positioning commands to overlay shapes. XBM icons use
+foreground/background colors; XPM requires an XPM-enabled build.
+Paths are relative to the process working directory.
+Run direct README.dzen demonstrations from the project directory so the
+example bitmaps can be found. The installed `dzen2-help` sets its working
+directory to the documentation directory for these assets.
+
+### A compact status bar
+
+```text
+^left()^underline(gold) 1 ^underline(off) 2  3^center()Editor^right()^fg(limegreen)online^fg() 12:34
+```
+
+![A compact status bar](docs/screenshots/status-bar.png)
+
+
+Each alignment command starts a new region and resets its formatting.
+The workspace number and time are static sample data; your script supplies
+the current values.
+
+### Status with foreground and background colors
+
+```text
+Status: ^fg(limegreen)online^fg() | Errors: ^bg(maroon)^fg(white) 3 ^fg()^bg() | normal
+```
+
+![Status with foreground and background colors](docs/screenshots/colors.png)
+
+
+The error count has white text on a maroon background. Empty `^fg()` and
+`^bg()` restore normal colors for subsequent text.
+
+### Spacing between fields
+
+```text
+CPU^p(12)24%^p(24)RAM^p(12)42%
+```
+
+![Spacing between fields](docs/screenshots/spacing.png)
+
+
+`^p(N)` moves the next element N pixels to the right of the current position.
+
+### A clickable launcher
+
+```text
+^ca(1,xterm)^fg(lightblue)[ Terminal ]^fg()^ca()  ordinary text
+```
+
+![A clickable launcher](docs/screenshots/clickable.png)
+
+
+Left-click the bracketed label to launch xterm (which must be installed).
+`^ca()` closes the clickable area; the following text is outside it.
+
+### Fixed-width text columns
+
+```text
+^ba(90,_LEFT)CPU^ba(50,_RIGHT)9%
+^ba(90,_LEFT)Memory^ba(50,_RIGHT)42%
+```
+
+![Fixed-width text columns](docs/screenshots/columns.png)
+
+
+Each label occupies 90 pixels and each value occupies 50 pixels, aligned
+right. Block alignment applies to the next text run, so repeat it per field.
+
+### A progress bar with a value
+
+```text
+CPU ^fg(gray30)^r(100x8)^p(-100)^fg(limegreen)^r(35x8)^p(65)^fg() 35%
+```
+
+![A progress bar with a value](docs/screenshots/progress.png)
+
+
+Draw a 100-pixel track, move back 100 pixels and draw a 35-pixel fill.
+Move forward the remaining 65 pixels before writing the value. Your script
+calculates the fill width; dzen does not calculate percentages.
+
+### Left, center and right regions
+
+```text
+^left()^fg(red)Left^center()^fg(seagreen)Center^right()^fg(lightblue)Right
+```
+
+![Left, center and right regions](docs/screenshots/alignment.png)
+
+
+### Underline and overline spans
+
+```text
+^underline(1,lightblue)Text and ^r(20x8) graphics^underline(off)
+^overline()Overlined text^overline(off)
+```
+
+![Underline and overline spans](docs/screenshots/decorations.png)
+
+
+### Positioned graphics
+
+```text
+^ib(1)^fg(red)^ro(100x15)^p(-98)^fg(blue)^r(20x10)^fg(orange)^p(3)^r(40x10)^p(4)^fg(darkgreen)^co(12)^p(2)^c(10)
+```
+
+![Positioned graphics](docs/screenshots/graphics.png)
+
+
+### XBM icons
+
+```text
+^i(bitmaps/envelope.xbm) Mail ^fg(seagreen)^i(bitmaps/battery.xbm) Battery
+```
+
+![XBM icons](docs/screenshots/icons.png)
+
+
+### Literal carets
+
+```text
+Two literal carets: ^^^^
+```
+
+![Literal carets](docs/screenshots/literal-caret.png)
+
+
+## CONTROL COMMANDS
+
+Send each command as the first and only content of its input line.
+Do not concatenate control commands or append display text to them.
+
+    ^togglecollapse()
+    ^collapse()
+    ^uncollapse()
+    ^togglestick()
+    ^stick()            See EVENTS AND ACTIONS for a detailed description
+    ^unstick()          of each command.
+    ^togglehide()
+    ^hide()
+    ^unhide()
+    ^raise()
+    ^lower()
+    ^scrollhome()
+    ^scrollend()
+    ^exit()
+
+    ^cs()              Clear the slave buffer
+    ^normfg(COLOR)     Change the normal foreground, restored by ^fg()
+    ^normbg(COLOR)     Change the normal background, restored by ^bg()
+    ^normfn(FONT)      Change the normal font, restored by ^fn()
+    ^border(SPEC)      Replace the outer border; same syntax as -b
+    ^padding(SPEC)     Replace padding; same syntax as -pad
+
+Invalid border/padding specifications are ignored. These commands replace
+the complete specification, not selected sides. Other command arguments
+follow their own parsers; there is no universal whitespace-trimming rule.
+
+Routing command (unlike the above, it carries display text):
+
+    ^tw()TEXT          Draw TEXT to title; put the command first, once per line
+
+## EVENTS AND ACTIONS
+
+Dzen allows the user to associate actions to events.
 
 The command line syntax is as follows:
 
@@ -337,7 +582,7 @@ An example:
 Meaning:
 
 - `button1=exec:xterm:firefox;`
-On Button1 event (Button1 press on the mouse) execute xterm and
+On Button1 event (Button1 release on the mouse) execute xterm and
 firefox.
 
 Note: xterm and firefox are options to the exec action
@@ -350,8 +595,7 @@ slave window and unhide the title window
 On button3 event exit dzen
 
 
-Supported events:
------------------
+### Supported events:
 
     onstart             Perform actions right after startup
     onexit              Perform actions just before exiting
@@ -380,8 +624,7 @@ Supported events:
     after `XK_` in keysymdef.h must be used for KEYNAME.
 
 
-Supported actions:
-------------------
+### Supported actions:
 
     exec:command1:..:n  execute all given options
     menuexec            executes selected menu entry
@@ -440,7 +683,7 @@ pointer events; restore it with a signal or an active key grab.
         -e 'enterslave=grabkeys;leaveslave=ungrabkeys;
             button4=scrollup;button5=scrolldown;
             key_Left=scrollup;key_Right=scrolldown;
-            button1=menuexec;button3=exit:13
+            button1=menuexec;button3=exit:13;
             key_Escape=ungrabkeys,exit'
 
 
@@ -449,35 +692,111 @@ pointer events; restore it with a signal or an active key grab.
         use.
 
 
-(3) Option `-m`, Menu
-=====================
+## EXAMPLES
 
-Dzen provides two menu modes, vertical and horizontal menus. You can
-access these modes by adding 'v'(vertical) or 'h'(horizontal) to the
-'-m' option. If nothing is specified dzen defaults to vertical menus.
+Update a title without appending to the slave:
 
-Vertical menu, both invocations are equivalent:
+    {
+        printf '%s\n' 'Status' 'Service running' 'Connected'
+        sleep 2
+        printf '%s\n' '^tw()Status: updated'
+    } | dzen2 -l 2 -p -e 'onstart=uncollapse;button3=exit'
 
-    dzen2 -p -l 4 -m < file
-    dzen2 -p -l 4 -m v < file
+Replace the slave contents and update the title:
 
-Horizontal menu:
+    {
+        printf '%s\n' 'Tasks' 'Build: waiting' 'Tests: waiting'
+        sleep 2
+        printf '%s\n' '^cs()' 'Build: done' 'Tests: passed'
+        printf '%s\n' '^tw()Tasks: complete'
+    } | dzen2 -l 2 -p -e 'onstart=uncollapse;button3=exit'
 
-    dzen2 -p -l 4 -m h < file
+`^cs()` clears the old slave buffer without replacing the title. The next
+two lines refill the slave; `^tw()` explicitly replaces the title. Each
+control command is sent on its own line, not mixed into a rendered line.
+
+Change window styling at runtime; commands occupy separate lines:
+
+    {
+        printf '%s\n' 'Initial theme'
+        sleep 2
+        printf '%s\n' '^normbg(darkgreen)' '^padding(4,8)'
+        printf '%s\n' 'Updated theme (bg changed, padding added)'
+    } | dzen2 -p -b '1,seagreen'
+
+Return the selected menu entry to stdout:
+
+    printf '%s\n' 'Choose' 'First' 'Second' |
+        dzen2 -l 2 -m v -p \
+          -e 'onstart=uncollapse;button1=menuprint,exit;button3=exit'
+
+Launch an application from a horizontal menu:
+
+    printf '%s\n' 'Applications' 'xterm' 'xclock' |
+        dzen2 -l 2 -m h -p
+
+The first line is still supplied, although horizontal menus do not show
+title content. The default button1 binding executes the selected entry.
+
+Show a growing log:
+
+    { printf '%s\n' 'Log'; tail -f application.log; } |
+        dzen2 -l 12 -w 600 -p
+
+Provide your own application.log. Hover over the title to expand the log;
+use the wheel to scroll. Menu execution and clickable commands execute shell
+commands, so only use trusted command strings.
+
+## EXIT STATUS
+
+`dzen` uses two different approaches to terminate itself:
+
+* Timed termination: if EOF is received -> terminate
+  - unless the `-p` option is set
+    - `-p` Without argument persist forever
+    - `-p` With argument n persist for n seconds,
+           only when the mouse is not over the window.
+
+* Interactive termination: if mouse button3 is clicked -> terminate
+  - this is the default behaviour, see EVENTS AND ACTIONS
+  - in some modes the Escape key terminates too, see EVENTS AND ACTIONS
+
+`SIGTERM` performs the normal shutdown lifecycle, including the `onexit` event,
+and exits with status 143. An `exit:N` action attached to `onexit` does not
+override that status. A `-p N` timeout also performs `onexit`, but exits with
+status 0.
 
 
-All actions beginning with "menu" work on the selected menu entry.
+Return values:
 
-Note:   Menu mode only makes sense if `-l <n>` is specified!
-        Horizontal menus do not display title content.  Title-only
-        actions are otherwise ignored, but `hide`, `unhide`, and
-        `togglehide` control the complete horizontal surface.
+    0       Normal EOF or persistence timeout
+    1       An error; inspect stderr
+    143     SIGTERM, after onexit
+    N       An explicit exit:N action (default right-click uses 13)
 
+## LIMITATIONS
 
-(4) Option `-u`, Simultaneous updates
-=====================================
+Input lines are limited to 16 MiB; excess bytes are discarded until the next
+newline. An unterminated final fragment is not a complete input message.
+Individual command arguments and clickable areas have separate limits.
+This is an X11 application; it needs an X server, including for `-v`.
 
-** DEPRECATED **
+Use printf instead of shell-dependent echo `-e` or print in portable examples.
+Menu execution uses the entry as a command; menuprint writes it to stdout.
+
+Troubleshooting:
+
+- Window closes immediately: stdin reached EOF; use `-p`.
+- Slave is invisible: `-l` enables it but default bindings wait for a hover.
+  With custom `-e`, include onstart=uncollapse or an appropriate pointer event.
+- Right-click stopped closing: your `-e` replaced the defaults; add button3=exit.
+- Hidden window cannot be hovered: restore through sigusr1=unhide and SIGUSR1,
+  or a previously active keyboard grab.
+- Misplaced absolute content: use `-ta` l / `-sa` l with `^pa()`.
+- Feature option is unavailable: check configure features and `dzen2` `-v`.
+- `-fn-preload` is currently shadowed by `-fn` in option parsing; do not rely on it.
+
+Deprecated `-u` (simultaneous fixed-size batches):
 
 This option provides facilities to update the title and slave window at
 the same time.
@@ -501,290 +820,68 @@ For this to work correctly it is essential to provide exactly the number
 of lines to the slave window as defined by the parameter to `-l`.
 
 
-(5) In-text formating language:
-==============================
-
-This feature allows to dynamically (at runtime) format the text dzen
-displays and control its behaviour.
-
-Currently the following commands are supported:
-
-Colors:
--------
-
-    ^fg(color)         Set foreground color
-    ^fg()              Without arguments, sets default fg color
-    ^bg(color)         Set background color
-    ^bg()              Without arguments, sets default bg color
-
-Graphics:
----------
-
-    ^i(path)           Draw icon specified by path
-                       supported formats: XBM and optionally XPM
-
-    ^r(WIDTHxHEIGHT)   Draw a rectangle with the dimensions
-                       WIDTH and HEIGHT
-    ^ro(WIDTHxHEIGHT)  Rectangle outline
-
-    ^c(RADIUS)         Draw a circle with size RADIUS pixels
-    ^co(RADIUS)        Circle outline
-
-    ^underline()       Enable underline with configured defaults
-    ^underline(ARG)    Enable underline with a thickness, color, or both
-    ^underline(off)    Disable underline
-    ^overline()        Enable overline with configured defaults
-    ^overline(ARG)     Enable overline with a thickness, color, or both
-    ^overline(off)     Disable overline
-
-Positioning:
-------------
-
-    ^p(ARGUMENT)       Position next input amount of PIXELs to the right
-                       or left of the current position
-                       a.k.a. relative positioning
-
-    ^pa(ARGUMENT)      Position next input at PIXEL
-                       a.k.a. absolute positioning
-                       For maximum predictability `^pa()` should only be
-                       used with `-ta l` or `-sa l`
-
-     Where ARGUMENT:
-
-     ^p(+-X)           Move X pixels to the right or left of the current position (on the X axis)
-
-     ^p(+-X;+-Y)       Move X pixels to the right or left and Y pixels up or down of the current
-                       position (on the X and Y axis)
-
-     ^p(;+-Y)          Move Y pixels up or down of the current position (on the Y axis)
-
-     ^p()              Without parameters resets the Y position to its default
-
-     ^pa()             Takes the same parameters as described above but positions at
-                       the absolute X and Y coordinates
-
-     Further ^p() also takes some symbolic names as argument:
-
-     _LOCK_X           Lock the current X position, useful if you want to
-                       align things vertically
-     _UNLOCK_X         Unlock the X position
-     _LEFT             Move current x-position to the left edge
-     _RIGHT            Move current x-position to the right edge
-     _TOP              Move current y-position to the top edge
-     _CENTER           Move current x-position to center of the window
-     _BOTTOM           Move current y-position to the bottom edge
-
-    ^left()            Align next input to left. Reset settings (fg, bg, fn, etc)
-    ^center()          Align next input to center. Reset settings (fg, bg, fn, etc)
-    ^right()           Align next input to rigth. Reset settings (fg, bg, fn, etc)
-                       Example:
-                         ^left()^fg(red)Left ^center()^fg(green)Center ^right()^fg(blue)Right
-                       Giving:
-Left          Center          Right
-
-Interaction:
-------------
-
-    ^ca(BTN, CMD) ... ^ca()
-
-                       Used to define 'clickable areas' anywhere inside the
-                       title window or slave window.
-                       - 'BTN' denotes the mouse button (1=left, 2=right, 3=middle, etc.)
-                       - 'CMD' denotes the command that should be spawned when the specific
-                         area has been clicked with the defined button
-                       - '...' denotes any text or formating commands dzen accepts
-                       - '^ca()' without arguments denotes the end of this clickable area
-
-                       Example:
-                         foo ^ca(1, echo one)click me and i'll echo one^ca() bar
-
-Actions as commands:
---------------------
-
-    ^togglecollapse()
-    ^collapse()
-    ^uncollapse()
-    ^togglestick()
-    ^stick()            See section (2) "Events and actions" for a detailed description
-    ^unstick()          of each command.
-    ^togglehide()
-    ^hide()
-    ^unhide()
-    ^raise()
-    ^lower()
-    ^scrollhome()
-    ^scrollend()
-    ^exit()
-
-Other:
-------
-
-    ^tw()              draw to title window
-                       This command has some annoyances, as only
-                       the input after the command will be drawn
-                       to the title window, so it is best used
-                       only once and as first command per line.
-                       Subject to be improved in the future.
-
-    ^cs()              clear slave window
-                       This command must be the first and only command
-                       per line.
-
-    ^normfg(COLOR)     Set the normal foreground color (that will be
-                       used when ^bg()). You might want to use ^tw()
-                       and ^cs() after. This command must be the first
-                       and only command per line.
-
-    ^normbg(COLOR)     Set the normal background color (that will be
-                       used when ^bg()). You might want to use ^tw()
-                       and ^cs() after. This command must be the first
-                       and only command per line.
-
-    ^border(SPEC)      Replace the outer border at runtime; syntax as -b.
-    ^padding(SPEC)     Replace padding at runtime; syntax as -pad.
-                       Must be the only command on the line.
-
-    ^normfn(FONT)      Set the normal font.
-
-    ^ib(VALUE)         ignore background setting, VALUE can be either
-                       1 to ignore or 0 to not ignore the bg color set
-                       with ^bg(color).
-                       This command is useful in combination with ^p()
-                       and ^^pa in order to position the input inside
-                       other already drawn input.
-
-                       Example:
-                         ^ib(1)^fg(red)^ro(100x15)^p(-98)^fg(blue)^r(20x10)^fg(orange)^p(3)^r(40x10)^p(4)^fg(darkgreen)^co(12)^p(2)^c(10)
-                       Giving:
-                         
-
-These commands can appear anywhere and in any combination in dzen's
-input.
-
-The color can be specified either as symbolic name (e.g. red,
-darkgreen, etc.) or as #rrggbb hex-value (e.g. #ffffaa).
-
-Icons must be in the XBM or optionally XPM format, see the "bitmaps"
-directory for some sample icons. With the standard "bitmap" application
-you can easily draw your own icons.
-
-Note:   Displaying XPM (pixmap) files imposes a somewhat
-        higher load than lightweight XBM files, so use
-        them with care in tight loops.
-
-
-Note:   Doubling the `^^` character removes the special meaning from it.
-
-
-Some examples:
---------------
-
-   Input:
-          ^fg(red)I'm red text ^fg(blue)I am blue
-
-   Resulting in:
-          I'm red text I am blue
-
-
-   Input:
-          ^bg(#ffaaaa)The ^fg(yellow)text to ^bg(blue)^fg(orange)colorize
-
-   Resulting in:
-          The text to colorize
-
-
-   Input:
-          ^fg(white)Some text containing ^^^^ characters
-
-   Resulting in:
-          Some text containing ^^ characters
-
-
-   Input for icons:
-          ^i(bitmaps/envelope.xbm) I am an envelope ^fg(yellow)and ^i(bitmaps/battery.xbm) I'm a battery.
-
-   Resulting in:
-           I am an envelope and  I'm a battery.
-
-
-   Input for rectangles:
-          6x4 rectangle ^r(6x4) ^fg(red)12x8 ^r(12x8) ^fg(yellow)and finally 100x15 ^r(100x15)
-
-   Resulting in:
-          6x4 rectangle  12x8  and finally 100x15 
-
-
-   Input for relative positioning:
-          Some text^p(100)^fg(yellow)100 pixels to the right^p(50)^fg(red)50 more pixels to the right
-
-   Resulting in:
-          Some text100 pixels to the right50 more pixels to the right
-
-
-Examples:
-=========
-
-* Display message and timeout after 10 seconds:
-
-      (echo "This is a message"; sleep 10) | dzen2 -bg darkred -fg grey85 -fn fixed
-
-
-* Display message and never timeout:
-
-      echo "This is a message"| dzen2 -p
-
-
-* Display updating single line message:
-
-      for i in $(seq 1 20); do A=${A}'='; print $A; sleep 1; done | dzen2
-
-
-* Display header and a message with multiple lines:
-
-      (echo Header; cal; sleep 20) | dzen2 -l 8
-
-Displays "Header" in the title window and the output of cal in the
-8 lines high slave window.
-
-
-* Display updating messages:
-
-      (echo Header; while true; do echo test$((i++)); sleep 1; done) | dzen2 -l 12
-
-The slave window will update contents if new input has arrived.
-
-
-* Display log files:
-
-      (su -c "echo LOGFILENAME; tail -f /var/log/messages") | dzen2 -l 20 -x 100 -y 300 -w 500
-
-
-* Monthly schedule with remind:
-
-      (echo Monthly Schedule; remind -c1 -m) | dzen2 -l 52 -w 410 -p -fn lime -bg '#e0e8ea' -fg black -x 635
-
-
-* Simple menu:
-
-      echo "Applications" | dzen2 -l 4 -p -m < menufile
-
-
-* Horizontal menu without any files:
-
-      {echo Menu; echo -e "xterm\nxclock\nxeyes\nxfontsel"} | dzen2 -l 4 -m h -p
-
-
-* Extract PIDs from the process table:
-
-      {echo Procs; ps -a} | dzen2 -m -l 12 -p \
-      -e 'button1=menuprint;button3=exit;button4=scrollup:3;button5=scrolldown:3;entertitle=uncollapse;leaveslave=collapse' \
-            | awk '{print $1}'
-
-
-* Dzen as xmonad (see http://xmonad.org) statusbar:
-
-      status.sh | dzen2 -ta r -fn '-*-profont-*-*-*-*-11-*-*-*-*-*-iso8859' -bg '#aecf96' -fg black \
-        -p -e 'sigusr1=raise;sigusr2=lower;onquit=exec:rm /tmp/dzen2-pid;button3=exit' & echo $! > /tmp/dzen2-pid
-
-
-Have fun.
+Prefer explicit `^tw()` updates in new scripts.
+
+## INSTALLATION
+
+Build dependencies: a C toolchain, GNU Autotools and Xlib headers.
+Optional features require their corresponding development libraries.
+
+    autoreconf -vfi
+    ./configure --enable-gadgets --enable-xft --enable-xpm \
+        --enable-xinerama --enable-xrandr --enable-xcursor
+    make
+    make install
+
+Use --disable-FEATURE to omit an optional feature. See each gadget's README
+for its interface.
+
+## DEVELOPMENT
+
+README.dzen is the documentation source and can be piped directly to dzen.
+The Example / Input / Result blocks are also consumed by the documentation
+generator. Input doubles literal carets; Result contains the exact decoded
+input after documentation styles are removed. Use four spaces of structural
+indentation and a blank line after
+each block. Example identifiers must be unique lowercase words/digits
+separated by hyphens. Result blocks contain static rendering only.
+
+Documentation styles: wrap command names and both parentheses in
+`^fg(lightblue)`...`^fg()`. Underline the entire argument between parentheses
+with `^underline()`...`^underline(off)`, including literal values and separators.
+CLI argument specifications such as N[,COLOR] and WxH+X+Y also form a single
+underlined span. Close each style before opening another.
+These live tags also work inside Input blocks;
+literal dzen commands still use doubled carets. The man generator maps the
+styles to bold commands and italic parameters (underlined in terminal man
+viewers). README.md uses inline code for commands mentioned in prose, preserves
+existing inline code, and adds no backticks inside code blocks. Result blocks describe
+the rendered example itself and must not contain documentation-only styles.
+
+    make update-docs       # regenerate README.md and dzen2.1 (Python 3, pandoc)
+    make update-man        # also update gadget man pages
+    make doc-screenshots   # create candidates under build/doc-screenshots
+    make test-docs         # validate the document generator
+    make check             # run tests for enabled build features
+
+Screenshot generation needs a built `dzen2`, Python 3, Xvfb, xset, xdotool,
+xwd and ImageMagick. It uses the `dzen2-help` colors, border and padding,
+an 800-pixel content width and the default font on a fresh X server.
+It does not load desktop X resources. Font availability can affect appearance.
+
+Review generated PNGs before copying the named files into docs/screenshots/.
+Commit reviewed images with the source and generated documentation. Ordinary
+builds and text generation do not take screenshots. Examples requiring window
+control or interactive actions remain text recipes.
+
+Visual regression tests remain separate under tests/integration/visual/.
+Their actual/diff images and screenshot candidates are not published assets.
+
+## AUTHORS AND SEE ALSO
+
+Robert Manea (original dzen); Olexandr Sydorchuk (this fork).
+See LICENSE for licensing and CREDITS for contributors.
+
+Project: https://github.com/osv/dzen
+Upstream: https://github.com/robm/dzen
+Related tools: `dzen2-help`, dbar, gdbar, gcpubar, textwidth.

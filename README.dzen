@@ -1,309 +1,261 @@
-    ====================================^pa(0)^fg(lightgreen)^r(400x4)^fg(#6fbf47)^r(38x4)^fg(darkgreen)^r(9x4)
-    ^fg(#6fbf47) dzen, (c) 2007-2010 by Robert Manea
-    ^fg(#6fbf47)       (c) 2025 by Olexandr Sydorchuk
-    ====================================^pa(0)^fg(darkgreen)^r(9x4)^fg(#6fbf47)^r(38x4)^fg(lightgreen)^r(400x4)
+^fg(#6fbf47)NAME
+^fg(#6fbf47)====
 
-Dzen is a general purpose messaging, notification and menuing program for X11.
-It was designed to be fast, tiny and scriptable in any language.
+^fg(lightblue)dzen2^fg() - scriptable X11 status bars, notifications and menus
 
-The "gadgets" subdirectory contains some tools that you can
-use in combination with dzen.
-
-Script archive with a collection of interesting ideas:
-^fg(lightblue)  http://gotmor.googlepages.com/dzenscriptarchive
-
-^fg(#6fbf47)About this dzen2 fork
-^fg(#6fbf47)=====================
-
-Main differences between the original and this fork of `dzen2`:
-
-^fg(red)*^fg(grey70) Improved performance for color/font changing (caching X11 resources).
-^fg(red)*^fg(grey70) Increased line size from 8k to 16M.
-^fg(red)*^fg(grey70) Align commands: `^^left()`, `^^center()`, `^^right()`.
-  You can now run a single dzen instance to render workspaces on the
-  left side and other widgets on the right side.
-^fg(red)*^fg(grey70) Improved theme changing on the fly. Allows setting default fg/bg color and font.
-  See `^^normfg(COLOR)`, `^^normbg(COLOR)`, `^^normfg(FONT)`.
-^fg(red)*^fg(grey70) Borders and padding. See `-b`, `-pad`, `^^border(SPEC)`, and `^^padding(SPEC)`.
-^fg(red)*^fg(grey70) Span underline and overline decorations for text, icons, graphics, and positioning.
-^fg(red)*^fg(grey70) Added integration test (you can run: `make test`).
-^fg(red)*^fg(grey70) To make assembly easier, used GNU Autotools instead of a simple Makefile.
-^fg(red)*^fg(grey70) `-p` with argument n persist for n seconds,
-  only when the mouse is not over the window (like popup or tooltip).
-^fg(red)*^fg(grey70) Change the mouse pointer when hovering over the action area.
-^fg(red)*^fg(grey70) Fixed upstream `hide` leaving a mapped strip one pixel high.
-
-^fg(#6fbf47)Features
+^fg(#6fbf47)SYNOPSIS
 ^fg(#6fbf47)========
 
-^fg(red)*^fg(grey70) Small, fast, very tiny set of dependencies (Xlib only by default)
-^fg(red)*^fg(grey70) Scriptable in any language
-^fg(red)*^fg(grey70) Sophisticated formating language - including colours, icons, graphics
-^fg(red)*^fg(grey70) Versatile - display all sorts of information (status bar, menu)
-^fg(red)*^fg(grey70) Interactive - user defined mouse and keyboard actions. Hideable, collapsable
-^fg(red)*^fg(grey70) Optional XFT support (enabled when xft lib present)
-^fg(red)*^fg(grey70) Optional XINERAMA support (enabled when xinerama lib present)
+    ^fg(lightblue)dzen2^fg() [^underline()OPTIONS^underline(off)] < input
+    printf '%s\n' 'Hello' | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-p^fg()
+    status.sh | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-w^fg() 800 ^fg(lightblue)-ta^fg() l
+    printf '%s\n' 'Menu' 'xterm' 'xclock' | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 2 ^fg(lightblue)-m^fg() v ^fg(lightblue)-p^fg()
 
+Use ^fg(lightblue)dzen2-help^fg() to read this document with live formatting. Right-click or
+press Escape to close that viewer.
 
-^fg(#6fbf47)Requirements
-^fg(#6fbf47)============
+^fg(#6fbf47)DESCRIPTION
+^fg(#6fbf47)===========
 
-In order to build dzen you need the Xlib header files.
+Dzen displays a stream of newline-terminated text from standard input.
+Your script supplies data and determines when updates happen; dzen draws it
+and handles mouse, keyboard and signal events. It runs on X11.
 
+Use it for a status bar, a notification, a scrollable log or a menu.
+Text can contain colors, fonts, icons, shapes and clickable regions.
+Optional build features include XFT, XPM, Xinerama, XRandR and Xcursor.
+The gadgets directory supplies dbar, gdbar, gcpubar and textwidth helpers.
 
-^fg(#6fbf47)Installation
-^fg(#6fbf47)============
+^fg(#6fbf47)FORK DIFFERENCES
+^fg(#6fbf47)================
 
-To enable all features and compile gadgets use next configure options:
+Comparison baseline: the upstream robm/dzen history at commit
+488ab66019f475e35e067646621827c18a879ba1 (2013-09-23), before this fork's
+local development. This is a historical comparison, not a claim about the
+latest upstream version. Fork repository: https://github.com/osv/dzen
 
-    ^fg(grey85)autoreconf -vfi
-    ^fg(grey85)./configure --enable-gadgets --enable-xft --enable-xpm --enable-xinerama --enable-xcursor
-    ^fg(grey85)make
-    ^fg(grey85)make install
+- Resource reuse: color/font caches reduce repeated X11 resource allocation.
+- Input capacity: upstream's 8192-byte buffer is replaced by a streaming
+  reader accepting up to 16 MiB per line. See LIMITATIONS.
+- Layout: ^fg(lightblue)^^left()^fg(), ^fg(lightblue)^^center()^fg() and ^fg(lightblue)^^right()^fg() provide independently aligned
+  regions in one instance. They reset formatting for the following region.
+- Runtime themes: ^fg(lightblue)^^normfg()^fg(), ^fg(lightblue)^^normbg()^fg() and ^fg(lightblue)^^normfn()^fg() change normal defaults.
+- Box model: ^fg(lightblue)-b^fg() / ^fg(lightblue)^^border()^fg() and ^fg(lightblue)-pad^fg() / ^fg(lightblue)^^padding()^fg() add borders and padding.
+- Decorations: underline and overline spans cover text, icons and graphics.
+- Monitors: XRandR output selection follows changes and disconnection.
+- Interaction: optional Xcursor feedback over clickable areas.
+- Compatibility: ^fg(lightblue)-p^fg() ^underline()N^underline(off) persistence takes pointer presence into account.
+  hide fully unmaps hidden surfaces; upstream left a one-pixel strip.
+  A hidden surface needs a signal or active key grab to restore it.
+- Lifecycle: SIGTERM runs onexit and returns 143.
+- Development: GNU Autotools builds and unit/integration tests.
 
-^fg(Khaki)Note: Using the `--enable-FEATURE` options requires libraries to be installed.
-^fg(Khaki)      You might want to disable some feature by `--disable-FEATURE`
+Traditional stdin formatting, title/slave windows and event bindings remain
+the basis of the interface. Review INPUT PROTOCOL and EVENTS AND ACTIONS
+when adapting scripts, especially custom ^fg(lightblue)-e^fg() bindings and whole-line commands.
 
+^fg(#6fbf47)QUICK START
+^fg(#6fbf47)===========
 
-^fg(#6fbf47)Contribute:
-^fg(#6fbf47)========
+Keep a message visible after its producer exits:
 
-Feature requests, patches or anything else related to dzen can be sent
-to: ^fg(lightblue)https://github.com/osv/dzen
+    printf '%s\n' 'Hello world' | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-p^fg()
 
-To update man page and README.md from README.dzen, run:
+Without ^fg(lightblue)-l^fg(), every new line replaces the title:
 
-    ^fg(grey85)make update-man
+    while :; do
+        date '+%H:%M:%S'
+        sleep 1
+    done | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-w^fg() 240 ^fg(lightblue)-ta^fg() c
 
-To run all tests applicable to the current build:
+Show a title and two body lines immediately:
 
-    ^fg(grey85)make check
+    printf '%s\n' 'Status' 'Service running' 'Connected' |
+        ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 2 ^fg(lightblue)-p^fg() ^fg(lightblue)-e^fg() 'onstart=uncollapse;button3=exit'
 
-`make test` is an alias for `make check`. Integration tests are selected
-according to the enabled configure features. Visual tests require Xvfb,
-xdotool, xwd, and ImageMagick. Xinerama tests additionally require Xephyr.
-XRandR tests require XFT, DejaVu Sans Mono, Xorg, and the dummy video driver.
+Specifying ^fg(lightblue)-e^fg() replaces ALL default event bindings. This example explicitly
+opens the slave window and binds right-click to exit.
 
+^fg(#6fbf47)INPUT PROTOCOL
+^fg(#6fbf47)==============
 
-^fg(#6fbf47)Running dzen
-^fg(#6fbf47)============
+The title is a single line. The optional slave is a scrollable body.
+In the usual vertical layout it opens below the title; placement near the
+bottom of the screen can put it above the title instead.
 
-`dzen` accepts a couple of options:
+    +---------------------------+
+    | Title: one line           |  first input line, or ^fg(lightblue)^^tw()^fg()TEXT
+    +---------------------------+
+    | Slave: body line 1        |  subsequent input lines
+    | Slave: body line 2        |  ^fg(lightblue)-l^fg() ^underline()N^underline(off) controls visible body lines
+    | ...                       |  wheel scrolls through the buffer
+    +---------------------------+
 
-    -fg     foreground color
-    -bg     background color
-    -b      static outer border widths and optional color, see below
-    -pad    static padding widths, see below
-    -underline default underline thickness and optional color, see below
-    -overline  default overline thickness and optional color, see below
-    -fn     font
-    -ta     alignment of title window content
-            l(eft), c(center), r(ight)
-    -tw     title window width
-    -sa     alignment of slave window, see "-ta"
-    -l      lines, ^fg(#6fbf47)see (1)
-    -e      events and actions, ^fg(#6fbf47)see (2)
-    -m      menu mode, ^fg(#6fbf47)see (3)
-    -u      update contents of title and
-            slave window simultaneously, ^fg(#6fbf47)see (4)
-    -p      persist EOF (optional timeout in seconds)
-    -x      x position
-    -y      y position
-    -h      line height (default: fontheight + 2 pixels)
-    -w      width
-    -xs     number of Xinerama screen
-    -output XRandR output name
-    -lm     list connected XRandR outputs with an active CRTC
-    -v      version information
+Without ^fg(lightblue)-l^fg(), only the title is used. A collapsed slave retains its contents
+but is not visible. Horizontal menu mode (^fg(lightblue)-m^fg() h) displays slave entries in a
+single row and does not display title content.
 
-    See ^fg(#6fbf47)"(5) In-text formating language".
+    producer -> newline-terminated stdin -> title / slave
+    mouse, keyboard, signals -> event bindings -> actions / stdout / processes
 
-`-b SPEC` adds an outer border.  SPEC accepts one, two, or four non-negative
+Without ^fg(lightblue)-l^fg(), each ordinary input line replaces the title. With ^fg(lightblue)-l^fg() ^underline()N^underline(off), the
+first ordinary line supplies the title and subsequent lines enter the slave
+buffer; N is the number of visible body lines, not the input buffer length.
+By default the slave opens when the pointer enters the title.
+
+There are three kinds of input:
+
+- Rendered lines: text mixed with inline commands such as ^fg(lightblue)^^fg(^fg()^underline()red^underline(off)^fg(lightblue))^fg().
+  Formatting starts from normal defaults for each line.
+- Routed lines: ^fg(lightblue)^^tw()^fg()TEXT explicitly updates the title. Put ^fg(lightblue)^^tw()^fg() first,
+  once per line. It does not append TEXT to the slave.
+- Control lines: ^fg(lightblue)^^cs()^fg(), ^fg(lightblue)^^padding(^fg()^underline()...^underline(off)^fg(lightblue))^fg() and the other CONTROL COMMANDS.
+  Each must occupy its own line. They are consumed, not displayed as text.
+
+Write a newline after each message. Flush buffered output in your producer
+when an update should become visible. Double a caret to display it literally.
+Input examples show the characters to send to dzen; README.dzen doubles
+their carets again so they can be read in the live viewer.
+
+Inline color/font changes affect subsequent content in that line.
+^fg(lightblue)^^fg()^fg(), ^fg(lightblue)^^bg()^fg() and ^fg(lightblue)^^fn()^fg() restore normal defaults; they do not mean
+"restore the previous span". Alignment commands start a new region and
+reset formatting. Runtime normal-default commands affect subsequent drawing;
+resend content when you want a full repaint with a new theme.
+
+EOF normally ends dzen. ^fg(lightblue)-p^fg() keeps it alive; ^fg(lightblue)-p^fg() ^underline()N^underline(off) adds a timeout after EOF.
+See EXIT STATUS for timeout and signal details.
+
+^fg(#6fbf47)OPTIONS
+^fg(#6fbf47)=======
+
+Appearance:
+
+    ^fg(lightblue)-fg^fg() ^underline()COLOR^underline(off)             normal foreground
+    ^fg(lightblue)-bg^fg() ^underline()COLOR^underline(off)             normal background
+    ^fg(lightblue)-fn^fg() ^underline()FONT^underline(off)              normal font; xft: and x: select a backend
+    ^fg(lightblue)-b^fg() ^underline()SPEC^underline(off)               outer border widths and optional color
+    ^fg(lightblue)-pad^fg() ^underline()SPEC^underline(off)             padding widths
+    ^fg(lightblue)-underline^fg() ^underline()N[,COLOR]^underline(off)  default underline thickness and optional color
+    ^fg(lightblue)-overline^fg() ^underline()N[,COLOR]^underline(off)   default overline thickness and optional color
+    ^fg(lightblue)-ta^fg() ^underline()l|c|r^underline(off)             title alignment (left, center or right)
+    ^fg(lightblue)-sa^fg() ^underline()l|c|r^underline(off)             slave alignment
+
+Geometry and window properties:
+
+    ^fg(lightblue)-x^fg() ^underline()PIXELS^underline(off)             content x position
+    ^fg(lightblue)-y^fg() ^underline()PIXELS^underline(off)             content y position
+    ^fg(lightblue)-w^fg() ^underline()PIXELS^underline(off)             slave width (also the title fallback width)
+    ^fg(lightblue)-tw^fg() ^underline()PIXELS^underline(off)            explicit title width
+    ^fg(lightblue)-h^fg() ^underline()PIXELS^underline(off)             line height
+    ^fg(lightblue)-geometry^fg() ^underline()WxH+X+Y^underline(off)     title geometry in X geometry syntax
+    ^fg(lightblue)-expand^fg() ^underline()left|center|right^underline(off)  grow/shrink title to its content
+    ^fg(lightblue)-dock^fg()                 set dock type and reserve space through EWMH struts
+    ^fg(lightblue)-title-name^fg() ^underline()NAME^underline(off)      title/outer name (default: dzen title)
+    ^fg(lightblue)-slave-name^fg() ^underline()NAME^underline(off)      slave name (default: dzen slave)
+
+Input and interaction:
+
+    ^fg(lightblue)-l^fg() ^underline()N^underline(off)                  visible slave lines; see MULTI-LINE WINDOWS
+    ^fg(lightblue)-m^fg() ^underline()[v|h]^underline(off)              vertical (default) or horizontal menu; requires ^fg(lightblue)-l^fg()
+    ^fg(lightblue)-e^fg() ^underline()BINDINGS^underline(off)           events and actions; replaces all default bindings
+    ^fg(lightblue)-p^fg() ^underline()[SECONDS]^underline(off)          persist after EOF, optionally with a timeout
+    ^fg(lightblue)-u^fg()                    deprecated fixed-size updates; see LIMITATIONS
+
+Monitors and information:
+
+    ^fg(lightblue)-xs^fg() ^underline()N^underline(off)                 Xinerama screen number; requires Xinerama support
+    ^fg(lightblue)-output^fg() ^underline()NAME^underline(off)          follow an XRandR output; requires XRandR support
+    ^fg(lightblue)-lm^fg()                   list connected XRandR outputs with an active CRTC
+    ^fg(lightblue)-v^fg()                    version and enabled features (requires X display)
+
+Defaults: foreground grey70, background #111111, fixed font, title centered,
+slave left-aligned, no border or padding, no slave window, no EOF persistence.
+Line height defaults to font height + 2. Without explicit widths, available
+target geometry is used. See MONITOR SELECTION for target selection.
+Options affecting the same value are processed in command-line order.
+
+`^fg(lightblue)-b^fg() ^underline()SPEC^underline(off)` adds an outer border.  SPEC accepts one, two, or four non-negative
 widths and an optional X11 color:
 
-    -b 10
-    -b 10,8
-    -b 10,8,10,8,red
+    ^fg(lightblue)-b^fg() 10
+    ^fg(lightblue)-b^fg() 10,8
+    ^fg(lightblue)-b^fg() 10,8,10,8,red
 
 One width applies to every side; two mean vertical,horizontal; four mean
-top,right,bottom,left.  Without a color, the border follows `-bg` and later
-`^^normbg(...)` changes.  Borders do not change explicit content sizes or
-clickable-area coordinates.  `-b 0` disables the border.
+top,right,bottom,left.  Without a color, the border follows `^fg(lightblue)-bg^fg()` and later
+`^fg(lightblue)^^normbg(^fg()^underline()...^underline(off)^fg(lightblue))^fg()` changes.  Borders do not change explicit content sizes or
+clickable-area coordinates.  `^fg(lightblue)-b^fg() 0` disables the border.
 
-`^^border(SPEC)` uses the same grammar and replaces the border at runtime.  It
+`^fg(lightblue)^^border(^fg()^underline()SPEC^underline(off)^fg(lightblue))^fg()` uses the same grammar and replaces the border at runtime.  It
 must occupy its own input line.  Invalid runtime specifications are silently
 ignored.
 
-`-pad SPEC` adds padding around the union of the visible title and slave
+`^fg(lightblue)-pad^fg() ^underline()SPEC^underline(off)` adds padding around the union of the visible title and slave
 content. SPEC accepts one, two, or four non-negative widths:
 
-    -pad 10
-    -pad 10,8
-    -pad 10,8,10,8
+    ^fg(lightblue)-pad^fg() 10
+    ^fg(lightblue)-pad^fg() 10,8
+    ^fg(lightblue)-pad^fg() 10,8,10,8
 
 One width applies to every side; two mean vertical,horizontal; four mean
-top,right,bottom,left. Padding always uses the normal `-bg` color, including
-later `^^normbg(...)` changes. `^^padding(SPEC)` replaces all four sides at
-runtime, and `^^padding(0)` disables it. The command must occupy its own input
+top,right,bottom,left. Padding always uses the normal `^fg(lightblue)-bg^fg()` color, including
+later `^fg(lightblue)^^normbg(^fg()^underline()...^underline(off)^fg(lightblue))^fg()` changes. `^fg(lightblue)^^padding(^fg()^underline()SPEC^underline(off)^fg(lightblue))^fg()` replaces all four sides at
+runtime, and `^fg(lightblue)^^padding(^fg()^underline()0^underline(off)^fg(lightblue))^fg()` disables it. The command must occupy its own input
 line; invalid runtime specifications are silently ignored.
 
-The visible box model is `border -> padding -> content`. Explicit `-x`, `-y`,
-`-w`, `-tw`, and `-h` values continue to describe content; padding and border
+The visible box model is `border -> padding -> content`. Explicit `^fg(lightblue)-x^fg()`, `^fg(lightblue)-y^fg()`,
+`^fg(lightblue)-w^fg()`, `^fg(lightblue)-tw^fg()`, and `^fg(lightblue)-h^fg()` values continue to describe content; padding and border
 grow outward and are included in dock struts. A single padding box surrounds
 the visible title/slave union, so it does not add a gap between them. Padding
 does not change text or clickable-area coordinates.
 
-`-underline THICKNESS[,COLOR]` and `-overline THICKNESS[,COLOR]` configure
+`^fg(lightblue)-underline^fg() ^underline()THICKNESS[,COLOR]^underline(off)` and `^fg(lightblue)-overline^fg() ^underline()THICKNESS[,COLOR]^underline(off)` configure
 default span-decoration styles. They do not enable decorations by themselves.
 The built-in default for each is one pixel using the normal foreground color.
-An omitted color follows `-fg` and later `^^normfg(...)` changes; an explicit
+An omitted color follows `^fg(lightblue)-fg^fg()` and later `^fg(lightblue)^^normfg(^fg()^underline()...^underline(off)^fg(lightblue))^fg()` changes; an explicit
 color is independent. Specifications are strict and contain no whitespace:
-`2,#ffb52a` is valid, while `2, #ffb52a` is not.
+`2,orange` is valid, while `2, orange` is not.
 
-Use `^^underline(...)` and `^^overline(...)` in input to enable a decoration.
+Use `^fg(lightblue)^^underline(^fg()^underline()...^underline(off)^fg(lightblue))^fg()` and `^fg(lightblue)^^overline(^fg()^underline()...^underline(off)^fg(lightblue))^fg()` in input to enable a decoration.
 An empty argument uses the configured defaults, a single argument may override
 the thickness or color, and two arguments override both. `off` closes the
 active span:
 
-    ^^overline()text and ^^r(20x8) graphics^^overline(off)
-    ^^underline(2,#5fd7ff)underlined^^underline(off)
-
-Rendered by dzen:
-
-    ^overline()text and ^r(20x8) graphics^overline(off)
-    ^underline(2,#5fd7ff)underlined^underline(off)
+    ^fg(lightblue)^^overline()^fg()text and ^fg(lightblue)^^r(^fg()^underline()20x8^underline(off)^fg(lightblue))^fg() graphics^fg(lightblue)^^overline(^fg()^underline()off^underline(off)^fg(lightblue))^fg()
+    ^fg(lightblue)^^underline(^fg()^underline()2,lightblue^underline(off)^fg(lightblue))^fg()underlined^fg(lightblue)^^underline(^fg()^underline()off^underline(off)^fg(lightblue))^fg()
 
 Decorated spans include text, spaces, icons, rectangles, circles, block
-alignment, and horizontal `^^p(...)`/`^^pa(...)` movement. They use constant
+alignment, and horizontal `^fg(lightblue)^^p(^fg()^underline()...^underline(off)^fg(lightblue))^fg()`/`^fg(lightblue)^^pa(^fg()^underline()...^underline(off)^fg(lightblue))^fg()` movement. They use constant
 memory and normal painter order, so later explicitly positioned content may
 overwrite a previously closed decoration. Decorations are clipped inside the
 line and do not affect geometry or clickable areas.
 
 
-^fg(#6fbf47)Monitor selection
+^fg(#6fbf47)MONITOR SELECTION
 ^fg(#6fbf47)=================
 
 Without a monitor selector, dzen uses the root-window geometry and follows
 XRandR changes to its size.
 
-`-output NAME` selects a physical XRandR output by name.  Dzen follows changes
+`^fg(lightblue)-output^fg() ^underline()NAME^underline(off)` selects a physical XRandR output by name.  Dzen follows changes
 to that output's mode, position and rotation.  If the output is disconnected,
 its windows and dock struts are hidden; reconnecting it restores the windows
-with the original `-x`, `-y`, `-tw` and `-w` settings.  An unknown output name
-is an error.  Use `-lm` to list connected outputs which currently have an
+with the original `^fg(lightblue)-x^fg()`, `^fg(lightblue)-y^fg()`, `^fg(lightblue)-tw^fg()` and `^fg(lightblue)-w^fg()` settings.  An unknown output name
+is an error.  Use `^fg(lightblue)-lm^fg()` to list connected outputs which currently have an
 active CRTC.
 
-`-output` and `-xs` are mutually exclusive.  The legacy `-xs` selector is
+`^fg(lightblue)-output^fg()` and `^fg(lightblue)-xs^fg()` are mutually exclusive.  The legacy `^fg(lightblue)-xs^fg()` selector is
 static: values from 1 through the number of Xinerama screens select that
 screen, while 0, negative and out-of-range values use the root geometry.
 Geometry is resolved once at startup and later XRandR events are ignored when
-`-xs` was explicitly supplied.
+`^fg(lightblue)-xs^fg()` was explicitly supplied.
 
 
-^fg(#6fbf47)X resources
-^fg(#6fbf47)===========
+^fg(#6fbf47)MULTI-LINE WINDOWS
+^fg(#6fbf47)==================
 
-Dzen is able to read font and color setting from X resources.
-As an example you can add following lines to ~/.Xresources
-
-^fg(Khaki)    dzen2.font:       -*-fixed-*-*-*-*-*-*-*-*-*-*-*-*
-^fg(Khaki)    dzen2.foreground: #22EE11
-^fg(Khaki)    dzen2.background: black
-^fg(Khaki)    dzen2.underline:  2,#ffb52a
-^fg(Khaki)    dzen2.overline:   1,#5fd7ff
-
-Decoration resources use the same `THICKNESS[,COLOR]` grammar as their command
-line options. Command-line values override X resources.
-
-
-^fg(#6fbf47)Window layout
-^fg(#6fbf47)=============
-
-Dzen's window layout is as follows:
-
-^fg(red)     ------------------------------------------
-^fg(red)    |        Title window, single line         |
-^fg(red)    `------------------------------------------´
-^fg(#6fbf47)    |                                          |
-^fg(#6fbf47)    |               scrollable                 |
-^fg(#6fbf47)    |              Slave window                |
-^fg(#6fbf47)    |             multiple lines               |
-^fg(#6fbf47)    |     lines to display simultaneously      |
-^fg(#6fbf47)    |           controlled with the            |
-^fg(#6fbf47)    |              '-l' option                 |
-^fg(#6fbf47)    |                                          |
-^fg(#6fbf47)    |                                          |
-^fg(#6fbf47)    `------------------------------------------´
-
-The first line you provide to dzen always goes to the title window,
-all other consecutive lines will be drawn to the slave window unless
-you explicitly override this with the ^fg(#6fbf47)"(5) In-text formating language"
-^fg()command ^^tw().
-
-
-^fg(#6fbf47)QA:
-^fg(#6fbf47)---
-
-Q1:  I don't want a slave window, what to do?
-A1:  Do not provide the `-l` option, all lines will be displayed
-     in the title window, this is the default behaviour.
-
-Q2:  I used the `-l` option but no slave window appears.
-A2:  With the default event/action handling the slave window will
-     only be displayed if you hoover with the mouse over the title
-     window. See ^fg(#6fbf47)"(2) Events and actions" ^fg()if you'd like to change
-     this.
-
-Q3:  If I echo some text or cat a file dzen closes itself immediately.
-A3:  There are 2 different approaches dzen uses to terminate itself,
-     see next section ^fg(#6fbf47)"Termination"^fg().
-
-Q4:  Ok, the title and slave thing works, can I update the
-     contents of both windows at the same time?
-A4:  Sure, see ^fg(#6fbf47)"(4) Simultaneous updates" ^fg()or use the in-text
-     command "^^tw()" to explicitly draw to the title window.
-     See ^fg(#6fbf47)"(5) In-Text formating language" ^fg()for further details
-
-Q5:  Can I change color of my input at runtime?
-A5:  Yes, you can change both background and foreground colors and
-     much more See ^fg(#6fbf47)"(5) In-Text formating language"^fg().
-
-Q6:  Can I use dzen as a menu?
-A6:  Yes, both vertical and horizontal menus are supported.
-     See ^fg(#6fbf47)"(3) Menu" ^fg()for further details.
-
-
-^fg(#6fbf47)Termination:
-^fg(#6fbf47)============
-
-`dzen` uses two different approaches to terminate itself:
-
-^fg(red)*^fg(grey70) Timed termination: if EOF is received -> terminate
-  - unless the `-p` option is set
-    - `-p` Without argument persist forever
-    - `-p` With argument n persist for n seconds,
-           only when the mouse is not over the window.
-
-^fg(red)*^fg(grey70) Interactive termination: if mouse button3 is clicked -> terminate
-  - this is the default behaviour, ^fg(#6fbf47)see (2)
-  - in some modes the Escape key terminates too, ^fg(#6fbf47)see (2)
-
-`SIGTERM` performs the normal shutdown lifecycle, including the `onexit` event,
-and exits with status 143. An `exit:N` action attached to `onexit` does not
-override that status. A `-p N` timeout also performs `onexit`, but exits with
-status 0.
-
-
-^fg(#6fbf47)Return values:
-^fg(#6fbf47)--------------
-0               -   dzen received EOF
-1               -   some error occured, inspect the error message
-user defined    -   set with 'exit:retval' action, ^fg(#6fbf47)see (2)
-
-^fg(#6fbf47)(1) Option `-l`: Slave window
-^fg(#6fbf47)=============================
-
-Enables support for displaying multiple lines. The parameter to "-l"
+Enables support for displaying multiple lines. The parameter to "^fg(lightblue)-l^fg()"
 specifies the number of lines to be displayed.
 
 These lines of input are held in the slave window which becomes active as soon
@@ -317,14 +269,316 @@ and down if the content exceeds the window height (default action).
 
 
 
-^fg(#6fbf47)(2) Option `-e`: Events and actions
-^fg(#6fbf47)===================================
+^fg(#6fbf47)MENUS
+^fg(#6fbf47)=====
 
-dzen allows the user to associate actions to events.
+Dzen provides two menu modes, vertical and horizontal menus. You can
+access these modes by adding 'v'(vertical) or 'h'(horizontal) to the
+'^fg(lightblue)-m^fg()' option. If nothing is specified dzen defaults to vertical menus.
+
+Vertical menu, both invocations are equivalent:
+
+    ^fg(grey70)^fg(lightblue)dzen2^fg() ^fg(lightblue)-p^fg() ^fg(lightblue)-l^fg() 4 ^fg(lightblue)-m^fg() < file
+    ^fg(grey70)^fg(lightblue)dzen2^fg() ^fg(lightblue)-p^fg() ^fg(lightblue)-l^fg() 4 ^fg(lightblue)-m^fg() v < file
+
+Horizontal menu:
+
+    ^fg(grey70)^fg(lightblue)dzen2^fg() ^fg(lightblue)-p^fg() ^fg(lightblue)-l^fg() 4 ^fg(lightblue)-m^fg() h < file
+
+
+All actions beginning with "menu" work on the selected menu entry.
+
+^fg(Khaki)Note:   Menu mode only makes sense if `^fg(lightblue)-l^fg() <n>` is specified!
+        ^fg(Khaki)Horizontal menus do not display title content.  Title-only
+        ^fg(Khaki)actions are otherwise ignored, but `hide`, `unhide`, and
+        ^fg(Khaki)`togglehide` control the complete horizontal surface.
+
+
+^fg(#6fbf47)X RESOURCES
+^fg(#6fbf47)===========
+
+Startup precedence: built-in defaults < X resources < command-line options.
+As an example you can add following lines to ~/.Xresources
+
+^fg(Khaki)    ^fg(lightblue)dzen2^fg().font:       -*-fixed-*-*-*-*-*-*-*-*-*-*-*-*
+^fg(Khaki)    ^fg(lightblue)dzen2^fg().foreground: green
+^fg(Khaki)    ^fg(lightblue)dzen2^fg().background: black
+^fg(Khaki)    ^fg(lightblue)dzen2^fg().underline:  2,orange
+^fg(Khaki)    ^fg(lightblue)dzen2^fg().overline:   1,lightblue
+^fg(Khaki)    ^fg(lightblue)dzen2^fg().titlename:  dzen title
+^fg(Khaki)    ^fg(lightblue)dzen2^fg().slavename:  dzen slave
+
+Decoration resources use the same `THICKNESS[,COLOR]` grammar as their command
+line options. Command-line values override X resources.
+
+
+^fg(#6fbf47)FORMATTING COMMANDS
+^fg(#6fbf47)===================
+
+These commands may be mixed with text. They change rendering, not global
+window geometry. Colors accept X11 names or #rrggbb values.
+
+^fg(#6fbf47)Colors:
+^fg(#6fbf47)-------
+
+    ^fg(lightblue)^^fg(^fg()^underline()color^underline(off)^fg(lightblue))^fg()         Set foreground color
+    ^fg(lightblue)^^fg()^fg()              Without arguments, sets default fg color
+    ^fg(lightblue)^^bg(^fg()^underline()color^underline(off)^fg(lightblue))^fg()         Set background color
+    ^fg(lightblue)^^bg()^fg()              Without arguments, sets default bg color
+
+    ^fg(lightblue)^^fn(^fg()^underline()FONT^underline(off)^fg(lightblue))^fg()          Select font for subsequent content in this line
+    ^fg(lightblue)^^fn()^fg()              Restore the normal font
+                       Prefix xft: or x: to select the font backend.
+                       XFT fonts require an XFT-enabled build.
+
+^fg(#6fbf47)Graphics:
+^fg(#6fbf47)---------
+
+    ^fg(lightblue)^^i(^fg()^underline()path^underline(off)^fg(lightblue))^fg()           Draw icon specified by path
+                       supported formats: XBM and optionally XPM
+
+    ^fg(lightblue)^^r(^fg()^underline()WIDTHxHEIGHT^underline(off)^fg(lightblue))^fg()   Draw a rectangle with the dimensions
+                       WIDTH and HEIGHT
+    ^fg(lightblue)^^ro(^fg()^underline()WIDTHxHEIGHT^underline(off)^fg(lightblue))^fg()  Rectangle outline
+
+    ^fg(lightblue)^^c(^fg()^underline()DIAMETER^underline(off)^fg(lightblue))^fg()         Draw a circle with diameter DIAMETER pixels
+    ^fg(lightblue)^^co(^fg()^underline()DIAMETER^underline(off)^fg(lightblue))^fg()        Circle outline
+
+    ^fg(lightblue)^^underline()^fg()       Enable underline with configured defaults
+    ^fg(lightblue)^^underline(^fg()^underline()ARG^underline(off)^fg(lightblue))^fg()    Enable underline with a thickness, color, or both
+    ^fg(lightblue)^^underline(^fg()^underline()off^underline(off)^fg(lightblue))^fg()    Disable underline
+    ^fg(lightblue)^^overline()^fg()        Enable overline with configured defaults
+    ^fg(lightblue)^^overline(^fg()^underline()ARG^underline(off)^fg(lightblue))^fg()     Enable overline with a thickness, color, or both
+    ^fg(lightblue)^^overline(^fg()^underline()off^underline(off)^fg(lightblue))^fg()     Disable overline
+
+^fg(#6fbf47)Positioning:
+^fg(#6fbf47)------------
+
+    ^fg(lightblue)^^p(^fg()^underline()ARGUMENT^underline(off)^fg(lightblue))^fg()       Position next input amount of PIXELs to the right
+                       or left of the current position
+                       a.k.a. relative positioning
+
+    ^fg(lightblue)^^pa(^fg()^underline()ARGUMENT^underline(off)^fg(lightblue))^fg()      Position next input at PIXEL
+                       a.k.a. absolute positioning
+                       For maximum predictability `^fg(lightblue)^^pa()^fg()` should only be
+                       used with `^fg(lightblue)-ta^fg() l` or `^fg(lightblue)-sa^fg() l`
+
+     Where ARGUMENT:
+
+     ^fg(lightblue)^^p(^fg()^underline()+-X^underline(off)^fg(lightblue))^fg()           Move X pixels to the right or left of the current position (on the X axis)
+
+     ^fg(lightblue)^^p(^fg()^underline()+-X;+-Y^underline(off)^fg(lightblue))^fg()       Move X pixels to the right or left and Y pixels up or down of the current
+                       position (on the X and Y axis)
+
+     ^fg(lightblue)^^p(^fg()^underline();+-Y^underline(off)^fg(lightblue))^fg()          Move Y pixels up or down of the current position (on the Y axis)
+
+     ^fg(lightblue)^^p()^fg()              Without parameters resets the Y position to its default
+
+     ^fg(lightblue)^^pa()^fg()             Takes the same parameters as described above but positions at
+                       the absolute X and Y coordinates
+
+     Further ^fg(lightblue)^^p()^fg() also takes some symbolic names as argument:
+
+     _LOCK_X           Lock the current X position, useful if you want to
+                       align things vertically
+     _UNLOCK_X         Unlock the X position
+     _LEFT             Move current x-position to the left edge
+     _RIGHT            Move current x-position to the right edge
+     _TOP              Move current y-position to the top edge
+     _CENTER           Move current x-position to center of the window
+     _BOTTOM           Move current y-position to the bottom edge
+
+    ^fg(lightblue)^^ba(^fg()^underline()WIDTH,ALIGN^underline(off)^fg(lightblue))^fg()   Align the next text run in WIDTH pixels
+                       ALIGN is _LEFT, _CENTER or _RIGHT
+    ^fg(lightblue)^^ba()^fg()              Cancel pending block alignment
+                       Block alignment resets after drawing that text run.
+
+    ^fg(lightblue)^^left()^fg()            Align next input to left. Reset settings (fg, bg, fn, etc)
+    ^fg(lightblue)^^center()^fg()          Align next input to center. Reset settings (fg, bg, fn, etc)
+    ^fg(lightblue)^^right()^fg()           Align next input to right. Reset settings (fg, bg, fn, etc)
+                       Example:
+                         ^fg(lightblue)^^left()^fg()^fg(lightblue)^^fg(^fg()^underline()red^underline(off)^fg(lightblue))^fg()Left ^fg(lightblue)^^center()^fg()^fg(lightblue)^^fg(^fg()^underline()green^underline(off)^fg(lightblue))^fg()Center ^fg(lightblue)^^right()^fg()^fg(lightblue)^^fg(^fg()^underline()blue^underline(off)^fg(lightblue))^fg()Right
+
+^fg(#6fbf47)Interaction:
+^fg(#6fbf47)------------
+
+    ^fg(lightblue)^^ca(^fg()^underline()BTN, CMD^underline(off)^fg(lightblue))^fg() ... ^fg(lightblue)^^ca()^fg()
+
+                       Used to define 'clickable areas' anywhere inside the
+                       title window or slave window.
+                       - 'BTN' denotes the mouse button (1=left, 2=middle, 3=right, etc.)
+                       - 'CMD' denotes the command that should be spawned when the specific
+                         area has been clicked with the defined button
+                       - '...' denotes any text or formatting commands dzen accepts
+                       - '^fg(lightblue)^^ca()^fg()' without arguments denotes the end of this clickable area
+
+                       Example: ^fg(lightblue)^^ca(^fg()^underline()1,echo clicked^underline(off)^fg(lightblue))^fg()Click me^fg(lightblue)^^ca()^fg()
+
+    ^fg(lightblue)^^ib(^fg()^underline()1^underline(off)^fg(lightblue))^fg()             Do not paint backgrounds over earlier content
+    ^fg(lightblue)^^ib(^fg()^underline()0^underline(off)^fg(lightblue))^fg()             Resume background painting (the default)
+
+Use ^fg(lightblue)^^ib(^fg()^underline()1^underline(off)^fg(lightblue))^fg() with positioning commands to overlay shapes. XBM icons use
+foreground/background colors; XPM requires an XPM-enabled build.
+Paths are relative to the process working directory.
+Run direct README.dzen demonstrations from the project directory so the
+example bitmaps can be found. The installed ^fg(lightblue)dzen2-help^fg() sets its working
+directory to the documentation directory for these assets.
+
+Example: status-bar — A compact status bar
+
+Input:
+    ^fg(lightblue)^^left()^fg()^fg(lightblue)^^underline(^fg()^underline()gold^underline(off)^fg(lightblue))^fg() 1 ^fg(lightblue)^^underline(^fg()^underline()off^underline(off)^fg(lightblue))^fg() 2  3^fg(lightblue)^^center()^fg()Editor^fg(lightblue)^^right()^fg()^fg(lightblue)^^fg(^fg()^underline()limegreen^underline(off)^fg(lightblue))^fg()online^fg(lightblue)^^fg()^fg() 12:34
+
+Result:
+    ^left()^underline(gold) 1 ^underline(off) 2  3^center()Editor^right()^fg(limegreen)online^fg() 12:34
+
+Each alignment command starts a new region and resets its formatting.
+The workspace number and time are static sample data; your script supplies
+the current values.
+
+Example: colors — Status with foreground and background colors
+
+Input:
+    Status: ^fg(lightblue)^^fg(^fg()^underline()limegreen^underline(off)^fg(lightblue))^fg()online^fg(lightblue)^^fg()^fg() | Errors: ^fg(lightblue)^^bg(^fg()^underline()maroon^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg(^fg()^underline()white^underline(off)^fg(lightblue))^fg() 3 ^fg(lightblue)^^fg()^fg()^fg(lightblue)^^bg()^fg() | normal
+
+Result:
+    Status: ^fg(limegreen)online^fg() | Errors: ^bg(maroon)^fg(white) 3 ^fg()^bg() | normal
+
+The error count has white text on a maroon background. Empty ^fg(lightblue)^^fg()^fg() and
+^fg(lightblue)^^bg()^fg() restore normal colors for subsequent text.
+
+Example: spacing — Spacing between fields
+
+Input:
+    CPU^fg(lightblue)^^p(^fg()^underline()12^underline(off)^fg(lightblue))^fg()24%^fg(lightblue)^^p(^fg()^underline()24^underline(off)^fg(lightblue))^fg()RAM^fg(lightblue)^^p(^fg()^underline()12^underline(off)^fg(lightblue))^fg()42%
+
+Result:
+    CPU^p(12)24%^p(24)RAM^p(12)42%
+
+^fg(lightblue)^^p(^fg()^underline()N^underline(off)^fg(lightblue))^fg() moves the next element N pixels to the right of the current position.
+
+Example: clickable — A clickable launcher
+
+Input:
+    ^fg(lightblue)^^ca(^fg()^underline()1,xterm^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg(^fg()^underline()lightblue^underline(off)^fg(lightblue))^fg()[ Terminal ]^fg(lightblue)^^fg()^fg()^fg(lightblue)^^ca()^fg()  ordinary text
+
+Result:
+    ^ca(1,xterm)^fg(lightblue)[ Terminal ]^fg()^ca()  ordinary text
+
+Left-click the bracketed label to launch xterm (which must be installed).
+^fg(lightblue)^^ca()^fg() closes the clickable area; the following text is outside it.
+
+Example: columns — Fixed-width text columns
+
+Input:
+    ^fg(lightblue)^^ba(^fg()^underline()90,_LEFT^underline(off)^fg(lightblue))^fg()CPU^fg(lightblue)^^ba(^fg()^underline()50,_RIGHT^underline(off)^fg(lightblue))^fg()9%
+    ^fg(lightblue)^^ba(^fg()^underline()90,_LEFT^underline(off)^fg(lightblue))^fg()Memory^fg(lightblue)^^ba(^fg()^underline()50,_RIGHT^underline(off)^fg(lightblue))^fg()42%
+
+Result:
+    ^ba(90,_LEFT)CPU^ba(50,_RIGHT)9%
+    ^ba(90,_LEFT)Memory^ba(50,_RIGHT)42%
+
+Each label occupies 90 pixels and each value occupies 50 pixels, aligned
+right. Block alignment applies to the next text run, so repeat it per field.
+
+Example: progress — A progress bar with a value
+
+Input:
+    CPU ^fg(lightblue)^^fg(^fg()^underline()gray30^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^r(^fg()^underline()100x8^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^p(^fg()^underline()-100^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg(^fg()^underline()limegreen^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^r(^fg()^underline()35x8^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^p(^fg()^underline()65^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg()^fg() 35%
+
+Result:
+    CPU ^fg(gray30)^r(100x8)^p(-100)^fg(limegreen)^r(35x8)^p(65)^fg() 35%
+
+Draw a 100-pixel track, move back 100 pixels and draw a 35-pixel fill.
+Move forward the remaining 65 pixels before writing the value. Your script
+calculates the fill width; dzen does not calculate percentages.
+
+Example: alignment — Left, center and right regions
+
+Input:
+    ^fg(lightblue)^^left()^fg()^fg(lightblue)^^fg(^fg()^underline()red^underline(off)^fg(lightblue))^fg()Left^fg(lightblue)^^center()^fg()^fg(lightblue)^^fg(^fg()^underline()seagreen^underline(off)^fg(lightblue))^fg()Center^fg(lightblue)^^right()^fg()^fg(lightblue)^^fg(^fg()^underline()lightblue^underline(off)^fg(lightblue))^fg()Right
+
+Result:
+    ^left()^fg(red)Left^center()^fg(seagreen)Center^right()^fg(lightblue)Right
+
+Example: decorations — Underline and overline spans
+
+Input:
+    ^fg(lightblue)^^underline(^fg()^underline()1,lightblue^underline(off)^fg(lightblue))^fg()Text and ^fg(lightblue)^^r(^fg()^underline()20x8^underline(off)^fg(lightblue))^fg() graphics^fg(lightblue)^^underline(^fg()^underline()off^underline(off)^fg(lightblue))^fg()
+    ^fg(lightblue)^^overline()^fg()Overlined text^fg(lightblue)^^overline(^fg()^underline()off^underline(off)^fg(lightblue))^fg()
+
+Result:
+    ^underline(1,lightblue)Text and ^r(20x8) graphics^underline(off)
+    ^overline()Overlined text^overline(off)
+
+Example: graphics — Positioned graphics
+
+Input:
+    ^fg(lightblue)^^ib(^fg()^underline()1^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg(^fg()^underline()red^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^ro(^fg()^underline()100x15^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^p(^fg()^underline()-98^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg(^fg()^underline()blue^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^r(^fg()^underline()20x10^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg(^fg()^underline()orange^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^p(^fg()^underline()3^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^r(^fg()^underline()40x10^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^p(^fg()^underline()4^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^fg(^fg()^underline()darkgreen^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^co(^fg()^underline()12^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^p(^fg()^underline()2^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^c(^fg()^underline()10^underline(off)^fg(lightblue))^fg()
+
+Result:
+    ^ib(1)^fg(red)^ro(100x15)^p(-98)^fg(blue)^r(20x10)^fg(orange)^p(3)^r(40x10)^p(4)^fg(darkgreen)^co(12)^p(2)^c(10)
+
+Example: icons — XBM icons
+
+Input:
+    ^fg(lightblue)^^i(^fg()^underline()bitmaps/envelope.xbm^underline(off)^fg(lightblue))^fg() Mail ^fg(lightblue)^^fg(^fg()^underline()seagreen^underline(off)^fg(lightblue))^fg()^fg(lightblue)^^i(^fg()^underline()bitmaps/battery.xbm^underline(off)^fg(lightblue))^fg() Battery
+
+Result:
+    ^i(bitmaps/envelope.xbm) Mail ^fg(seagreen)^i(bitmaps/battery.xbm) Battery
+
+Example: literal-caret — Literal carets
+
+Input:
+    Two literal carets: ^^^^^^^^
+
+Result:
+    Two literal carets: ^^^^
+
+^fg(#6fbf47)CONTROL COMMANDS
+^fg(#6fbf47)================
+
+Send each command as the first and only content of its input line.
+Do not concatenate control commands or append display text to them.
+
+    ^fg(lightblue)^^togglecollapse()^fg()
+    ^fg(lightblue)^^collapse()^fg()
+    ^fg(lightblue)^^uncollapse()^fg()
+    ^fg(lightblue)^^togglestick()^fg()
+    ^fg(lightblue)^^stick()^fg()            See EVENTS AND ACTIONS for a detailed description
+    ^fg(lightblue)^^unstick()^fg()          of each command.
+    ^fg(lightblue)^^togglehide()^fg()
+    ^fg(lightblue)^^hide()^fg()
+    ^fg(lightblue)^^unhide()^fg()
+    ^fg(lightblue)^^raise()^fg()
+    ^fg(lightblue)^^lower()^fg()
+    ^fg(lightblue)^^scrollhome()^fg()
+    ^fg(lightblue)^^scrollend()^fg()
+    ^fg(lightblue)^^exit()^fg()
+
+    ^fg(lightblue)^^cs()^fg()              Clear the slave buffer
+    ^fg(lightblue)^^normfg(^fg()^underline()COLOR^underline(off)^fg(lightblue))^fg()     Change the normal foreground, restored by ^fg(lightblue)^^fg()^fg()
+    ^fg(lightblue)^^normbg(^fg()^underline()COLOR^underline(off)^fg(lightblue))^fg()     Change the normal background, restored by ^fg(lightblue)^^bg()^fg()
+    ^fg(lightblue)^^normfn(^fg()^underline()FONT^underline(off)^fg(lightblue))^fg()      Change the normal font, restored by ^fg(lightblue)^^fn()^fg()
+    ^fg(lightblue)^^border(^fg()^underline()SPEC^underline(off)^fg(lightblue))^fg()      Replace the outer border; same syntax as ^fg(lightblue)-b^fg()
+    ^fg(lightblue)^^padding(^fg()^underline()SPEC^underline(off)^fg(lightblue))^fg()     Replace padding; same syntax as ^fg(lightblue)-pad^fg()
+
+Invalid border/padding specifications are ignored. These commands replace
+the complete specification, not selected sides. Other command arguments
+follow their own parsers; there is no universal whitespace-trimming rule.
+
+Routing command (unlike the above, it carries display text):
+
+    ^fg(lightblue)^^tw()^fg()TEXT          Draw TEXT to title; put the command first, once per line
+
+^fg(#6fbf47)EVENTS AND ACTIONS
+^fg(#6fbf47)==================
+
+Dzen allows the user to associate actions to events.
 
 The command line syntax is as follows:
 
-    -e 'event1=action1:option1:...option<n>,...,action<m>;...;event<l>'
+    ^fg(lightblue)-e^fg() 'event1=action1:option1:...option<n>,...,action<m>;...;event<l>'
 
 
 Every event can take any number of actions and every action can take any number
@@ -332,12 +586,12 @@ of options. (By default limited to 64 each, easily changeable in action.h)
 
 An example:
 
-    ^fg(grey85)-e 'button1=exec:xterm:firefox;entertitle=uncollapse,unhide;button3=exit'
+    ^fg(grey85)^fg(lightblue)-e^fg() 'button1=exec:xterm:firefox;entertitle=uncollapse,unhide;button3=exit'
 
 Meaning:
 
 - `^fg(grey85)button1=exec:xterm:firefox;`
-On Button1 event (Button1 press on the mouse) execute xterm and
+On Button1 event (Button1 release on the mouse) execute xterm and
 firefox.
 
 ^fg(Khaki)Note: xterm and firefox are options to the exec action
@@ -353,29 +607,29 @@ On button3 event exit dzen
 ^fg(#6fbf47)Supported events:
 ^fg(#6fbf47)-----------------
 
-    onstart             Perform actions right after startup
-    onexit              Perform actions just before exiting
-    onnewinput          Perform actions if there is new input for the slave window
-    button1             Mouse button1 released
-    button2             Mouse button2 released
-    button3             Mouse button3 released
-    button4             Mouse button4 released (usually scrollwheel)
-    button5             Mouse button5 released (usually scrollwheel)
-    button6             Mouse button6 released
-    button7             Mouse button7 released
-    entertitle          Mouse enters the title window
-    leavetitle          Mouse leaves the title window
-    enterslave          Mouse enters the slave window
-    leaveslave          Mouse leaves the slave window
-    sigusr1             SIGUSR1 received
-    sigusr2             SIGUSR2 received
-    key_KEYNAME         Keyboard events (*)
+    ^fg(lightblue)onstart^fg()             Perform actions right after startup
+    ^fg(lightblue)onexit^fg()              Perform actions just before exiting
+    ^fg(lightblue)onnewinput^fg()          Perform actions if there is new input for the slave window
+    ^fg(lightblue)button1^fg()             Mouse button1 released
+    ^fg(lightblue)button2^fg()             Mouse button2 released
+    ^fg(lightblue)button3^fg()             Mouse button3 released
+    ^fg(lightblue)button4^fg()             Mouse button4 released (usually scrollwheel)
+    ^fg(lightblue)button5^fg()             Mouse button5 released (usually scrollwheel)
+    ^fg(lightblue)button6^fg()             Mouse button6 released
+    ^fg(lightblue)button7^fg()             Mouse button7 released
+    ^fg(lightblue)entertitle^fg()          Mouse enters the title window
+    ^fg(lightblue)leavetitle^fg()          Mouse leaves the title window
+    ^fg(lightblue)enterslave^fg()          Mouse enters the slave window
+    ^fg(lightblue)leaveslave^fg()          Mouse leaves the slave window
+    ^fg(lightblue)sigusr1^fg()             SIGUSR1 received
+    ^fg(lightblue)sigusr2^fg()             SIGUSR2 received
+    ^fg(lightblue)key_KEYNAME^fg()         Keyboard events (*)
 
     ^fg(#6fbf47)(*) Keyboard events:
     ^fg(#6fbf47)--------------------
 
     Every key can be bound to an action (see below). The format is:
-    key_KEYNAME where KEYNAME is the name of the key as defined in
+    ^fg(lightblue)key_KEYNAME^fg() where KEYNAME is the name of the key as defined in
     keysymdef.h (usually: /usr/include/X11/keysymdef.h).  The part
     after `XK_` in keysymdef.h must be used for KEYNAME.
 
@@ -383,31 +637,31 @@ On button3 event exit dzen
 ^fg(#6fbf47)Supported actions:
 ^fg(#6fbf47)------------------
 
-    exec:command1:..:n  execute all given options
-    menuexec            executes selected menu entry
-    exit:retval         exit dzen and return 'retval'
-    print:str1:...:n    write all given options to STDOUT
-    menuprint           write selected menu entry to STDOUT
-    collapse            collapse (roll-up) slave window
-    uncollapse          uncollapse (roll-down) slave window
-    togglecollapse      toggle collapsed state
-    stick               stick slave window
-    unstick             unstick slave window
-    togglestick         toggle sticky state
-    hide                strictly hide the title surface
-    unhide              restore the hidden surface
-    togglehide          toggle strict hide state
-    raise               raise window to view (above all others)
-    lower               lower window (behind all others)
-    scrollhome          show head of input
-    scrollend           show tail of input
-    scrollup:n          scroll slave window n lines up   (default n=1)
-    scrolldown:n        scroll slave window n lines down (default n=1)
-    grabkeys            enable keyboard support
-    ungrabkeys          disable keyboard support
-    grabmouse           enable mouse support
+    ^fg(lightblue)exec^fg():^underline()command1^underline(off):..:^underline()n^underline(off)  execute all given options
+    ^fg(lightblue)menuexec^fg()            executes selected menu entry
+    ^fg(lightblue)exit^fg():^underline()retval^underline(off)         exit dzen and return 'retval'
+    ^fg(lightblue)print^fg():^underline()str1^underline(off):...:^underline()n^underline(off)    write all given options to STDOUT
+    ^fg(lightblue)menuprint^fg()           write selected menu entry to STDOUT
+    ^fg(lightblue)collapse^fg()            collapse (roll-up) slave window
+    ^fg(lightblue)uncollapse^fg()          uncollapse (roll-down) slave window
+    ^fg(lightblue)togglecollapse^fg()      toggle collapsed state
+    ^fg(lightblue)stick^fg()               stick slave window
+    ^fg(lightblue)unstick^fg()             unstick slave window
+    ^fg(lightblue)togglestick^fg()         toggle sticky state
+    ^fg(lightblue)hide^fg()                strictly hide the title surface
+    ^fg(lightblue)unhide^fg()              restore the hidden surface
+    ^fg(lightblue)togglehide^fg()          toggle strict hide state
+    ^fg(lightblue)raise^fg()               raise window to view (above all others)
+    ^fg(lightblue)lower^fg()               lower window (behind all others)
+    ^fg(lightblue)scrollhome^fg()          show head of input
+    ^fg(lightblue)scrollend^fg()           show tail of input
+    ^fg(lightblue)scrollup^fg():^underline()n^underline(off)          scroll slave window n lines up   (default n=1)
+    ^fg(lightblue)scrolldown^fg():^underline()n^underline(off)        scroll slave window n lines down (default n=1)
+    ^fg(lightblue)grabkeys^fg()            enable keyboard support
+    ^fg(lightblue)ungrabkeys^fg()          disable keyboard support
+    ^fg(lightblue)grabmouse^fg()           enable mouse support
                         only needed with specific windowmanagers, such as fluxbox
-    ungrabmouse         release mouse
+    ^fg(lightblue)ungrabmouse^fg()         release mouse
                         only needed with specific windowmanagers, such as fluxbox
 
 `hide` fully unmaps title-only, collapsed vertical, and horizontal surfaces.
@@ -421,13 +675,13 @@ pointer events; restore it with a signal or an active key grab.
         ^fg(#6fbf47)Title only mode:
         ^fg(#6fbf47)----------------
 
-        -e 'button3=exit:13'
+        ^fg(lightblue)-e^fg() 'button3=exit:13'
 
 
         ^fg(#6fbf47)Multiple lines and vertical menu mode:
         ^fg(#6fbf47)--------------------------------------
 
-        -e 'entertitle=uncollapse,grabkeys;
+        ^fg(lightblue)-e^fg() 'entertitle=uncollapse,grabkeys;
             enterslave=grabkeys;leaveslave=collapse,ungrabkeys;
             button1=menuexec;button2=togglestick;button3=exit:13;
             button4=scrollup;button5=scrolldown;
@@ -437,10 +691,10 @@ pointer events; restore it with a signal or an active key grab.
         ^fg(#6fbf47)Horizontal menu mode:
         ^fg(#6fbf47)---------------------
 
-        -e 'enterslave=grabkeys;leaveslave=ungrabkeys;
+        ^fg(lightblue)-e^fg() 'enterslave=grabkeys;leaveslave=ungrabkeys;
             button4=scrollup;button5=scrolldown;
             key_Left=scrollup;key_Right=scrolldown;
-            button1=menuexec;button3=exit:13
+            button1=menuexec;button3=exit:13;
             key_Escape=ungrabkeys,exit'
 
 
@@ -449,35 +703,114 @@ pointer events; restore it with a signal or an active key grab.
         ^fg(Khaki)use.
 
 
-^fg(#6fbf47)(3) Option `-m`, Menu
-^fg(#6fbf47)=====================
+^fg(#6fbf47)EXAMPLES
+^fg(#6fbf47)========
 
-Dzen provides two menu modes, vertical and horizontal menus. You can
-access these modes by adding 'v'(vertical) or 'h'(horizontal) to the
-'-m' option. If nothing is specified dzen defaults to vertical menus.
+Update a title without appending to the slave:
 
-Vertical menu, both invocations are equivalent:
+    {
+        printf '%s\n' 'Status' 'Service running' 'Connected'
+        sleep 2
+        printf '%s\n' '^fg(lightblue)^^tw()^fg()Status: updated'
+    } | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 2 ^fg(lightblue)-p^fg() ^fg(lightblue)-e^fg() 'onstart=uncollapse;button3=exit'
 
-    ^fg(grey70)dzen2 -p -l 4 -m < file
-    ^fg(grey70)dzen2 -p -l 4 -m v < file
+Replace the slave contents and update the title:
 
-Horizontal menu:
+    {
+        printf '%s\n' 'Tasks' 'Build: waiting' 'Tests: waiting'
+        sleep 2
+        printf '%s\n' '^fg(lightblue)^^cs()^fg()' 'Build: done' 'Tests: passed'
+        printf '%s\n' '^fg(lightblue)^^tw()^fg()Tasks: complete'
+    } | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 2 ^fg(lightblue)-p^fg() ^fg(lightblue)-e^fg() 'onstart=uncollapse;button3=exit'
 
-    ^fg(grey70)dzen2 -p -l 4 -m h < file
+^fg(lightblue)^^cs()^fg() clears the old slave buffer without replacing the title. The next
+two lines refill the slave; ^fg(lightblue)^^tw()^fg() explicitly replaces the title. Each
+control command is sent on its own line, not mixed into a rendered line.
+
+Change window styling at runtime; commands occupy separate lines:
+
+    {
+        printf '%s\n' 'Initial theme'
+        sleep 2
+        printf '%s\n' '^fg(lightblue)^^normbg(^fg()^underline()darkgreen^underline(off)^fg(lightblue))^fg()' '^fg(lightblue)^^padding(^fg()^underline()4,8^underline(off)^fg(lightblue))^fg()'
+        printf '%s\n' 'Updated theme (bg changed, padding added)'
+    } | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-p^fg() ^fg(lightblue)-b^fg() '1,seagreen'
+
+Return the selected menu entry to stdout:
+
+    printf '%s\n' 'Choose' 'First' 'Second' |
+        ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 2 ^fg(lightblue)-m^fg() v ^fg(lightblue)-p^fg() \
+          ^fg(lightblue)-e^fg() 'onstart=uncollapse;button1=menuprint,exit;button3=exit'
+
+Launch an application from a horizontal menu:
+
+    printf '%s\n' 'Applications' 'xterm' 'xclock' |
+        ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 2 ^fg(lightblue)-m^fg() h ^fg(lightblue)-p^fg()
+
+The first line is still supplied, although horizontal menus do not show
+title content. The default button1 binding executes the selected entry.
+
+Show a growing log:
+
+    { printf '%s\n' 'Log'; tail -f application.log; } |
+        ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 12 ^fg(lightblue)-w^fg() 600 ^fg(lightblue)-p^fg()
+
+Provide your own application.log. Hover over the title to expand the log;
+use the wheel to scroll. Menu execution and clickable commands execute shell
+commands, so only use trusted command strings.
+
+^fg(#6fbf47)EXIT STATUS
+^fg(#6fbf47)===========
+
+`dzen` uses two different approaches to terminate itself:
+
+^fg(red)*^fg(grey70) Timed termination: if EOF is received -> terminate
+  - unless the `^fg(lightblue)-p^fg()` option is set
+    - `^fg(lightblue)-p^fg()` Without argument persist forever
+    - `^fg(lightblue)-p^fg()` With argument n persist for n seconds,
+           only when the mouse is not over the window.
+
+^fg(red)*^fg(grey70) Interactive termination: if mouse button3 is clicked -> terminate
+  - this is the default behaviour, see EVENTS AND ACTIONS
+  - in some modes the Escape key terminates too, see EVENTS AND ACTIONS
+
+`SIGTERM` performs the normal shutdown lifecycle, including the `onexit` event,
+and exits with status 143. An `exit:N` action attached to `onexit` does not
+override that status. A `^fg(lightblue)-p^fg() ^underline()N^underline(off)` timeout also performs `onexit`, but exits with
+status 0.
 
 
-All actions beginning with "menu" work on the selected menu entry.
+Return values:
 
-^fg(Khaki)Note:   Menu mode only makes sense if `-l <n>` is specified!
-        ^fg(Khaki)Horizontal menus do not display title content.  Title-only
-        ^fg(Khaki)actions are otherwise ignored, but `hide`, `unhide`, and
-        ^fg(Khaki)`togglehide` control the complete horizontal surface.
+    0       Normal EOF or persistence timeout
+    1       An error; inspect stderr
+    143     SIGTERM, after onexit
+    N       An explicit exit:N action (default right-click uses 13)
 
+^fg(#6fbf47)LIMITATIONS
+^fg(#6fbf47)===========
 
-^fg(#6fbf47)(4) Option `-u`, Simultaneous updates
-^fg(#6fbf47)=====================================
+Input lines are limited to 16 MiB; excess bytes are discarded until the next
+newline. An unterminated final fragment is not a complete input message.
+Individual command arguments and clickable areas have separate limits.
+This is an X11 application; it needs an X server, including for ^fg(lightblue)-v^fg().
 
-^fg(red)** DEPRECATED **
+Use printf instead of shell-dependent echo ^fg(lightblue)-e^fg() or print in portable examples.
+Menu execution uses the entry as a command; menuprint writes it to stdout.
+
+Troubleshooting:
+
+- Window closes immediately: stdin reached EOF; use ^fg(lightblue)-p^fg().
+- Slave is invisible: ^fg(lightblue)-l^fg() enables it but default bindings wait for a hover.
+  With custom ^fg(lightblue)-e^fg(), include onstart=uncollapse or an appropriate pointer event.
+- Right-click stopped closing: your ^fg(lightblue)-e^fg() replaced the defaults; add button3=exit.
+- Hidden window cannot be hovered: restore through sigusr1=unhide and SIGUSR1,
+  or a previously active keyboard grab.
+- Misplaced absolute content: use ^fg(lightblue)-ta^fg() l / ^fg(lightblue)-sa^fg() l with ^fg(lightblue)^^pa()^fg().
+- Feature option is unavailable: check configure features and ^fg(lightblue)dzen2^fg() ^fg(lightblue)-v^fg().
+- ^fg(lightblue)-fn-preload^fg() is currently shadowed by ^fg(lightblue)-fn^fg() in option parsing; do not rely on it.
+
+Deprecated ^fg(lightblue)-u^fg() (simultaneous fixed-size batches):
 
 This option provides facilities to update the title and slave window at
 the same time.
@@ -495,296 +828,77 @@ The way it works is best described by an example:
           ^fg(grey70)date                # output goes to the title window
           ^fg(grey70)dmesg | tail -n 10  # output goes to the slave window
           ^fg(grey70)sleep 1
-    ^fg(grey70)done | dzen2 -l 10 -u
+    ^fg(grey70)done | ^fg(lightblue)dzen2^fg() ^fg(lightblue)-l^fg() 10 ^fg(lightblue)-u^fg()
 
 For this to work correctly it is essential to provide exactly the number
-of lines to the slave window as defined by the parameter to `-l`.
-
-
-^fg(#6fbf47)(5) In-text formating language:
-^fg(#6fbf47)==============================
-
-This feature allows to dynamically (at runtime) format the text dzen
-displays and control its behaviour.
-
-Currently the following commands are supported:
-
-^fg(#6fbf47)Colors:
-^fg(#6fbf47)-------
-
-    ^^fg(color)         Set foreground color
-    ^^fg()              Without arguments, sets default fg color
-    ^^bg(color)         Set background color
-    ^^bg()              Without arguments, sets default bg color
-
-^fg(#6fbf47)Graphics:
-^fg(#6fbf47)---------
-
-    ^^i(path)           Draw icon specified by path
-                       supported formats: XBM and optionally XPM
-
-    ^^r(WIDTHxHEIGHT)   Draw a rectangle with the dimensions
-                       WIDTH and HEIGHT
-    ^^ro(WIDTHxHEIGHT)  Rectangle outline
-
-    ^^c(RADIUS)         Draw a circle with size RADIUS pixels
-    ^^co(RADIUS)        Circle outline
-
-    ^^underline()       Enable underline with configured defaults
-    ^^underline(ARG)    Enable underline with a thickness, color, or both
-    ^^underline(off)    Disable underline
-    ^^overline()        Enable overline with configured defaults
-    ^^overline(ARG)     Enable overline with a thickness, color, or both
-    ^^overline(off)     Disable overline
-
-^fg(#6fbf47)Positioning:
-^fg(#6fbf47)------------
-
-    ^^p(ARGUMENT)       Position next input amount of PIXELs to the right
-                       or left of the current position
-                       a.k.a. relative positioning
-
-    ^^pa(ARGUMENT)      Position next input at PIXEL
-                       a.k.a. absolute positioning
-                       For maximum predictability `^^pa()` should only be
-                       used with `-ta l` or `-sa l`
-
-     Where ARGUMENT:
-
-     ^^p(+-X)           Move X pixels to the right or left of the current position (on the X axis)
-
-     ^^p(+-X;+-Y)       Move X pixels to the right or left and Y pixels up or down of the current
-                       position (on the X and Y axis)
-
-     ^^p(;+-Y)          Move Y pixels up or down of the current position (on the Y axis)
-
-     ^^p()              Without parameters resets the Y position to its default
-
-     ^^pa()             Takes the same parameters as described above but positions at
-                       the absolute X and Y coordinates
-
-     Further ^^p() also takes some symbolic names as argument:
-
-     _LOCK_X           Lock the current X position, useful if you want to
-                       align things vertically
-     _UNLOCK_X         Unlock the X position
-     _LEFT             Move current x-position to the left edge
-     _RIGHT            Move current x-position to the right edge
-     _TOP              Move current y-position to the top edge
-     _CENTER           Move current x-position to center of the window
-     _BOTTOM           Move current y-position to the bottom edge
-
-    ^^left()            Align next input to left. Reset settings (fg, bg, fn, etc)
-    ^^center()          Align next input to center. Reset settings (fg, bg, fn, etc)
-    ^^right()           Align next input to rigth. Reset settings (fg, bg, fn, etc)
-                       Example:
-                         ^^left()^^fg(red)Left ^^center()^^fg(green)Center ^^right()^^fg(blue)Right
-                       Giving:
-^left()^fg(red)Left          ^center()^fg(green)Center          ^right()^fg(blue)Right
-
-^fg(#6fbf47)Interaction:
-^fg(#6fbf47)------------
-
-    ^^ca(BTN, CMD) ... ^^ca()
-
-                       Used to define 'clickable areas' anywhere inside the
-                       title window or slave window.
-                       - 'BTN' denotes the mouse button (1=left, 2=right, 3=middle, etc.)
-                       - 'CMD' denotes the command that should be spawned when the specific
-                         area has been clicked with the defined button
-                       - '...' denotes any text or formating commands dzen accepts
-                       - '^^ca()' without arguments denotes the end of this clickable area
-
-                       Example:
-                         foo ^^ca(1, echo one)^ca(1, echo one)^fg(red)click me and i'll echo one^fg()^ca()^^ca() bar
-
-^fg(#6fbf47)Actions as commands:
-^fg(#6fbf47)--------------------
-
-    ^^togglecollapse()
-    ^^collapse()
-    ^^uncollapse()
-    ^^togglestick()
-    ^^stick()            See section (2) "Events and actions" for a detailed description
-    ^^unstick()          of each command.
-    ^^togglehide()
-    ^^hide()
-    ^^unhide()
-    ^^raise()
-    ^^lower()
-    ^^scrollhome()
-    ^^scrollend()
-    ^^exit()
-
-^fg(#6fbf47)Other:
-^fg(#6fbf47)------
-
-    ^^tw()              draw to title window
-                       This command has some annoyances, as only
-                       the input after the command will be drawn
-                       to the title window, so it is best used
-                       only once and as first command per line.
-                       Subject to be improved in the future.
-
-    ^^cs()              clear slave window
-                       This command must be the first and only command
-                       per line.
-
-    ^^normfg(COLOR)     Set the normal foreground color (that will be
-                       used when ^^bg()). You might want to use ^^tw()
-                       and ^^cs() after. This command must be the first
-                       and only command per line.
-
-    ^^normbg(COLOR)     Set the normal background color (that will be
-                       used when ^^bg()). You might want to use ^^tw()
-                       and ^^cs() after. This command must be the first
-                       and only command per line.
-
-    ^^border(SPEC)      Replace the outer border at runtime; syntax as -b.
-    ^^padding(SPEC)     Replace padding at runtime; syntax as -pad.
-                       Must be the only command on the line.
-
-    ^^normfn(FONT)      Set the normal font.
-
-    ^^ib(VALUE)         ignore background setting, VALUE can be either
-                       1 to ignore or 0 to not ignore the bg color set
-                       with ^^bg(color).
-                       This command is useful in combination with ^^p()
-                       and ^^pa in order to position the input inside
-                       other already drawn input.
-
-                       Example:
-                         ^^ib(1)^^fg(red)^^ro(100x15)^^p(-98)^^fg(blue)^^r(20x10)^^fg(orange)^^p(3)^^r(40x10)^^p(4)^^fg(darkgreen)^^co(12)^^p(2)^^c(10)
-                       Giving:
-                         ^ib(1)^fg(red)^ro(100x15)^p(-98)^fg(blue)^r(20x10)^fg(orange)^p(3)^r(40x10)^p(4)^fg(darkgreen)^co(12)^p(2)^c(10)
-
-These commands can appear anywhere and in any combination in dzen's
-input.
-
-The color can be specified either as symbolic name (e.g. red,
-darkgreen, etc.) or as #rrggbb hex-value (e.g. #ffffaa).
-
-Icons must be in the XBM or optionally XPM format, see the "bitmaps"
-directory for some sample icons. With the standard "bitmap" application
-you can easily draw your own icons.
-
-^fg(Khaki)Note:   Displaying XPM (pixmap) files imposes a somewhat
-        ^fg(Khaki)higher load than lightweight XBM files, so use
-        ^fg(Khaki)them with care in tight loops.
-
-
-^fg(Khaki)Note:   Doubling the `^^` character removes the special meaning from it.
-
-
-^fg(#6fbf47)Some examples:
-^fg(#6fbf47)--------------
-
-   Input:
-          ^^fg(red)I'm red text ^^fg(blue)I am blue
-
-   Resulting in:
-          ^fg(red)I'm red text ^fg(blue)I am blue
-
-
-   Input:
-          ^^bg(#ffaaaa)The ^^fg(yellow)text to ^^bg(blue)^^fg(orange)colorize
-
-   Resulting in:
-          ^bg(#ffaaaa)The ^fg(yellow)text to ^bg(blue)^fg(orange)colorize
-
-
-   Input:
-          ^^fg(white)Some text containing ^^^^ characters
-
-   Resulting in:
-          ^fg(white)Some text containing ^^ characters
-
-
-   Input for icons:
-          ^^i(bitmaps/envelope.xbm) I am an envelope ^^fg(yellow)and ^^i(bitmaps/battery.xbm) I'm a battery.
-
-   Resulting in:
-          ^i(bitmaps/envelope.xbm) I am an envelope ^fg(yellow)and ^i(bitmaps/battery.xbm) I'm a battery.
-
-
-   Input for rectangles:
-          6x4 rectangle ^^r(6x4) ^^fg(red)12x8 ^^r(12x8) ^^fg(yellow)and finally 100x15 ^^r(100x15)
-
-   Resulting in:
-          6x4 rectangle ^r(6x4) ^fg(red)12x8 ^r(12x8) ^fg(yellow)and finally 100x15 ^r(100x15)
-
-
-   Input for relative positioning:
-          Some text^^p(100)^^fg(yellow)100 pixels to the right^^p(50)^^fg(red)50 more pixels to the right
-
-   Resulting in:
-          Some text^p(100)^fg(yellow)100 pixels to the right^p(50)^fg(red)50 more pixels to the right
-
-
-^fg(#6fbf47)Examples:
-^fg(#6fbf47)=========
-
-^fg(red)*^fg(grey70) Display message and timeout after 10 seconds:
-
-^fg(grey85)      (echo "This is a message"; sleep 10) | dzen2 -bg darkred -fg grey85 -fn fixed
-
-
-^fg(red)*^fg(grey70) Display message and never timeout:
-
-^fg(grey85)      echo "This is a message"| dzen2 -p
-
-
-^fg(red)*^fg(grey70) Display updating single line message:
-
-^fg(grey85)      for i in $(seq 1 20); do A=${A}'='; print $A; sleep 1; done | dzen2
-
-
-^fg(red)*^fg(grey70) Display header and a message with multiple lines:
-
-^fg(grey85)      (echo Header; cal; sleep 20) | dzen2 -l 8
-
-Displays "Header" in the title window and the output of cal in the
-8 lines high slave window.
-
-
-^fg(red)*^fg(grey70) Display updating messages:
-
-^fg(grey85)      (echo Header; while true; do echo test$((i++)); sleep 1; done) | dzen2 -l 12
-
-The slave window will update contents if new input has arrived.
-
-
-^fg(red)*^fg(grey70) Display log files:
-
-^fg(grey85)      (su -c "echo LOGFILENAME; tail -f /var/log/messages") | dzen2 -l 20 -x 100 -y 300 -w 500
-
-
-^fg(red)*^fg(grey70) Monthly schedule with remind:
-
-^fg(grey85)      (echo Monthly Schedule; remind -c1 -m) | dzen2 -l 52 -w 410 -p -fn lime -bg '#e0e8ea' -fg black -x 635
-
-
-^fg(red)*^fg(grey70) Simple menu:
-
-^fg(grey85)      echo "Applications" | dzen2 -l 4 -p -m < menufile
-
-
-^fg(red)*^fg(grey70) Horizontal menu without any files:
-
-^fg(grey85)      {echo Menu; echo -e "xterm\nxclock\nxeyes\nxfontsel"} | dzen2 -l 4 -m h -p
-
-
-^fg(red)*^fg(grey70) Extract PIDs from the process table:
-
-^fg(grey85)      {echo Procs; ps -a} | dzen2 -m -l 12 -p \
-^fg(grey85)      -e 'button1=menuprint;button3=exit;button4=scrollup:3;button5=scrolldown:3;entertitle=uncollapse;leaveslave=collapse' \
-^fg(grey85)            | awk '{print $1}'
-
-
-^fg(red)*^fg(grey70) Dzen as xmonad (see http://xmonad.org) statusbar:
-
-^fg(grey85)      status.sh | dzen2 -ta r -fn '-*-profont-*-*-*-*-11-*-*-*-*-*-iso8859' -bg '#aecf96' -fg black \
-^fg(grey85)        -p -e 'sigusr1=raise;sigusr2=lower;onquit=exec:rm /tmp/dzen2-pid;button3=exit' & echo $! > /tmp/dzen2-pid
-
-
-Have fun.
+of lines to the slave window as defined by the parameter to `^fg(lightblue)-l^fg()`.
+
+
+Prefer explicit ^fg(lightblue)^^tw()^fg() updates in new scripts.
+
+^fg(#6fbf47)INSTALLATION
+^fg(#6fbf47)============
+
+Build dependencies: a C toolchain, GNU Autotools and Xlib headers.
+Optional features require their corresponding development libraries.
+
+    autoreconf -vfi
+    ./configure --enable-gadgets --enable-xft --enable-xpm \
+        --enable-xinerama --enable-xrandr --enable-xcursor
+    make
+    make install
+
+Use --disable-FEATURE to omit an optional feature. See each gadget's README
+for its interface.
+
+^fg(#6fbf47)DEVELOPMENT
+^fg(#6fbf47)===========
+
+README.dzen is the documentation source and can be piped directly to dzen.
+The Example / Input / Result blocks are also consumed by the documentation
+generator. Input doubles literal carets; Result contains the exact decoded
+input after documentation styles are removed. Use four spaces of structural
+indentation and a blank line after
+each block. Example identifiers must be unique lowercase words/digits
+separated by hyphens. Result blocks contain static rendering only.
+
+Documentation styles: wrap command names and both parentheses in
+^^fg(lightblue)...^^fg(). Underline the entire argument between parentheses
+with ^^underline()...^^underline(off), including literal values and separators.
+CLI argument specifications such as N[,COLOR] and WxH+X+Y also form a single
+underlined span. Close each style before opening another.
+These live tags also work inside Input blocks;
+literal dzen commands still use doubled carets. The man generator maps the
+styles to bold commands and italic parameters (underlined in terminal man
+viewers). README.md uses inline code for commands mentioned in prose, preserves
+existing inline code, and adds no backticks inside code blocks. Result blocks describe
+the rendered example itself and must not contain documentation-only styles.
+
+    make update-docs       # regenerate README.md and dzen2.1 (Python 3, pandoc)
+    make update-man        # also update gadget man pages
+    make doc-screenshots   # create candidates under build/doc-screenshots
+    make test-docs         # validate the document generator
+    make check             # run tests for enabled build features
+
+Screenshot generation needs a built ^fg(lightblue)dzen2^fg(), Python 3, Xvfb, xset, xdotool,
+xwd and ImageMagick. It uses the ^fg(lightblue)dzen2-help^fg() colors, border and padding,
+an 800-pixel content width and the default font on a fresh X server.
+It does not load desktop X resources. Font availability can affect appearance.
+
+Review generated PNGs before copying the named files into docs/screenshots/.
+Commit reviewed images with the source and generated documentation. Ordinary
+builds and text generation do not take screenshots. Examples requiring window
+control or interactive actions remain text recipes.
+
+Visual regression tests remain separate under tests/integration/visual/.
+Their actual/diff images and screenshot candidates are not published assets.
+
+^fg(#6fbf47)AUTHORS AND SEE ALSO
+^fg(#6fbf47)====================
+
+Robert Manea (original dzen); Olexandr Sydorchuk (this fork).
+See LICENSE for licensing and CREDITS for contributors.
+
+Project: https://github.com/osv/dzen
+Upstream: https://github.com/robm/dzen
+Related tools: ^fg(lightblue)dzen2-help^fg(), dbar, gdbar, gcpubar, textwidth.

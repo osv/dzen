@@ -10,6 +10,23 @@ bin_SCRIPTS = dzen2-help
 CLEANFILES = $(bin_SCRIPTS) .x11-test.lock dzen2.1.raw dzen2.1.tmp
 MAN_GENERATOR = $(top_srcdir)/build-aux/generate-man.sh
 dist_doc_DATA = README.dzen README.md
+bitmapdocdir = $(docdir)/bitmaps
+dist_bitmapdoc_DATA = bitmaps/envelope.xbm bitmaps/battery.xbm
+screenshotsdir = $(docdir)/docs/screenshots
+dist_screenshots_DATA = \
+  docs/screenshots/status-bar.png \
+  docs/screenshots/spacing.png \
+  docs/screenshots/clickable.png \
+  docs/screenshots/columns.png \
+  docs/screenshots/progress.png \
+  docs/screenshots/colors.png \
+  docs/screenshots/alignment.png \
+  docs/screenshots/decorations.png \
+  docs/screenshots/graphics.png \
+  docs/screenshots/icons.png \
+  docs/screenshots/literal-caret.png
+PYTHON = python3
+DOC_GENERATOR = $(top_srcdir)/build-aux/generate-docs.py
 
 dist_man_MANS = dzen2.1
 
@@ -20,6 +37,9 @@ EXTRA_DIST = \
   docs/feature-borders.md \
   docs/feature-underline.md \
   build-aux/generate-man.sh \
+  build-aux/generate-docs.py \
+  build-aux/doc-screenshots.sh \
+  tests/test_docs.py \
   bitmaps \
   dzen2-help.in \
   tests/integration/test_common.sh \
@@ -235,12 +255,13 @@ CHECK_LOCAL_TARGETS += test-xrandr
 endif
 endif
 
-check-local: $(CHECK_LOCAL_TARGETS)
+check-local: $(CHECK_LOCAL_TARGETS) test-docs
 
 # Integration tests keep diagnostic artifacts in the build tree.  Remove only
 # those generated directories so out-of-tree builds pass distcleancheck.
 clean-local:
 	$(RM) -r \
+	  build/doc-screenshots build/doc-man.md \
 	  tests/integration/visual/xft/actual \
 	  tests/integration/visual/xft/diffs \
 	  tests/integration/visual/core-font/actual \
@@ -252,28 +273,28 @@ clean-local:
 	  tests/integration/xrandr/actual \
 	  tests/integration/xrandr/diffs
 
-.PHONY: update-man
+.PHONY: update-man update-docs doc-screenshots test-docs
 
-update-man: dzen2.1
+update-man: update-docs
 	$(MAKE) -C gadgets update-man
 
-# TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
-dzen2.1: README.md $(top_srcdir)/configure.ac $(MAN_GENERATOR)
+update-docs: README.md dzen2.1
+
+doc-screenshots:
+	bash $(top_srcdir)/build-aux/doc-screenshots.sh \
+		"$(abs_top_srcdir)" "$(abs_top_builddir)/src/dzen2" "$(abs_top_builddir)/build/doc-screenshots"
+
+test-docs:
+	$(PYTHON) $(top_srcdir)/tests/test_docs.py
+
+dzen2.1: $(top_srcdir)/README.dzen $(top_srcdir)/configure.ac $(MAN_GENERATOR) $(DOC_GENERATOR)
+	$(PYTHON) $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" --man build/doc-man.md
 	$(SHELL) $(MAN_GENERATOR) \
-		"$<" "$@" "$(PACKAGE)" "$(VERSION)" 1 \
+		build/doc-man.md "$@" "$(PACKAGE)" "$(VERSION)" 1 \
 		"Robert Manea; Olexandr Sydorchuk"
 
-./README.md: ./README.dzen
-# 1) Temporarily replace ^^tag(...) with <DC>tag(...)
-# 2) Remove single-caret ^tag(...)
-# 3) Convert <DC>tag(...) back into ^tag(...)
-	@echo "Updating README.md from README.dzen..."
-	sed -E \
-	  -e 's/\^\^([^()]+)\(([^)]*)\)/<DC>\1(\2)/g' \
-	  -e 's/\^([^()]+)\([^)]*\)//g' \
-	  -e 's/<DC>/^/g' \
-	  README.dzen > README.md
-	@echo "README has been updated."
+README.md: $(top_srcdir)/README.dzen $(DOC_GENERATOR)
+	$(PYTHON) $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" --readme "$@"
 
 format:
 	find $(srcdir) -name "*.c" -o -name "*.h" | xargs clang-format -i

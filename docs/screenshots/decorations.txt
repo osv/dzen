@@ -1,0 +1,2 @@
+^underline(1,lightblue)Text and ^r(20x8) graphics^underline(off)
+^overline()Overlined text^overline(off)

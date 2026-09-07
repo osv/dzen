@@ -1,0 +1,2 @@
+^ba(90,_LEFT)CPU^ba(50,_RIGHT)9%
+^ba(90,_LEFT)Memory^ba(50,_RIGHT)42%

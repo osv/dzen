@@ -1,0 +1,1 @@
+Status: ^fg(limegreen)online^fg() | Errors: ^bg(maroon)^fg(white) 3 ^fg()^bg() | normal

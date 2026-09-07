@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Capture static README examples; published PNGs are never overwritten here.
+# Update published screenshots only when their decoded input changes or PNG is missing.
 set -euo pipefail
-
 if [[ $# != 3 ]]; then
     echo "usage: $0 SOURCE_ROOT DZEN2_BINARY OUTPUT_DIRECTORY" >&2
     exit 2
@@ -10,75 +9,48 @@ source_root=$(cd "$1" && pwd)
 binary=$(realpath "$2")
 mkdir -p "$3"
 output=$(cd "$3" && pwd)
-for tool in python3 Xvfb xset xdotool xwd; do
-    command -v "$tool" >/dev/null || { echo "Missing tool: $tool" >&2; exit 1; }
-done
-if command -v magick >/dev/null; then
-    convert=(magick)
-else
-    command -v convert >/dev/null || { echo "Missing ImageMagick" >&2; exit 1; }
-    convert=(convert)
-fi
-[[ -x "$binary" ]] || { echo "Build dzen2 first: $binary" >&2; exit 1; }
-work=$(mktemp -d)
-app_pid=
-xvfb_pid=
-cleanup() {
-    if [[ -n "$app_pid" ]]; then kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true; fi
-    if [[ -n "$xvfb_pid" ]]; then kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true; fi
-    rm -rf -- "$work"
-}
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-python3 "$source_root/build-aux/generate-docs.py" "$source_root/README.dzen" --examples "$work"
-# Let Xvfb reserve its display atomically. No desktop resources are imported.
-Xvfb -displayfd 3 -noreset -screen 0 1200x900x24 -nolisten tcp 3>"$work/display" >"$work/xvfb.log" 2>&1 &
-xvfb_pid=$!
-for ((attempt=0; attempt<100; attempt++)); do
-    [[ -s "$work/display" ]] && break
-    kill -0 "$xvfb_pid" 2>/dev/null || {
-        echo 'Xvfb failed to start (check permission to create X11 sockets).' >&2
-        tail -n 12 "$work/xvfb.log" >&2
-        exit 1
-    }
-    sleep .05
-done
-[[ -s "$work/display" ]] || { echo "Xvfb startup timed out" >&2; exit 1; }
-export DISPLAY=":$(<"$work/display")"
-xset q >/dev/null
-xdotool mousemove 1199 899
-cd "$source_root"
+# Stage on the destination filesystem so publishing a completed PNG is a rename.
+work=$(mktemp -d "$output/.update.XXXXXX")
+trap 'rm -rf -- "$work"' EXIT
+mkdir "$work/text" "$work/images"
+awk -v mode=examples -v outdir="$work/text" \
+    -f "$source_root/build-aux/generate-docs.awk" "$source_root/README.dzen"
+declare -A current=()
+: > "$work/pending"
 while IFS= read -r ident; do
-    [[ -n "$ident" ]] || continue
-    count=$(wc -l < "$work/$ident.txt")
-    { printf '\n'; cat "$work/$ident.txt"; } > "$work/input"
-    "$binary" -p -l "$count" -w 800 -tw 800 -x 30 -y 30 -sa l \
-        -bg '#111111' -fg grey70 -b '1,#5FBF77' -pad '5,20' \
-        -title-name "dzen-doc-$ident" \
-        -e 'onstart=uncollapse,hide;onnewinput=scrollhome' \
-        < "$work/input" > "$work/app.log" 2>&1 &
-    app_pid=$!
-    window=
-    for ((attempt=0; attempt<100; attempt++)); do
-        window=$(xdotool search --onlyvisible --name "^dzen-doc-$ident$" 2>/dev/null | head -n 1) || true
-        [[ -n "$window" ]] && break
-        kill -0 "$app_pid" 2>/dev/null || { cat "$work/app.log" >&2; exit 1; }
-        sleep .05
-    done
-    [[ -n "$window" ]] || { echo "Window timed out: $ident" >&2; exit 1; }
-    # Mapping precedes stdin processing; allow rendering to settle, then capture twice.
-    sleep .2
-    xwd -silent -id "$window" | "${convert[@]}" xwd:- "$work/first.png"
-    sleep .1
-    xwd -silent -id "$window" | "${convert[@]}" xwd:- "$output/$ident.png"
-    "${convert[@]}" "$work/first.png" "$output/$ident.png" -compose difference -composite \
-        -format '%[fx:maxima]' info: | { read -r difference || true; [[ "$difference" == 0 ]]; } || {
-        echo "Unstable rendering: $ident" >&2; exit 1;
-    }
-    kill "$app_pid"
-    wait "$app_pid" || [[ $? == 143 ]]
-    app_pid=
-    echo "Captured $output/$ident.png"
-done < "$work/manifest"
-echo 'Review these candidates before copying them into docs/screenshots/.'
+    current[$ident]=1
+    if [[ -s "$output/$ident.png" ]] && cmp -s "$work/text/$ident.txt" "$output/$ident.txt"; then
+        continue
+    fi
+    # Out-of-tree builds can reuse the distributed PNG and its matching input.
+    if [[ "$output" != "$source_root/docs/screenshots" && ! -e "$output/$ident.txt" &&
+          -s "$source_root/docs/screenshots/$ident.png" ]] &&
+       cmp -s "$work/text/$ident.txt" "$source_root/docs/screenshots/$ident.txt"; then
+        cp "$source_root/docs/screenshots/$ident.png" "$output/$ident.png"
+        cp "$work/text/$ident.txt" "$output/$ident.txt"
+    else
+        printf '%s\n' "$ident" >> "$work/pending"
+    fi
+done < "$work/text/manifest"
+if [[ -s "$work/pending" ]]; then
+    # No display tools are needed until there is actually an image to render.
+    bash "$source_root/build-aux/capture-doc-screenshots.sh" \
+        "$source_root" "$binary" "$work/images" "$work/text" "$work/pending"
+    while IFS= read -r ident; do
+        mv "$work/images/$ident.png" "$output/$ident.png"
+        mv "$work/text/$ident.txt" "$output/$ident.txt"
+        echo "Updated $output/$ident.png"
+    done < "$work/pending"
+fi
+# Remove only assets owned by the previous manifest, never arbitrary PNGs.
+if [[ -f "$output/manifest" ]]; then
+    while IFS= read -r ident; do
+        [[ $ident =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || { echo 'Invalid screenshot manifest' >&2; exit 1; }
+        if [[ ! ${current[$ident]+present} ]]; then
+            rm -f -- "$output/$ident.png" "$output/$ident.txt"
+        fi
+    done < "$output/manifest"
+fi
+if ! cmp -s "$work/text/manifest" "$output/manifest"; then
+    mv "$work/text/manifest" "$output/manifest"
+fi

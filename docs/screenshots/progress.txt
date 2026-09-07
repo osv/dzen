@@ -1,0 +1,1 @@
+CPU ^fg(gray30)^r(100x8)^p(-100)^fg(limegreen)^r(35x8)^p(65)^fg() 35%

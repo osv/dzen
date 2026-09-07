@@ -9,24 +9,11 @@ endif
 bin_SCRIPTS = dzen2-help
 CLEANFILES = $(bin_SCRIPTS) .x11-test.lock dzen2.1.raw dzen2.1.tmp
 MAN_GENERATOR = $(top_srcdir)/build-aux/generate-man.sh
-dist_doc_DATA = README.dzen README.md
+dist_doc_DATA = README.dzen README.md build-aux/generate-docs.awk
 bitmapdocdir = $(docdir)/bitmaps
 dist_bitmapdoc_DATA = bitmaps/envelope.xbm bitmaps/battery.xbm
 screenshotsdir = $(docdir)/docs/screenshots
-dist_screenshots_DATA = \
-  docs/screenshots/status-bar.png \
-  docs/screenshots/spacing.png \
-  docs/screenshots/clickable.png \
-  docs/screenshots/columns.png \
-  docs/screenshots/progress.png \
-  docs/screenshots/colors.png \
-  docs/screenshots/alignment.png \
-  docs/screenshots/decorations.png \
-  docs/screenshots/graphics.png \
-  docs/screenshots/icons.png \
-  docs/screenshots/literal-caret.png
-PYTHON = python3
-DOC_GENERATOR = $(top_srcdir)/build-aux/generate-docs.py
+DOC_GENERATOR = $(top_srcdir)/build-aux/generate-docs.awk
 
 dist_man_MANS = dzen2.1
 
@@ -37,9 +24,12 @@ EXTRA_DIST = \
   docs/feature-borders.md \
   docs/feature-underline.md \
   build-aux/generate-man.sh \
-  build-aux/generate-docs.py \
+  build-aux/generate-docs.awk \
   build-aux/doc-screenshots.sh \
-  tests/test_docs.py \
+  build-aux/capture-doc-screenshots.sh \
+  docs/screenshots \
+  tests/test_docs.sh \
+  tests/test_doc_screenshots.sh \
   bitmaps \
   dzen2-help.in \
   tests/integration/test_common.sh \
@@ -275,26 +265,63 @@ clean-local:
 
 .PHONY: update-man update-docs doc-screenshots test-docs
 
+# all-local runs after recursive subdirectory builds, so dzen2 is available.
+all-local: update-docs doc-screenshots
+
+# Use the generated manifest so new examples need no hand-written Makefile list.
+install-data-local: doc-screenshots
+	$(MKDIR_P) "$(DESTDIR)$(screenshotsdir)"
+	while read ident; do \
+	  $(INSTALL_DATA) "docs/screenshots/$$ident.png" "$(DESTDIR)$(screenshotsdir)/$$ident.png"; \
+	done < docs/screenshots/manifest
+	$(INSTALL_DATA) docs/screenshots/manifest "$(DESTDIR)$(screenshotsdir)/manifest"
+
+uninstall-local:
+	if test -f "$(DESTDIR)$(screenshotsdir)/manifest"; then \
+	  while read ident; do \
+	    $(RM) "$(DESTDIR)$(screenshotsdir)/$$ident.png"; \
+	  done < "$(DESTDIR)$(screenshotsdir)/manifest"; \
+	  $(RM) "$(DESTDIR)$(screenshotsdir)/manifest"; \
+	fi
+
+dist-hook: update-docs doc-screenshots
+	chmod u+w "$(distdir)/README.md" "$(distdir)/dzen2.1"
+	for file in README.md dzen2.1; do \
+	  if test -f "$$file"; then cp "$$file" "$(distdir)/"; \
+	  else cp "$(srcdir)/$$file" "$(distdir)/"; fi; \
+	done
+	chmod -R u+w "$(distdir)/docs/screenshots"
+	$(RM) -r "$(distdir)/docs/screenshots"
+	cp -R docs/screenshots "$(distdir)/docs/screenshots"
+
+distclean-local:
+	if test "$(abs_top_srcdir)" != "$(abs_top_builddir)"; then \
+	  $(RM) -r docs/screenshots; \
+	fi
+
 update-man: update-docs
 	$(MAKE) -C gadgets update-man
 
 update-docs: README.md dzen2.1
 
 doc-screenshots:
+	$(MAKE) -C src dzen2
 	bash $(top_srcdir)/build-aux/doc-screenshots.sh \
-		"$(abs_top_srcdir)" "$(abs_top_builddir)/src/dzen2" "$(abs_top_builddir)/build/doc-screenshots"
+		"$(abs_top_srcdir)" "$(abs_top_builddir)/src/dzen2" "$(abs_top_builddir)/docs/screenshots"
 
 test-docs:
-	$(PYTHON) $(top_srcdir)/tests/test_docs.py
+	bash $(top_srcdir)/tests/test_docs.sh
+	bash $(top_srcdir)/tests/test_doc_screenshots.sh
 
 dzen2.1: $(top_srcdir)/README.dzen $(top_srcdir)/configure.ac $(MAN_GENERATOR) $(DOC_GENERATOR)
-	$(PYTHON) $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" --man build/doc-man.md
+	mkdir -p build
+	awk -v mode=man -f $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" > build/doc-man.md
 	$(SHELL) $(MAN_GENERATOR) \
 		build/doc-man.md "$@" "$(PACKAGE)" "$(VERSION)" 1 \
 		"Robert Manea; Olexandr Sydorchuk"
 
 README.md: $(top_srcdir)/README.dzen $(DOC_GENERATOR)
-	$(PYTHON) $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" --readme "$@"
+	awk -v mode=markdown -f $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" > "$@"
 
 format:
 	find $(srcdir) -name "*.c" -o -name "*.h" | xargs clang-format -i

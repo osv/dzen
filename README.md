@@ -345,8 +345,8 @@ window geometry. Colors accept X11 names or #rrggbb values.
 
     ^pa(ARGUMENT)      Position next input at PIXEL
                        a.k.a. absolute positioning
-                       For maximum predictability `^pa()` should only be
-                       used with `-ta l` or `-sa l`
+                       For maximum predictability ^pa() should only be
+                       used with -ta l or -sa l
 
      Where ARGUMENT:
 
@@ -619,7 +619,7 @@ On button3 event exit dzen
     --------------------
 
     Every key can be bound to an action (see below). The format is:
-    key_KEYNAME where KEYNAME is the name of the key as defined in
+    `key_KEYNAME` where KEYNAME is the name of the key as defined in
     keysymdef.h (usually: /usr/include/X11/keysymdef.h).  The part
     after `XK_` in keysymdef.h must be used for KEYNAME.
 
@@ -753,8 +753,8 @@ commands, so only use trusted command strings.
 
 * Timed termination: if EOF is received -> terminate
   - unless the `-p` option is set
-    - `-p` Without argument persist forever
-    - `-p` With argument n persist for n seconds,
+    - -p Without argument persist forever
+    - -p With argument n persist for n seconds,
            only when the mouse is not over the window.
 
 * Interactive termination: if mouse button3 is clicked -> terminate
@@ -841,41 +841,45 @@ for its interface.
 README.dzen is the documentation source and can be piped directly to dzen.
 The Example / Input / Result blocks are also consumed by the documentation
 generator. Input doubles literal carets; Result contains the exact decoded
-input after documentation styles are removed. Use four spaces of structural
+input. Use four spaces of structural
 indentation and a blank line after
 each block. Example identifiers must be unique lowercase words/digits
 separated by hyphens. Result blocks contain static rendering only.
 
-Documentation styles: wrap command names and both parentheses in
-`^fg(lightblue)`...`^fg()`. Underline the entire argument between parentheses
-with `^underline()`...`^underline(off)`, including literal values and separators.
-CLI argument specifications such as N[,COLOR] and WxH+X+Y also form a single
-underlined span. Close each style before opening another.
-These live tags also work inside Input blocks;
-literal dzen commands still use doubled carets. The man generator maps the
-styles to bold commands and italic parameters (underlined in terminal man
-viewers). README.md uses inline code for commands mentioned in prose, preserves
-existing inline code, and adds no backticks inside code blocks. Result blocks describe
-the rendered example itself and must not contain documentation-only styles.
+Use `^foo(bar)` for displayed dzen commands and ^foo(bar) for live commands.
+The help preprocessor leaves live commands unchanged. Use `-foo bar` for CLI
+references and ordinary code spans for event and action names. Headings and
+command arguments are styled automatically by dzen2-help. Direct display of
+README.dzen remains possible, without automatic reference formatting.
+In code blocks, backticks around command references are removed; shell command
+substitutions keep their backticks. Do not add manual styling to Input blocks.
 
-    make update-docs       # regenerate README.md and dzen2.1 (Python 3, pandoc)
+    make                   # build dzen2, update README/man and changed screenshots
+    make update-docs       # regenerate only README.md and dzen2.1 (Bash, POSIX awk, pandoc)
     make update-man        # also update gadget man pages
-    make doc-screenshots   # create candidates under build/doc-screenshots
+    make doc-screenshots   # update only new, changed or missing screenshots
     make test-docs         # validate the document generator
     make check             # run tests for enabled build features
 
-Screenshot generation needs a built `dzen2`, Python 3, Xvfb, xset, xdotool,
+Screenshot generation needs a built `dzen2`, POSIX awk, Xvfb, xset, xdotool,
 xwd and ImageMagick. It uses the `dzen2-help` colors, border and padding,
 an 800-pixel content width and the default font on a fresh X server.
 It does not load desktop X resources. Font availability can affect appearance.
 
-Review generated PNGs before copying the named files into docs/screenshots/.
-Commit reviewed images with the source and generated documentation. Ordinary
-builds and text generation do not take screenshots. Examples requiring window
-control or interactive actions remain text recipes.
+Ordinary make updates README.md and dzen2.1 after source changes. It also
+compares each decoded Result with docs/screenshots/IDENTIFIER.txt. A new or
+changed example, or a missing PNG, automatically renders that screenshot into
+docs/screenshots/. Prose-only edits do not start an X server. PNGs and cached
+input are published after successful capture; a failed capture is retried on
+the next make. Removed examples lose their managed PNG and text cache.
+Commit generated PNGs, text caches and manifest together with README.dzen.
+Out-of-tree builds reuse matching distributed images and write updates into
+their own docs/screenshots/ directory. Delete a PNG to force its regeneration
+after changing fonts or rendering code without changing the example text.
+Examples requiring window control or interactive actions remain text recipes.
 
 Visual regression tests remain separate under tests/integration/visual/.
-Their actual/diff images and screenshot candidates are not published assets.
+Their actual/diff images are not published assets.
 
 ## AUTHORS AND SEE ALSO
 

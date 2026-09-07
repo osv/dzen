@@ -7,7 +7,7 @@ notifications and menus
 .SH SYNOPSIS
 .IP
 .EX
-\fBdzen2\fP [\fIOPTIONS\fP] < input
+\fBdzen2\fP [OPTIONS] < input
 printf \[aq]%s\[rs]n\[aq] \[aq]Hello\[aq] | \fBdzen2\fP \fB\-p\fP
 status.sh | \fBdzen2\fP \fB\-w\fP 800 \fB\-ta\fP l
 printf \[aq]%s\[rs]n\[aq] \[aq]Menu\[aq] \[aq]xterm\[aq] \[aq]xclock\[aq] | \fBdzen2\fP \fB\-l\fP 2 \fB\-m\fP v \fB\-p\fP
@@ -55,7 +55,8 @@ Runtime themes: \fB\[ha]normfg()\fP,
 Box model: \fB\-b\fP /
 \fB\[ha]border()\fP and
 \fB\-pad\fP /
-\fB\[ha]padding()\fP add borders and padding.
+\fB\[ha]padding()\fP add borders and
+padding.
 .IP \[bu] 2
 Decorations: underline and overline spans cover text, icons and
 graphics.
@@ -65,8 +66,8 @@ Monitors: XRandR output selection follows changes and disconnection.
 Interaction: optional Xcursor feedback over clickable areas.
 .IP \[bu] 2
 Compatibility: \fB\-p\fP
-\fIN\fP persistence takes pointer presence
-into account.
+\fIN\fP persistence takes pointer
+presence into account.
 hide fully unmaps hidden surfaces; upstream left a one\-pixel strip.
 A hidden surface needs a signal or active key grab to restore it.
 .IP \[bu] 2
@@ -147,8 +148,8 @@ Rendered lines: text mixed with inline commands such as
 \fB\[ha]fg(\fP\fIred\fP\fB)\fP.
 Formatting starts from normal defaults for each line.
 .IP \[bu] 2
-Routed lines: \fB\[ha]tw()\fPTEXT explicitly
-updates the title.
+Routed lines: \fB\[ha]tw()\fPTEXT
+explicitly updates the title.
 Put \fB\[ha]tw()\fP first, once per line.
 It does not append TEXT to the slave.
 .IP \[bu] 2
@@ -168,8 +169,8 @@ their carets again so they can be read in the live viewer.
 Inline color/font changes affect subsequent content in that line.
 \fB\[ha]fg()\fP,
 \fB\[ha]bg()\fP and
-\fB\[ha]fn()\fP restore normal defaults; they
-do not mean \[lq]restore the previous span\[rq].
+\fB\[ha]fn()\fP restore normal defaults;
+they do not mean \[lq]restore the previous span\[rq].
 Alignment commands start a new region and reset formatting.
 Runtime normal\-default commands affect subsequent drawing; resend
 content when you want a full repaint with a new theme.
@@ -236,8 +237,8 @@ Without explicit widths, available target geometry is used.
 See MONITOR SELECTION for target selection.
 Options affecting the same value are processed in command\-line order.
 .PP
-\f[CR]\fB\-b\fP \fISPEC\fP\f[R]
-adds an outer border.
+\fB\-b\fP
+\fISPEC\fP adds an outer border.
 SPEC accepts one, two, or four non\-negative widths and an optional X11
 color:
 .IP
@@ -250,20 +251,22 @@ color:
 One width applies to every side; two mean vertical,horizontal; four mean
 top,right,bottom,left.
 Without a color, the border follows
-\f[CR]\fB\-bg\fP\f[R] and later
-\f[CR]\fB\[ha]normbg(\fP\fI...\fP\fB)\fP\f[R]
+\fB\-bg\fP and later
+\fB\[ha]normbg(\fP\fI\&...\fP\fB)\fP
 changes.
 Borders do not change explicit content sizes or clickable\-area
 coordinates.
-\f[CR]\fB\-b\fP 0\f[R] disables the border.
+\fB\-b\fP
+\fI0\fP disables the border.
 .PP
-\f[CR]\fB\[ha]border(\fP\fISPEC\fP\fB)\fP\f[R]
+\fB\[ha]border(\fP\fISPEC\fP\fB)\fP
 uses the same grammar and replaces the border at runtime.
 It must occupy its own input line.
 Invalid runtime specifications are silently ignored.
 .PP
-\f[CR]\fB\-pad\fP \fISPEC\fP\f[R]
-adds padding around the union of the visible title and slave content.
+\fB\-pad\fP
+\fISPEC\fP adds padding around the union
+of the visible title and slave content.
 SPEC accepts one, two, or four non\-negative widths:
 .IP
 .EX
@@ -274,51 +277,54 @@ SPEC accepts one, two, or four non\-negative widths:
 .PP
 One width applies to every side; two mean vertical,horizontal; four mean
 top,right,bottom,left.
-Padding always uses the normal
-\f[CR]\fB\-bg\fP\f[R] color, including later
-\f[CR]\fB\[ha]normbg(\fP\fI...\fP\fB)\fP\f[R]
+Padding always uses the normal \fB\-bg\fP
+color, including later
+\fB\[ha]normbg(\fP\fI\&...\fP\fB)\fP
 changes.
-\f[CR]\fB\[ha]padding(\fP\fISPEC\fP\fB)\fP\f[R]
+\fB\[ha]padding(\fP\fISPEC\fP\fB)\fP
 replaces all four sides at runtime, and
-\f[CR]\fB\[ha]padding(\fP\fI0\fP\fB)\fP\f[R]
+\fB\[ha]padding(\fP\fI0\fP\fB)\fP
 disables it.
 The command must occupy its own input line; invalid runtime
 specifications are silently ignored.
 .PP
-The visible box model is \f[CR]border \-> padding \-> content\f[R].
-Explicit \f[CR]\fB\-x\fP\f[R],
-\f[CR]\fB\-y\fP\f[R],
-\f[CR]\fB\-w\fP\f[R],
-\f[CR]\fB\-tw\fP\f[R], and
-\f[CR]\fB\-h\fP\f[R] values continue to
-describe content; padding and border grow outward and are included in
-dock struts.
+The visible box model is \fBborder \-> padding \->
+content\fP.
+Explicit \fB\-x\fP,
+\fB\-y\fP,
+\fB\-w\fP,
+\fB\-tw\fP, and
+\fB\-h\fP values continue to describe
+content; padding and border grow outward and are included in dock
+struts.
 A single padding box surrounds the visible title/slave union, so it does
 not add a gap between them.
 Padding does not change text or clickable\-area coordinates.
 .PP
-\f[CR]\fB\-underline\fP \fITHICKNESS[,COLOR]\fP\f[R]
-and
-\f[CR]\fB\-overline\fP \fITHICKNESS[,COLOR]\fP\f[R]
-configure default span\-decoration styles.
+\fB\-underline\fP
+\fITHICKNESS[,COLOR]\fP and
+\fB\-overline\fP
+\fITHICKNESS[,COLOR]\fP configure default
+span\-decoration styles.
 They do not enable decorations by themselves.
 The built\-in default for each is one pixel using the normal foreground
 color.
-An omitted color follows
-\f[CR]\fB\-fg\fP\f[R] and later
-\f[CR]\fB\[ha]normfg(\fP\fI...\fP\fB)\fP\f[R]
+An omitted color follows \fB\-fg\fP and
+later
+\fB\[ha]normfg(\fP\fI\&...\fP\fB)\fP
 changes; an explicit color is independent.
-Specifications are strict and contain no whitespace: \f[CR]2,orange\f[R]
-is valid, while \f[CR]2, orange\f[R] is not.
+Specifications are strict and contain no whitespace:
+\fB2,orange\fP is valid, while
+\fB2, orange\fP is not.
 .PP
 Use
-\f[CR]\fB\[ha]underline(\fP\fI...\fP\fB)\fP\f[R]
+\fB\[ha]underline(\fP\fI\&...\fP\fB)\fP
 and
-\f[CR]\fB\[ha]overline(\fP\fI...\fP\fB)\fP\f[R]
+\fB\[ha]overline(\fP\fI\&...\fP\fB)\fP
 in input to enable a decoration.
 An empty argument uses the configured defaults, a single argument may
 override the thickness or color, and two arguments override both.
-\f[CR]off\f[R] closes the active span:
+\fBoff\fP closes the active span:
 .IP
 .EX
 \fB\[ha]overline()\fPtext and \fB\[ha]r(\fP\fI20x8\fP\fB)\fP graphics\fB\[ha]overline(\fP\fIoff\fP\fB)\fP
@@ -327,7 +333,7 @@ override the thickness or color, and two arguments override both.
 .PP
 Decorated spans include text, spaces, icons, rectangles, circles, block
 alignment, and horizontal
-\f[CR]\fB\[ha]p(\fP\fI...\fP\fB)\fP\f[R]/\f[CR]\fB\[ha]pa(\fP\fI...\fP\fB)\fP\f[R]
+\fB\[ha]p(\fP\fI\&...\fP\fB)\fP/\fB\[ha]pa(\fP\fI\&...\fP\fB)\fP
 movement.
 They use constant memory and normal painter order, so later explicitly
 positioned content may overwrite a previously closed decoration.
@@ -337,28 +343,27 @@ clickable areas.
 Without a monitor selector, dzen uses the root\-window geometry and
 follows XRandR changes to its size.
 .PP
-\f[CR]\fB\-output\fP \fINAME\fP\f[R]
-selects a physical XRandR output by name.
+\fB\-output\fP
+\fINAME\fP selects a physical XRandR
+output by name.
 Dzen follows changes to that output\[cq]s mode, position and rotation.
 If the output is disconnected, its windows and dock struts are hidden;
 reconnecting it restores the windows with the original
-\f[CR]\fB\-x\fP\f[R],
-\f[CR]\fB\-y\fP\f[R],
-\f[CR]\fB\-tw\fP\f[R] and
-\f[CR]\fB\-w\fP\f[R] settings.
+\fB\-x\fP,
+\fB\-y\fP,
+\fB\-tw\fP and
+\fB\-w\fP settings.
 An unknown output name is an error.
-Use \f[CR]\fB\-lm\fP\f[R] to list connected
-outputs which currently have an active CRTC.
+Use \fB\-lm\fP to list connected outputs
+which currently have an active CRTC.
 .PP
-\f[CR]\fB\-output\fP\f[R] and
-\f[CR]\fB\-xs\fP\f[R] are mutually exclusive.
-The legacy \f[CR]\fB\-xs\fP\f[R] selector is
-static: values from 1 through the number of Xinerama screens select that
-screen, while 0, negative and out\-of\-range values use the root
-geometry.
+\fB\-output\fP and
+\fB\-xs\fP are mutually exclusive.
+The legacy \fB\-xs\fP selector is static:
+values from 1 through the number of Xinerama screens select that screen,
+while 0, negative and out\-of\-range values use the root geometry.
 Geometry is resolved once at startup and later XRandR events are ignored
-when \f[CR]\fB\-xs\fP\f[R] was explicitly
-supplied.
+when \fB\-xs\fP was explicitly supplied.
 .SH MULTI\-LINE WINDOWS
 Enables support for displaying multiple lines.
 The parameter to \[lq]\fB\-l\fP\[rq]
@@ -375,7 +380,7 @@ down if the content exceeds the window height (default action).
 .SH MENUS
 Dzen provides two menu modes, vertical and horizontal menus.
 You can access these modes by adding `v'(vertical) or `h'(horizontal) to
-the `\fB\-m\fP' option.
+the \[cq]\fB\-m\fP\[cq] option.
 If nothing is specified dzen defaults to vertical menus.
 .PP
 Vertical menu, both invocations are equivalent:
@@ -395,7 +400,8 @@ All actions beginning with \[lq]menu\[rq] work on the selected menu
 entry.
 .PP
 Note: Menu mode only makes sense if
-\f[CR]\fB\-l\fP <n>\f[R] is specified!
+\fB\-l\fP
+\fI\fP is specified!
 Horizontal menus do not display title content.
 Title\-only actions are otherwise ignored, but \f[CR]hide\f[R],
 \f[CR]unhide\f[R], and \f[CR]togglehide\f[R] control the complete
@@ -415,8 +421,9 @@ As an example you can add following lines to \[ti]/.Xresources
 \fBdzen2\fP.slavename:  dzen slave
 .EE
 .PP
-Decoration resources use the same \f[CR]THICKNESS[,COLOR]\f[R] grammar
-as their command line options.
+Decoration resources use the same
+\fBTHICKNESS[,COLOR]\fP grammar as their
+command line options.
 Command\-line values override X resources.
 .SH FORMATTING COMMANDS
 These commands may be mixed with text.
@@ -464,8 +471,8 @@ Colors accept X11 names or #rrggbb values.
 
 \fB\[ha]pa(\fP\fIARGUMENT\fP\fB)\fP      Position next input at PIXEL
                    a.k.a. absolute positioning
-                   For maximum predictability \[ga]\fB\[ha]pa()\fP\[ga] should only be
-                   used with \[ga]\fB\-ta\fP l\[ga] or \[ga]\fB\-sa\fP l\[ga]
+                   For maximum predictability \fB\[ha]pa()\fP should only be
+                   used with \fB\-ta\fP \fIl\fP or \fB\-sa\fP \fIl\fP
 
  Where ARGUMENT:
 
@@ -674,16 +681,17 @@ An example:
 .PP
 Meaning:
 .IP \[bu] 2
-\f[CR]button1=exec:xterm:firefox;\f[R] On Button1 event (Button1 release
-on the mouse) execute xterm and firefox.
+\fBbutton1=exec:xterm:firefox;\fP On
+Button1 event (Button1 release on the mouse) execute xterm and firefox.
 .PP
 Note: xterm and firefox are options to the exec action
 .IP \[bu] 2
-\f[CR]entertitle=uncollapse,unhide;\f[R] On entertitle (mouse pointer
-enters the title window) uncollapse slave window and unhide the title
-window
+\fBentertitle=uncollapse,unhide;\fP On
+entertitle (mouse pointer enters the title window) uncollapse slave
+window and unhide the title window
 .IP \[bu] 2
-\f[CR]button3=exit\f[R] On button3 event exit dzen
+\fBbutton3=exit\fP On button3 event exit
+dzen
 .SS Supported events:
 .IP
 .EX
@@ -709,17 +717,17 @@ window
 \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-
 
 Every key can be bound to an action (see below). The format is:
-\fBkey_KEYNAME\fP where KEYNAME is the name of the key as defined in
+\[ga]key_KEYNAME\[ga] where KEYNAME is the name of the key as defined in
 keysymdef.h (usually: /usr/include/X11/keysymdef.h).  The part
 after \[ga]XK_\[ga] in keysymdef.h must be used for KEYNAME.
 .EE
 .SS Supported actions:
 .IP
 .EX
-\fBexec\fP:\fIcommand1\fP:..:\fIn\fP  execute all given options
+\fBexec\fP:command1:..:n  execute all given options
 \fBmenuexec\fP            executes selected menu entry
-\fBexit\fP:\fIretval\fP         exit dzen and return \[aq]retval\[aq]
-\fBprint\fP:\fIstr1\fP:...:\fIn\fP    write all given options to STDOUT
+\fBexit\fP:retval         exit dzen and return \[aq]retval\[aq]
+\fBprint\fP:str1:...:n    write all given options to STDOUT
 \fBmenuprint\fP           write selected menu entry to STDOUT
 \fBcollapse\fP            collapse (roll\-up) slave window
 \fBuncollapse\fP          uncollapse (roll\-down) slave window
@@ -734,8 +742,8 @@ after \[ga]XK_\[ga] in keysymdef.h must be used for KEYNAME.
 \fBlower\fP               lower window (behind all others)
 \fBscrollhome\fP          show head of input
 \fBscrollend\fP           show tail of input
-\fBscrollup\fP:\fIn\fP          scroll slave window n lines up   (default n=1)
-\fBscrolldown\fP:\fIn\fP        scroll slave window n lines down (default n=1)
+\fBscrollup\fP:n          scroll slave window n lines up   (default n=1)
+\fBscrolldown\fP:n        scroll slave window n lines down (default n=1)
 \fBgrabkeys\fP            enable keyboard support
 \fBungrabkeys\fP          disable keyboard support
 \fBgrabmouse\fP           enable mouse support
@@ -744,10 +752,11 @@ after \[ga]XK_\[ga] in keysymdef.h must be used for KEYNAME.
                     only needed with specific windowmanagers, such as fluxbox
 .EE
 .PP
-\f[CR]hide\f[R] fully unmaps title\-only, collapsed vertical, and
-horizontal surfaces.
+\fBhide\fP fully unmaps title\-only,
+collapsed vertical, and horizontal surfaces.
 An expanded vertical menu keeps its slave visible.
-\f[CR]unhide\f[R] restores the previous collapsed or expanded state.
+\fBunhide\fP restores the previous
+collapsed or expanded state.
 A fully unmapped surface cannot receive pointer events; restore it with
 a signal or an active key grab.
 .IP
@@ -856,19 +865,19 @@ Hover over the title to expand the log; use the wheel to scroll.
 Menu execution and clickable commands execute shell commands, so only
 use trusted command strings.
 .SH EXIT STATUS
-\f[CR]dzen\f[R] uses two different approaches to terminate itself:
+\fBdzen\fP uses two different approaches to
+terminate itself:
 .IP \[bu] 2
 Timed termination: if EOF is received \-> terminate
 .RS 2
 .IP \[bu] 2
-unless the \f[CR]\fB\-p\fP\f[R] option is set
+unless the \fB\-p\fP option is set
 .RS 2
 .IP \[bu] 2
-\f[CR]\fB\-p\fP\f[R] Without argument persist
-forever
+\fB\-p\fP Without argument persist forever
 .IP \[bu] 2
-\f[CR]\fB\-p\fP\f[R] With argument n persist
-for n seconds, only when the mouse is not over the window.
+\fB\-p\fP With argument n persist for n
+seconds, only when the mouse is not over the window.
 .RE
 .RE
 .IP \[bu] 2
@@ -880,13 +889,14 @@ this is the default behaviour, see EVENTS AND ACTIONS
 in some modes the Escape key terminates too, see EVENTS AND ACTIONS
 .RE
 .PP
-\f[CR]SIGTERM\f[R] performs the normal shutdown lifecycle, including the
-\f[CR]onexit\f[R] event, and exits with status 143.
-An \f[CR]exit:N\f[R] action attached to \f[CR]onexit\f[R] does not
-override that status.
-A
-\f[CR]\fB\-p\fP \fIN\fP\f[R]
-timeout also performs \f[CR]onexit\f[R], but exits with status 0.
+\fBSIGTERM\fP performs the normal shutdown
+lifecycle, including the \fBonexit\fP
+event, and exits with status 143.
+An \fBexit:N\fP action attached to
+\fBonexit\fP does not override that status.
+A \fB\-p\fP
+\fIN\fP timeout also performs
+\fBonexit\fP, but exits with status 0.
 .PP
 Return values:
 .IP
@@ -914,28 +924,29 @@ Troubleshooting:
 Window closes immediately: stdin reached EOF; use
 \fB\-p\fP.
 .IP \[bu] 2
-Slave is invisible: \fB\-l\fP enables it but
-default bindings wait for a hover.
+Slave is invisible: \fB\-l\fP enables it
+but default bindings wait for a hover.
 With custom \fB\-e\fP, include
 onstart=uncollapse or an appropriate pointer event.
 .IP \[bu] 2
-Right\-click stopped closing: your \fB\-e\fP
-replaced the defaults; add button3=exit.
+Right\-click stopped closing: your
+\fB\-e\fP replaced the defaults; add
+button3=exit.
 .IP \[bu] 2
 Hidden window cannot be hovered: restore through sigusr1=unhide and
 SIGUSR1, or a previously active keyboard grab.
 .IP \[bu] 2
-Misplaced absolute content: use \fB\-ta\fP l
-/ \fB\-sa\fP l with
+Misplaced absolute content: use \fB\-ta\fP
+l / \fB\-sa\fP l with
 \fB\[ha]pa()\fP.
 .IP \[bu] 2
 Feature option is unavailable: check configure features and
 \fBdzen2\fP
 \fB\-v\fP.
 .IP \[bu] 2
-\fB\-fn\-preload\fP is currently shadowed by
-\fB\-fn\fP in option parsing; do not rely on
-it.
+\fB\-fn\-preload\fP is currently shadowed
+by \fB\-fn\fP in option parsing; do not
+rely on it.
 .PP
 Deprecated \fB\-u\fP (simultaneous
 fixed\-size batches):
@@ -962,7 +973,7 @@ done | \fBdzen2\fP \fB\-l\fP 10 \fB\-u\fP
 .PP
 For this to work correctly it is essential to provide exactly the number
 of lines to the slave window as defined by the parameter to
-\f[CR]\fB\-l\fP\f[R].
+\fB\-l\fP.
 .PP
 Prefer explicit \fB\[ha]tw()\fP updates in
 new scripts.
@@ -985,58 +996,65 @@ README.dzen is the documentation source and can be piped directly to
 dzen.
 The Example / Input / Result blocks are also consumed by the
 documentation generator.
-Input doubles literal carets; Result contains the exact decoded input
-after documentation styles are removed.
+Input doubles literal carets; Result contains the exact decoded input.
 Use four spaces of structural indentation and a blank line after each
 block.
 Example identifiers must be unique lowercase words/digits separated by
 hyphens.
 Result blocks contain static rendering only.
 .PP
-Documentation styles: wrap command names and both parentheses in
-^fg(lightblue)\&...^fg().
-Underline the entire argument between parentheses with
-^underline()\&...^underline(off), including literal values and
-separators.
-CLI argument specifications such as N[,COLOR] and WxH+X+Y also form a
-single underlined span.
-Close each style before opening another.
-These live tags also work inside Input blocks; literal dzen commands
-still use doubled carets.
-The man generator maps the styles to bold commands and italic parameters
-(underlined in terminal man viewers).
-README.md uses inline code for commands mentioned in prose, preserves
-existing inline code, and adds no backticks inside code blocks.
-Result blocks describe the rendered example itself and must not contain
-documentation\-only styles.
+Use
+\fB\[ha]foo(\fP\fIbar\fP\fB)\fP
+for displayed dzen commands and \[ha]foo(bar) for live commands.
+The help preprocessor leaves live commands unchanged.
+Use \fB\-foo\fP
+\fIbar\fP for CLI references and ordinary
+code spans for event and action names.
+Headings and command arguments are styled automatically by dzen2\-help.
+Direct display of README.dzen remains possible, without automatic
+reference formatting.
+In code blocks, backticks around command references are removed; shell
+command substitutions keep their backticks.
+Do not add manual styling to Input blocks.
 .IP
 .EX
-make update\-docs       # regenerate README.md and dzen2.1 (Python 3, pandoc)
+make                   # build dzen2, update README/man and changed screenshots
+make update\-docs       # regenerate only README.md and dzen2.1 (Bash, POSIX awk, pandoc)
 make update\-man        # also update gadget man pages
-make doc\-screenshots   # create candidates under build/doc\-screenshots
+make doc\-screenshots   # update only new, changed or missing screenshots
 make test\-docs         # validate the document generator
 make check             # run tests for enabled build features
 .EE
 .PP
 Screenshot generation needs a built
-\fBdzen2\fP, Python 3, Xvfb, xset, xdotool,
-xwd and ImageMagick.
-It uses the \fBdzen2\-help\fP colors, border
-and padding, an 800\-pixel content width and the default font on a fresh
-X server.
+\fBdzen2\fP, POSIX awk, Xvfb, xset,
+xdotool, xwd and ImageMagick.
+It uses the \fBdzen2\-help\fP colors,
+border and padding, an 800\-pixel content width and the default font on
+a fresh X server.
 It does not load desktop X resources.
 Font availability can affect appearance.
 .PP
-Review generated PNGs before copying the named files into
-docs/screenshots/.
-Commit reviewed images with the source and generated documentation.
-Ordinary builds and text generation do not take screenshots.
+Ordinary make updates README.md and dzen2.1 after source changes.
+It also compares each decoded Result with
+docs/screenshots/IDENTIFIER.txt.
+A new or changed example, or a missing PNG, automatically renders that
+screenshot into docs/screenshots/.
+Prose\-only edits do not start an X server.
+PNGs and cached input are published after successful capture; a failed
+capture is retried on the next make.
+Removed examples lose their managed PNG and text cache.
+Commit generated PNGs, text caches and manifest together with
+README.dzen.
+Out\-of\-tree builds reuse matching distributed images and write updates
+into their own docs/screenshots/ directory.
+Delete a PNG to force its regeneration after changing fonts or rendering
+code without changing the example text.
 Examples requiring window control or interactive actions remain text
 recipes.
 .PP
 Visual regression tests remain separate under tests/integration/visual/.
-Their actual/diff images and screenshot candidates are not published
-assets.
+Their actual/diff images are not published assets.
 .SH AUTHORS AND SEE ALSO
 Robert Manea (original dzen); Olexandr Sydorchuk (this fork).
 See LICENSE for licensing and CREDITS for contributors.

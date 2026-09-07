@@ -1,0 +1,1 @@
+^left()^underline(gold) 1 ^underline(off) 2  3^center()Editor^right()^fg(limegreen)online^fg() 12:34

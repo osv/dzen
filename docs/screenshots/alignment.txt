@@ -1,0 +1,1 @@
+^left()^fg(red)Left^center()^fg(seagreen)Center^right()^fg(lightblue)Right

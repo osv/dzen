@@ -854,55 +854,86 @@ for its interface.
 DEVELOPMENT
 ===========
 
-README.dzen is the documentation source and can be piped directly to dzen.
-The Example / Input / Result blocks are also consumed by the documentation
-generator. Input doubles literal carets; Result contains the exact decoded
-input. Use four spaces of structural
-indentation and a blank line after
-each block. Example identifiers must be unique lowercase words/digits
-separated by hyphens. Result blocks contain static rendering only.
+Build and change code
+---------------------
 
-Use ^^foo(bar) for displayed dzen commands and ^foo(bar) for live commands.
-The help preprocessor leaves live commands unchanged. Use `-foo bar` for CLI
-references and ordinary code spans for event and action names. Headings and
-command arguments are styled automatically by dzen2-help. Direct display of
-README.dzen remains possible, without automatic reference formatting.
-In code blocks, backticks around command references are removed; shell command
-substitutions keep their backticks. Do not add manual styling to Input blocks.
+Configure the features you need as described in INSTALLATION, then use:
 
-    make                   # build dzen2, update README/man and changed screenshots
-    make update-docs       # regenerate only README.md and dzen2.1 (Bash, POSIX awk, pandoc)
-    make update-man        # also update gadget man pages
-    make doc-screenshots   # update only new, changed or missing screenshots
-    make test-docs         # validate the document generator
-    make check             # run tests for enabled build features
+    make          # build dzen2 and update documentation and changed screenshots
+    make check    # run tests, including documentation checks
 
-Screenshot generation needs a built `dzen2`, POSIX awk, Xvfb, xset, xdotool,
-xwd and ImageMagick. It uses the `dzen2-help` colors, border and padding,
-an 800-pixel content width and the default font on a fresh X server.
-It does not load desktop X resources. Font availability can affect appearance.
+After changing configure.ac or Makefile.am, rerun autoreconf -vfi and configure.
+Run make format after editing C sources or headers; it requires clang-format.
 
-Ordinary make updates README.md and dzen2.1 after source changes. It also
-compares each decoded Result with docs/screenshots/IDENTIFIER.txt. A new or
-changed example, or a missing PNG, automatically renders that screenshot into
-docs/screenshots/. Prose-only edits do not start an X server. PNGs and cached
-input are published after successful capture; a failed capture is retried on
-the next make. Removed examples lose their managed PNG and text cache.
-Commit generated PNGs, text caches and manifest together with README.dzen.
-Out-of-tree builds reuse matching distributed images and write updates into
-their own docs/screenshots/ directory. Delete a PNG to force its regeneration
-after changing fonts or rendering code without changing the example text.
-Examples requiring window control or interactive actions remain text recipes.
+Source layout:
 
-Visual regression tests remain separate under tests/integration/visual/.
-Their actual/diff images are not published assets.
+- src/main.c handles startup, options and the event loop.
+- src/draw.c parses inline rendering and whole-line control commands.
+- src/action.c implements event actions; src/action.h declares them.
+- src/font.c handles fonts; src/caches.c manages rendering caches.
+- gadgets/ contains the auxiliary programs.
+- build-aux/ contains documentation and build helpers.
+
+Keep inline drawing commands separate from whole-line control commands.
+For new settings, preserve the order: built-in defaults, X resources, then
+command-line overrides. Add user-visible changes to the documentation and
+include new source/test files in the appropriate Makefile.am.
+
+Testing changes
+---------------
+
+make check runs the tests applicable to the configured build. Unit tests live
+in tests/unit/; integration tests under tests/integration/ cover signals,
+rendering and monitor changes. Use CHECK from test_common.h in C tests so
+checks also run when assertions are disabled.
+
+For a focused rendering check, run the visual runner with a case file and
+optionally the line number of an individual case:
+
+    tests/integration/visual/runner.sh tests/integration/visual/xft/cases.md
+    tests/integration/visual/runner.sh tests/integration/visual/xft/cases.md:286
+
+The runner uses an isolated Xvfb display. Review actual images and diffs before
+explicitly updating expected images for an intentional rendering change.
+Keep temporary actual/diff files out of commits. Set NO_COLOR=1 for plain
+test output. Use make distcheck when changing build or installation rules;
+it also checks building, installing and cleaning a distribution archive.
+
+Editing documentation
+---------------------
+
+Edit README.dzen and run the same make command used for code changes.
+README.md and dzen2.1 are generated files. New or changed examples and missing
+PNGs are rendered automatically into docs/screenshots/; prose-only changes
+do not take screenshots. Commit generated documentation, PNGs, text caches
+and manifest together with README.dzen. Delete a PNG to regenerate it after
+changing fonts or rendering code without changing the example text.
+
+Source format:
+
+- Use ^^foo(bar) for displayed dzen commands and ^foo(bar) for live commands.
+- Use `-foo bar` for CLI references and code spans for event/action names.
+- Use ordinary headings; dzen2-help styles headings and references automatically.
+- Example blocks have a unique lowercase identifier (words/digits separated by
+  hyphens), followed by Input and Result blocks with four-space indentation
+  and a blank line after each block. Input doubles every caret and must decode
+  exactly to Result. Result contains static rendering commands only.
+
+Do not add manual styling to descriptions or Input blocks. Code blocks lose
+backticks around command references but preserve shell substitutions. Direct
+display of README.dzen remains possible without automatic reference styling.
+
+Text generation requires Bash, POSIX awk and Pandoc. New screenshots also need
+Xvfb, xset, xdotool, xwd and ImageMagick. Captures use the help viewer styling
+and the default font on a fresh X server; font availability affects appearance.
+
+See build-aux/generate-docs.awk for the generation pipeline and focused targets.
 
 AUTHORS AND SEE ALSO
 ====================
 
 Robert Manea (original dzen); Olexandr Sydorchuk (this fork).
-See LICENSE for licensing and CREDITS for contributors.
 
-Project: https://github.com/osv/dzen
-Upstream: https://github.com/robm/dzen
-Related tools: `dzen2-help`, dbar, gdbar, gcpubar, textwidth.
+- Project: https://github.com/osv/dzen
+- Upstream: https://github.com/robm/dzen
+- Related tools: `dzen2-help`, dbar, gdbar, gcpubar, textwidth.

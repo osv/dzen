@@ -108,6 +108,20 @@ Specifying \fB\-e\fP replaces ALL default
 event bindings.
 This example explicitly opens the slave window and binds right\-click to
 exit.
+.PP
+Show a popup with the five processes using the most CPU (the popup
+closes after 3 seconds):
+.IP
+.EX
+{
+    printf \[aq]%s\[rs]n\[aq] \[aq]Top CPU processes\[aq]
+    printf \[aq]%\-7s %6s  %s\[rs]n\[aq] \[aq]PID\[aq] \[aq]CPU %\[aq] \[aq]COMMAND\[aq]
+    LC_ALL=C ps \-eo pid=,pcpu=,comm= \-\-sort=\-pcpu |
+        head \-n 5
+} | \fBdzen2\fP \fB\-p\fP 3 \[rs]
+    \fB\-l\fP 6 \fB\-ta\fP l \fB\-sa\fP l \fB\-x\fP \-50 \fB\-y\fP 50 \fB\-w\fP 420 \fB\-b\fP 1,grey70 \fB\-pad\fP 5,15 \[rs]
+    \fB\-e\fP \[aq]onstart=uncollapse;button3=exit\[aq]
+.EE
 .SH INPUT PROTOCOL
 The title is a single line.
 The optional slave is a scrollable body.
@@ -596,16 +610,10 @@ Draw a 100\-pixel track, move back 100 pixels and draw a 35\-pixel fill.
 Move forward the remaining 65 pixels before writing the value.
 Your script calculates the fill width; dzen does not calculate
 percentages.
-.SS Left, center and right regions
-.IP
-.EX
-\fB\[ha]left()\fP\fB\[ha]fg(\fP\fIred\fP\fB)\fPLeft\fB\[ha]center()\fP\fB\[ha]fg(\fP\fIseagreen\fP\fB)\fPCenter\fB\[ha]right()\fP\fB\[ha]fg(\fP\fIlightblue\fP\fB)\fPRight
-.EE
 .SS Underline and overline spans
 .IP
 .EX
-\fB\[ha]underline(\fP\fI1,lightblue\fP\fB)\fPText and \fB\[ha]r(\fP\fI20x8\fP\fB)\fP graphics\fB\[ha]underline(\fP\fIoff\fP\fB)\fP
-\fB\[ha]overline()\fPOverlined text\fB\[ha]overline(\fP\fIoff\fP\fB)\fP
+\fB\[ha]underline(\fP\fI1,lightblue\fP\fB)\fPText and \fB\[ha]r(\fP\fI20x8\fP\fB)\fP graphics\fB\[ha]underline(\fP\fIoff\fP\fB)\fP \fB\[ha]overline()\fPOverlined text\fB\[ha]overline(\fP\fIoff\fP\fB)\fP
 .EE
 .SS Positioned graphics
 .IP
@@ -1095,7 +1103,6 @@ Project: https://github.com/osv/dzen
 .IP \[bu] 2
 Upstream: https://github.com/robm/dzen
 .IP \[bu] 2
-Related tools: \fBdzen2\-help\fP, dbar,
-gdbar, gcpubar, textwidth.
+Related tools: dzen2\-help, dbar, gdbar, gcpubar, textwidth.
 .SH AUTHORS
 Robert Manea; Olexandr Sydorchuk.

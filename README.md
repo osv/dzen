@@ -71,6 +71,17 @@ Show a title and two body lines immediately:
 Specifying `-e` replaces ALL default event bindings. This example explicitly
 opens the slave window and binds right-click to exit.
 
+Show a popup with the five processes using the most CPU (the popup closes after 3 seconds):
+
+    {
+        printf '%s\n' 'Top CPU processes'
+        printf '%-7s %6s  %s\n' 'PID' 'CPU %' 'COMMAND'
+        LC_ALL=C ps -eo pid=,pcpu=,comm= --sort=-pcpu |
+            head -n 5
+    } | dzen2 -p 3 \
+        -l 6 -ta l -sa l -x -50 -y 50 -w 420 -b 1,grey70 -pad 5,15 \
+        -e 'onstart=uncollapse;button3=exit'
+
 ## INPUT PROTOCOL
 
 The title is a single line. The optional slave is a scrollable body.
@@ -482,20 +493,10 @@ Draw a 100-pixel track, move back 100 pixels and draw a 35-pixel fill.
 Move forward the remaining 65 pixels before writing the value. Your script
 calculates the fill width; dzen does not calculate percentages.
 
-### Left, center and right regions
-
-```text
-^left()^fg(red)Left^center()^fg(seagreen)Center^right()^fg(lightblue)Right
-```
-
-![Left, center and right regions](docs/screenshots/alignment.png)
-
-
 ### Underline and overline spans
 
 ```text
-^underline(1,lightblue)Text and ^r(20x8) graphics^underline(off)
-^overline()Overlined text^overline(off)
+^underline(1,lightblue)Text and ^r(20x8) graphics^underline(off) ^overline()Overlined text^overline(off)
 ```
 
 ![Underline and overline spans](docs/screenshots/decorations.png)
@@ -916,4 +917,4 @@ Robert Manea (original dzen); Olexandr Sydorchuk (this fork).
 
 - Project: https://github.com/osv/dzen
 - Upstream: https://github.com/robm/dzen
-- Related tools: `dzen2-help`, dbar, gdbar, gcpubar, textwidth.
+- Related tools: dzen2-help, dbar, gdbar, gcpubar, textwidth.

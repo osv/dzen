@@ -201,6 +201,7 @@ Appearance:
 \fB\-fg\fP \fICOLOR\fP             normal foreground
 \fB\-bg\fP \fICOLOR\fP             normal background
 \fB\-fn\fP \fIFONT\fP              normal font; xft: and x: select a backend
+\fB\-fn\-preload\fP \fIFONT1,FONT2,...\fP  preload fonts for numbered aliases
 \fB\-b\fP \fISPEC\fP               outer border widths and optional color
 \fB\-pad\fP \fISPEC\fP             padding widths
 \fB\-underline\fP \fIN[,COLOR]\fP  default underline thickness and optional color
@@ -250,6 +251,25 @@ Line height defaults to font height + 2.
 Without explicit widths, available target geometry is used.
 See MONITOR SELECTION for target selection.
 Options affecting the same value are processed in command\-line order.
+.PP
+\fB\-fn\-preload\fP
+\fIFONT1,FONT2,\&...\fP loads up to 64
+comma\-separated fonts before processing input.
+Aliases are numbered from zero:
+\fB\[ha]fn(\fP\fIdfnt0\fP\fB)\fP
+and
+\fB\[ha]fn(\fP\fI0\fP\fB)\fP
+select the first font,
+\fB\[ha]fn(\fP\fIdfnt1\fP\fB)\fP
+and
+\fB\[ha]fn(\fP\fI1\fP\fB)\fP
+the second.
+Spaces around font names are trimmed.
+Use x: for X11 core fonts or xft: for XFT fonts; the latter requires an
+XFT\-enabled build.
+Preloading works with either backend and does not replace the normal
+font selected by \fB\-fn\fP.
+Use \fB\[ha]fn()\fP to restore it.
 .PP
 \fB\-b\fP
 \fISPEC\fP adds an outer border.
@@ -453,6 +473,8 @@ Colors accept X11 names or #rrggbb values.
 
 \fB\[ha]fn(\fP\fIFONT\fP\fB)\fP          Select font for subsequent content in this line
 \fB\[ha]fn()\fP              Restore the normal font
+\fB\[ha]fn(\fP\fIdfnt0\fP\fB)\fP         Select the first font from \fB\-fn\-preload\fP
+\fB\[ha]fn(\fP\fI0\fP\fB)\fP             Numeric alias for the same preloaded font
                    Prefix xft: or x: to select the font backend.
                    XFT fonts require an XFT\-enabled build.
 .EE
@@ -736,7 +758,8 @@ after \[ga]XK_\[ga] in keysymdef.h must be used for KEYNAME.
 \fBmenuexec\fP            executes selected menu entry
 \fBexit\fP:retval         exit dzen and return \[aq]retval\[aq]
 \fBprint\fP:str1:...:n    write all given options to STDOUT
-\fBmenuprint\fP           write selected menu entry to STDOUT
+\fBmenuprint\fP           write selected menu entry to STDOUT after parsing formatting
+\fBmenuprint_noparse\fP   write selected menu entry to STDOUT with formatting commands intact
 \fBcollapse\fP            collapse (roll\-up) slave window
 \fBuncollapse\fP          uncollapse (roll\-down) slave window
 \fBtogglecollapse\fP      toggle collapsed state
@@ -872,6 +895,25 @@ Provide your own application.log.
 Hover over the title to expand the log; use the wheel to scroll.
 Menu execution and clickable commands execute shell commands, so only
 use trusted command strings.
+.PP
+Preload fonts and switch between them within a multilingual greeting:
+.IP
+.EX
+printf \[aq]%s\[rs]n\[aq] \[aq]\fB\[ha]fn(\fP\fI0\fP\fB)\fPHello, World! \fB\[ha]fn(\fP\fI1\fP\fB)\fP今日は！ \fB\[ha]fn(\fP\fI2\fP\fB)\fP😊🚀 \fB\[ha]fn(\fP\fI3\fP\fB)\fP12345\[aq] |
+    \fBdzen2\fP \fB\-fn\fP \[aq]xft:DejaVu Sans\[aq] \[rs]
+        \fB\-fn\-preload\fP \[dq]xft:DejaVu Sans,\[rs]
+            xft:Noto Sans CJK JP,\[rs]
+            xft:Noto Color Emoji,\[rs]
+            x:fixed\[dq] \[rs]
+        \fB\-h\fP 32 \fB\-w\fP 600 \fB\-ta\fP l \fB\-p\fP 3
+.EE
+.PP
+This example requires an XFT\-enabled build and the listed fonts
+installed.
+Preloaded fonts can be selected by name as well as by numbered alias.
+The fourth font uses x: to select an X11 core font;
+\fB\[ha]fn(\fP\fI3\fP\fB)\fP
+renders 12345 with it.
 .SH EXIT STATUS
 \fBdzen\fP uses two different approaches to
 terminate itself:
@@ -951,10 +993,6 @@ l / \fB\-sa\fP l with
 Feature option is unavailable: check configure features and
 \fBdzen2\fP
 \fB\-v\fP.
-.IP \[bu] 2
-\fB\-fn\-preload\fP is currently shadowed
-by \fB\-fn\fP in option parsing; do not
-rely on it.
 .PP
 Deprecated \fB\-u\fP (simultaneous
 fixed\-size batches):

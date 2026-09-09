@@ -2,8 +2,8 @@
 
 This suite exercises the shared rendering, menu, positioning, interaction,
 dynamic sizing, runtime-default, and lifetime behavior with X11 core fonts. It
-also covers core-font switching and preloaded-font aliases that do not apply to
-the XFT build.
+also covers core-font switching and preloaded-font aliases. Preloading is
+supported in both core-font and XFT builds.
 
 The runner interprets only `## Test:`, supported `###` directives, fenced pipe
 data, and reference-image links. All other prose is documentation and is
@@ -625,7 +625,7 @@ Default: ^fn()Text^fn() ^fg(red)^fn(fixed)Fixed^fn()^fg() ^fg(green)^fn()^fg() ^
 
 ## Test: 20 Font preloading
 
-This test uses font preloading feature (non-XFT only).
+This test exercises font preloading with X11 core fonts.
 
 ### Args: -fn-preload "6x13,fixed" -fn "6x13" -h 30 -w 400 -bg '#000' -fg '#fff'
 

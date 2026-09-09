@@ -145,6 +145,7 @@ Appearance:
     `-fg COLOR`             normal foreground
     `-bg COLOR`             normal background
     `-fn FONT`              normal font; xft: and x: select a backend
+    `-fn-preload FONT1,FONT2,...`  preload fonts for numbered aliases
     `-b SPEC`               outer border widths and optional color
     `-pad SPEC`             padding widths
     `-underline N[,COLOR]`  default underline thickness and optional color
@@ -185,6 +186,13 @@ slave left-aligned, no border or padding, no slave window, no EOF persistence.
 Line height defaults to font height + 2. Without explicit widths, available
 target geometry is used. See MONITOR SELECTION for target selection.
 Options affecting the same value are processed in command-line order.
+
+`-fn-preload FONT1,FONT2,...` loads up to 64 comma-separated fonts before
+processing input. Aliases are numbered from zero: ^^fn(dfnt0) and ^^fn(0)
+select the first font, ^^fn(dfnt1) and ^^fn(1) the second. Spaces around font
+names are trimmed. Use x: for X11 core fonts or xft: for XFT fonts; the latter
+requires an XFT-enabled build. Preloading works with either backend and does
+not replace the normal font selected by `-fn`. Use ^^fn() to restore it.
 
 `-b SPEC` adds an outer border.  SPEC accepts one, two, or four non-negative
 widths and an optional X11 color:
@@ -339,6 +347,8 @@ Colors:
 
     ^^fn(FONT)          Select font for subsequent content in this line
     ^^fn()              Restore the normal font
+    ^^fn(dfnt0)         Select the first font from `-fn-preload`
+    ^^fn(0)             Numeric alias for the same preloaded font
                        Prefix xft: or x: to select the font backend.
                        XFT fonts require an XFT-enabled build.
 
@@ -642,7 +652,8 @@ Supported actions:
     `menuexec`            executes selected menu entry
     `exit`:retval         exit dzen and return 'retval'
     `print`:str1:...:n    write all given options to STDOUT
-    `menuprint`           write selected menu entry to STDOUT
+    `menuprint`           write selected menu entry to STDOUT after parsing formatting
+    `menuprint_noparse`   write selected menu entry to STDOUT with formatting commands intact
     `collapse`            collapse (roll-up) slave window
     `uncollapse`          uncollapse (roll-down) slave window
     `togglecollapse`      toggle collapsed state
@@ -760,6 +771,21 @@ Provide your own application.log. Hover over the title to expand the log;
 use the wheel to scroll. Menu execution and clickable commands execute shell
 commands, so only use trusted command strings.
 
+Preload fonts and switch between them within a multilingual greeting:
+
+    printf '%s\n' '^^fn(0)Hello, World! ^^fn(1)今日は！ ^^fn(2)😊🚀 ^^fn(3)12345' |
+        `dzen2` `-fn` 'xft:DejaVu Sans' \
+            `-fn-preload` "xft:DejaVu Sans,\
+                xft:Noto Sans CJK JP,\
+                xft:Noto Color Emoji,\
+                x:fixed" \
+            `-h` 32 `-w` 600 `-ta` l `-p` 3
+
+This example requires an XFT-enabled build and the listed fonts installed.
+Preloaded fonts can be selected by name as well as by numbered alias.
+The fourth font uses x: to select an X11 core font;
+^^fn(3) renders 12345 with it.
+
 EXIT STATUS
 ===========
 
@@ -809,7 +835,6 @@ Troubleshooting:
   or a previously active keyboard grab.
 - Misplaced absolute content: use `-ta` l / `-sa` l with ^^pa().
 - Feature option is unavailable: check configure features and `dzen2` `-v`.
-- `-fn-preload` is currently shadowed by `-fn` in option parsing; do not rely on it.
 
 Deprecated `-u` (simultaneous fixed-size batches):
 

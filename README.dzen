@@ -1,7 +1,7 @@
 NAME
 ====
 
-`dzen2` - scriptable X11 status bars, notifications and menus
+`dzen2` - scriptable X11 rendering backend for status bars, notifications and menus
 
 SYNOPSIS
 ========

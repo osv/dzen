@@ -1,0 +1,1 @@
+^i(bitmaps/envelope.xbm) Mail ^fg(seagreen)^i(bitmaps/battery.xbm) Battery

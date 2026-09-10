@@ -911,9 +911,9 @@ int main(int argc, char *argv[]) {
                    "             [-x <pixel>] [-y <pixel>] [-w <pixel>] [-h <pixel>] [-tw <pixel>] [-u]\n"
                    "             [-e <string>] [-l <lines>] [-b <widths[,color]>] [-pad <widths>]\n"
                    "             [-underline <thickness[,color]>] [-overline <thickness[,color]>]\n"
-                   "             [-fn <font>]\n"
+                   "             [-fn <font>] [-fn-preload <font1,font2,...>]\n"
                    "             [-bg <color>] [-fg <color>]\n"
-                   "             [-geometry <geometry string>] [-expand <left|right>] [-dock]\n"
+                   "             [-geometry <geometry string>] [-expand <left|center|right>] [-dock]\n"
                    "             [-title-name <string>] [-slave-name <string>]\n"
 #ifdef HAVE_XINERAMA
                    "             [-xs <screen>]\n"

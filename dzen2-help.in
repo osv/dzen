@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+set -euo pipefail
 
 OPTS=(
     -bg "#111111"
@@ -24,11 +26,14 @@ enterslave=grabkeys"
 
 BINDIR='@bindir@'
 DOCDIR='@docdir@'
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 find_dzen2() {
     if [ -x ./src/dzen2 ]; then
         # Local development
         echo "./src/dzen2"
+    elif [ -x "$SCRIPT_DIR/src/dzen2" ]; then
+        echo "$SCRIPT_DIR/src/dzen2"
     elif [ -x "$BINDIR/dzen2" ]; then
         # Installed binary
         echo "$BINDIR/dzen2"
@@ -41,6 +46,8 @@ find_readme() {
     if [ -f README.dzen ]; then
         # Local development
         echo "README.dzen"
+    elif [ -f "$SCRIPT_DIR/README.dzen" ]; then
+        echo "$SCRIPT_DIR/README.dzen"
     elif [ -f "$DOCDIR/README.dzen" ]; then
         # Installed documentation
         echo "$DOCDIR/README.dzen"
@@ -54,13 +61,27 @@ README_FILE=$(find_readme)
 
 if [ -x "$DZEN2_BIN" ]; then
     if [ -f "$README_FILE" ]; then
+        # Resolve relative icon paths against the documentation, including after install.
+        README_DIR=$(dirname "$README_FILE")
+        README_NAME=$(basename "$README_FILE")
+        DZEN2_BIN=$(realpath "$DZEN2_BIN")
+        PROCESSOR="$README_DIR/build-aux/generate-docs.awk"
+        [[ -f "$PROCESSOR" ]] || PROCESSOR="$README_DIR/generate-docs.awk"
+        if [[ ! -f "$PROCESSOR" ]]; then
+            echo "Error: generate-docs.awk not found beside README.dzen." >&2
+            exit 1
+        fi
+        PROCESSOR=$(realpath "$PROCESSOR")
+        cd "$README_DIR" || exit 1
         (
             echo "^fg(#323232)^bg(#5FBF77) Documentation (use: scrollwheel, arrow keys, PgUP/PgDown to scroll. Escape or right mouse button to quit)";
-            cat "$README_FILE"
+            awk -v mode=dzen -f "$PROCESSOR" "$README_NAME"
         ) | "$DZEN2_BIN" "${OPTS[@]}"
     else
         echo "Error: README.dzen not found. Please ensure the file is available."
+        exit 1
     fi
 else
     echo "Error: dzen2 binary not found. Please build the project by running 'make' or ensure dzen2 is installed."
+    exit 1
 fi

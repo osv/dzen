@@ -9,7 +9,11 @@ endif
 bin_SCRIPTS = dzen2-help
 CLEANFILES = $(bin_SCRIPTS) .x11-test.lock dzen2.1.raw dzen2.1.tmp
 MAN_GENERATOR = $(top_srcdir)/build-aux/generate-man.sh
-dist_doc_DATA = README.dzen README.md
+dist_doc_DATA = README.dzen README.md build-aux/generate-docs.awk
+bitmapdocdir = $(docdir)/bitmaps
+dist_bitmapdoc_DATA = bitmaps/envelope.xbm bitmaps/battery.xbm
+screenshotsdir = $(docdir)/docs/screenshots
+DOC_GENERATOR = $(top_srcdir)/build-aux/generate-docs.awk
 
 dist_man_MANS = dzen2.1
 
@@ -20,6 +24,12 @@ EXTRA_DIST = \
   docs/feature-borders.md \
   docs/feature-underline.md \
   build-aux/generate-man.sh \
+  build-aux/generate-docs.awk \
+  build-aux/doc-screenshots.sh \
+  build-aux/capture-doc-screenshots.sh \
+  docs/screenshots \
+  tests/test_docs.sh \
+  tests/test_doc_screenshots.sh \
   bitmaps \
   dzen2-help.in \
   tests/integration/test_common.sh \
@@ -235,12 +245,13 @@ CHECK_LOCAL_TARGETS += test-xrandr
 endif
 endif
 
-check-local: $(CHECK_LOCAL_TARGETS)
+check-local: $(CHECK_LOCAL_TARGETS) test-docs
 
 # Integration tests keep diagnostic artifacts in the build tree.  Remove only
 # those generated directories so out-of-tree builds pass distcleancheck.
 clean-local:
 	$(RM) -r \
+	  build/doc-screenshots build/doc-man.md \
 	  tests/integration/visual/xft/actual \
 	  tests/integration/visual/xft/diffs \
 	  tests/integration/visual/core-font/actual \
@@ -252,28 +263,65 @@ clean-local:
 	  tests/integration/xrandr/actual \
 	  tests/integration/xrandr/diffs
 
-.PHONY: update-man
+.PHONY: update-man update-docs doc-screenshots test-docs
 
-update-man: dzen2.1
+# all-local runs after recursive subdirectory builds, so dzen2 is available.
+all-local: update-docs doc-screenshots
+
+# Use the generated manifest so new examples need no hand-written Makefile list.
+install-data-local: doc-screenshots
+	$(MKDIR_P) "$(DESTDIR)$(screenshotsdir)"
+	while read ident; do \
+	  $(INSTALL_DATA) "docs/screenshots/$$ident.png" "$(DESTDIR)$(screenshotsdir)/$$ident.png"; \
+	done < docs/screenshots/manifest
+	$(INSTALL_DATA) docs/screenshots/manifest "$(DESTDIR)$(screenshotsdir)/manifest"
+
+uninstall-local:
+	if test -f "$(DESTDIR)$(screenshotsdir)/manifest"; then \
+	  while read ident; do \
+	    $(RM) "$(DESTDIR)$(screenshotsdir)/$$ident.png"; \
+	  done < "$(DESTDIR)$(screenshotsdir)/manifest"; \
+	  $(RM) "$(DESTDIR)$(screenshotsdir)/manifest"; \
+	fi
+
+dist-hook: update-docs doc-screenshots
+	chmod u+w "$(distdir)/README.md" "$(distdir)/dzen2.1"
+	for file in README.md dzen2.1; do \
+	  if test -f "$$file"; then cp "$$file" "$(distdir)/"; \
+	  else cp "$(srcdir)/$$file" "$(distdir)/"; fi; \
+	done
+	chmod -R u+w "$(distdir)/docs/screenshots"
+	$(RM) -r "$(distdir)/docs/screenshots"
+	cp -R docs/screenshots "$(distdir)/docs/screenshots"
+
+distclean-local:
+	if test "$(abs_top_srcdir)" != "$(abs_top_builddir)"; then \
+	  $(RM) -r docs/screenshots; \
+	fi
+
+update-man: update-docs
 	$(MAKE) -C gadgets update-man
 
-# TODO: use scdoc https://github.com/rvaiya/warpd/blob/master/Makefile#L36C2-L36C7
-dzen2.1: README.md $(top_srcdir)/configure.ac $(MAN_GENERATOR)
+update-docs: README.md dzen2.1
+
+doc-screenshots:
+	$(MAKE) -C src dzen2
+	bash $(top_srcdir)/build-aux/doc-screenshots.sh \
+		"$(abs_top_srcdir)" "$(abs_top_builddir)/src/dzen2" "$(abs_top_builddir)/docs/screenshots"
+
+test-docs:
+	bash $(top_srcdir)/tests/test_docs.sh
+	bash $(top_srcdir)/tests/test_doc_screenshots.sh
+
+dzen2.1: $(top_srcdir)/README.dzen $(top_srcdir)/configure.ac $(MAN_GENERATOR) $(DOC_GENERATOR)
+	mkdir -p build
+	awk -v mode=man -f $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" > build/doc-man.md
 	$(SHELL) $(MAN_GENERATOR) \
-		"$<" "$@" "$(PACKAGE)" "$(VERSION)" 1 \
+		build/doc-man.md "$@" "$(PACKAGE)" "$(VERSION)" 1 \
 		"Robert Manea; Olexandr Sydorchuk"
 
-./README.md: ./README.dzen
-# 1) Temporarily replace ^^tag(...) with <DC>tag(...)
-# 2) Remove single-caret ^tag(...)
-# 3) Convert <DC>tag(...) back into ^tag(...)
-	@echo "Updating README.md from README.dzen..."
-	sed -E \
-	  -e 's/\^\^([^()]+)\(([^)]*)\)/<DC>\1(\2)/g' \
-	  -e 's/\^([^()]+)\([^)]*\)//g' \
-	  -e 's/<DC>/^/g' \
-	  README.dzen > README.md
-	@echo "README has been updated."
+README.md: $(top_srcdir)/README.dzen $(DOC_GENERATOR)
+	awk -v mode=markdown -f $(DOC_GENERATOR) "$(top_srcdir)/README.dzen" > "$@"
 
 format:
 	find $(srcdir) -name "*.c" -o -name "*.h" | xargs clang-format -i
